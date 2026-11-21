@@ -61,6 +61,7 @@
 | **B-202** | EP-09 | Extensões de navegador (Safari Web Extension + Chrome/Arc/Brave MV3) com volume por aba | E-05 | Boost/EQ/setSinkId entram se E-05 comprovar viabilidade |
 | **B-203** | EP-03 | Separação explícita das camadas **Correção** × **Gosto** (4 controles simples + PEQ avançado) | ADR-0010 | UI sempre mostra as 3 curvas |
 | **B-204** | EP-08 | Driver Sennheiser Momentum 4 v1 (read-first: bateria, ANC/Transparency, EQ interno + alerta G-04; escrita reversível de ANC se E-09 aprovar) | E-09 | Isolado do motor de áudio (ADR-0006/0011) |
+| **B-204b** | EP-08 | Driver linha Apple (AirPods/Pro/Max/Beats): HAL + Continuity BLE + AutoEq + UI Observatório honesta (sem AACP) | E-08 | [`airpods-laboratorio.md`](../03-viabilidade/airpods-laboratorio.md) — parser/UI feitos; live Continuity pendente |
 | **B-205** | EP-07 | Guardião completo (G-02 reamostragem, G-03 clipping, G-04 EQ duplicado, G-06 troca de device, G-07 conflito de tap) + medidores EBU R128/PPM | B-107 | Linha do tempo exportável em relatório de diagnóstico |
 | **B-206** | EP-10 | Cenas e automações por contexto (device conectado, app de reunião aberto, USB vs BT) + ducking | B-201 | Transições com rampa suave |
 | **B-207** | EP-11 | Now Playing multi-sessão (`mediaremote-adapter` + AppleScript/HTTP fallback) + espectro FFT ao vivo + letras LRCLIB (`Geist Serif`) | E-15 | Espectro só com permissão e opt-in |

@@ -10,5 +10,8 @@
 | **Microfone do iPhone de Vinícius** | Continuity | `38FD4B68-828B-4C3D-8144-80B100000003` | `48 kHz` | `Sim` | `Não` | `Não` | Continuity (`1 ch`) | `0 + 0` | **Comprovado (E-07):** aparece automaticamente com iPhone próximo |
 | **Sennheiser Momentum 4** | Bluetooth (A2DP) | `80:C3:BA:59:92:3E` *(pareado, desconectado na sonda)* | *pendente conexão física* | — | — | — | — | — | Validar queda HFP em `E-08` e RFCOMM GAIA v3 em `E-09` |
 | **Sennheiser Momentum 4** | USB-C (DAC integrado) | *pendente conexão física* | *UAC 1.0 esperado 48 kHz/16-bit* | — | — | — | — | — | Verificar volume HW vs SW |
-| **AirPods Pro** | Bluetooth | `98:A5:F9:58:0C:F2` *(pareado, desconectado na sonda)* | *pendente conexão física* | — | — | — | — | — | Verificar interação com troca automática Apple |
+| **AirPods Pro** | Bluetooth | `98:A5:F9:58:0C:F2` *(pareado, desconectado na sonda)* | *pendente conexão física* | AAC esperado | — | — | Continuity L/R/Case *(parser pronto; live pendente)* | HAL + Continuity | Driver `AirPodsProAdapter`; AACP fechado; AutoEq Pro 1/2 |
+| **AirPods (1–4)** | Bluetooth | *pendente* | *pendente conexão física* | AAC esperado | — | — | Continuity | HAL + Continuity | Classificador + AutoEq 3ª gen starter |
+| **AirPods Max** | Bluetooth | *pendente* | *pendente conexão física* | AAC esperado | — | — | Continuity | HAL + Continuity | AutoEq oratory starter; SF Symbol `airpodsmax` |
+| **Beats (H1/H2)** | Bluetooth | *pendente* | *opcional* | AAC esperado | — | — | Continuity (subset) | HAL + Continuity | Match por nome; sem AACP |
 | **DAC USB externo / HDMI** | USB / HDMI | *pendente conexão física* | — | — | — | — | — | — | Validar volume HW vs SW e regra G-05 |

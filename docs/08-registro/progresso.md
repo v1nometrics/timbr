@@ -10,7 +10,7 @@
 - **Código de produção (`macOS app`):** `dist/Timbr.app` + `dist/Timbr.dmg` gerados; `./scripts/ci_check.sh` verde (tokens, zero-GPL, ASan/UBSan DSP, TimbreCore/Engine, smoke, **20× `kill -9` fail-safe P3**).
 - **Tokens & Design System:** geração automatizada operacional; playground HTML/CSS/JS validado no CI.
 - **Empacotamento B-110 (parcial):** `scripts/build_dmg.sh` com gate opcional `DEVELOPER_ID` + `NOTARY_PROFILE`; cask Homebrew em `Packaging/Homebrew/timbr.rb`. Notarização pública real exige certificado Apple (fora deste ambiente).
-- **Pendências honestas fora de CI headless:** E-08/E-09/E-10 com Momentum 4 / AirPods Pro conectados; grants TCC interativos; dogfood 14 dias (G2); 50 testadores + notarização Developer ID (G3); Sparkle 2 (B-208, Fase 2).
+- **Pendências honestas fora de CI headless:** E-08/E-09/E-10 com Momentum 4 / AirPods conectados (Continuity live);  grants TCC interativos; dogfood 14 dias (G2); 50 testadores + notarização Developer ID (G3); Sparkle 2 (B-208, Fase 2).
 
 ---
 
@@ -85,3 +85,13 @@
 2. **Persistência:** `onboardingCompleted` no SQLite; idioma inicial via locale do sistema; `--smoke-check` pula a intro; Ajustes → “Repetir introdução”.
 3. **`scripts/install_local.sh`:** instala em `/Applications`, limpa quarentena Gatekeeper e opcionalmente reseta onboarding para ensaio de 1ª abertura.
 4. **CI:** `./scripts/ci_check.sh` verde (114 chaves PT/ES/EN).
+
+
+### 2026-11-21 · Linha Apple (AirPods → Max) — paridade documental com Momentum 4
+
+1. **Código:** [`AirPodsFamilyDriver.swift`](../../Sources/TimbreEngine/AirPodsFamilyDriver.swift) — classificador família, `ContinuityProximityParser`, scan CoreBluetooth passivo, telemetria HAL honesta (sem ANC inventado).
+2. **UI Observatório:** card com SF Symbol, L/R/Case, aviso Spatial + AACP fechado (bíblia DS + Apple Design: purpose, agency, craft).
+3. **AutoEq starter:** Pro 1/2, AirPods 3, AirPods Max.
+4. **Docs:** [`airpods-laboratorio.md`](../03-viabilidade/airpods-laboratorio.md), Nota [`12_airpods_linha_apple.md`](../00-pesquisa/notas-fase-2/12_airpods_linha_apple.md), ADR-0011, matriz, PRD RF-0805/0806, NOTICE §3.
+5. **Testes:** parser Continuity sintético + classificador no `TimbreEngineTests`.
+6. **Ainda físico:** Continuity live com case aberto + E-08 HFP com AirPods conectados.

@@ -136,6 +136,44 @@ struct TimbreEngineTestRunner {
         expect(!halRec.recoverLeftoverSnapshotIfPresent(), "No leftover snapshot when clean")
         print("  [PASS] HAL crash snapshot check, MirrorOutputTarget clamp & multi-tap P1 invariant")
 
+        // 7. Apple Continuity proximity parser + family classifier (AirPods / Max)
+        // Synthetic Continuity type 0x07 (furiousMAC layout): Pro 2 model 0x1420, L=80% R=90%, case=70%
+        let prox: [UInt8] = [
+            0x07, 0x09, // type + length (9 bytes follow)
+            0x01,       // prefix
+            0x14, 0x20, // model AirPods Pro 2
+            0x55,       // status
+            0x98,       // batt nibbles R=9 (90%), L=8 (80%)
+            0x57,       // case nibble 7 (70%) + flags
+            0x01,       // lid counter
+            0x00,       // color
+            0x00        // suffix
+        ]
+        let snap = ContinuityProximityParser.parseManufacturerPayload(Data(prox))
+        expect(snap != nil, "Continuity proximity payload parses")
+        expect(snap?.kind == .airPodsPro, "Model 0x1420 → AirPods Pro")
+        expect(snap?.leftBatteryPercent == 80, "Left battery 80%")
+        expect(snap?.rightBatteryPercent == 90, "Right battery 90%")
+        expect(snap?.caseBatteryPercent == 70, "Case battery 70%")
+        expect(AirPodsProAdapter.classify(deviceName: "Vinicius’s AirPods Pro") == .airPodsPro, "Classify AirPods Pro")
+        expect(AirPodsProAdapter.classify(deviceName: "AirPods Max") == .airPodsMax, "Classify AirPods Max")
+        expect(AirPodsProAdapter.classify(deviceName: "AirPods") == .airPods, "Classify AirPods")
+        expect(AirPodsProAdapter.classify(deviceName: "MacBook Speakers") == .unknown, "Reject non-Apple")
+        if let snap {
+            ContinuityBLEScanner.shared.ingestForTesting(snap)
+            let telem = AirPodsProAdapter().readTelemetry(for: AudioDeviceDescriptor(
+                uid: "bt-test",
+                name: "AirPods Pro",
+                transport: .bluetoothA2DP,
+                sampleRate: 48000
+            ))
+            expect(telem.accessoryFamily == AppleAudioAccessoryKind.airPodsPro.rawValue, "Telemetry family set")
+            expect(telem.ancEnabled == nil, "Never invent ANC without AACP (P11)")
+            expect(telem.spatialAudioMayAlterFR == true, "Spatial FR warning on A2DP")
+            expect(telem.batteryLeftPercent == 80, "Continuity L battery surfaces in telemetry")
+        }
+        print("  [PASS] Continuity proximity parser, Apple family classifier & honest AACP boundary")
+
         print("[TimbreEngineTests] ALL PASSED")
     }
 }

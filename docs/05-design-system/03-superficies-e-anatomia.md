@@ -73,7 +73,7 @@ O Timbre existe em **seis superfícies complementares** para nunca sobrecarregar
 - **Grid de conteúdo 7/5 (`gap: 20 pt`, padding `24 pt`):**
   - **Tela Equalizador:** `7/12` = Gráfico PEQ interativo (curvas `Correção`, `Gosto`, `Resultado` + espectro pós-EQ atrás + faixa de headroom/preamp no rodapé); `5/12` = controles simples (`Graves`, `Calor`, `Presença`, `Ar`) no topo + tabela numérica de bandas embaixo (alternável).
   - **Tela Correção & Gosto:** `7/12` = Resposta do fone vs. alvo Harman/5128; `5/12` = Seletor de medição AutoEq (fonte, equipamento, crédito) + controles de gosto + botão `A/B Cego`.
-  - **Tela Dispositivos:** `7/12` = Lista de saídas/entradas com capacidades sondadas pelo HAL (taxa nominal, formato físico, clock, volume HW/SW); `5/12` = Painel do driver ativo (ex.: Momentum 4: bateria, ANC, Transparency, Sidetone, EQ interno + aviso de conflito G-04).
+  - **Tela Dispositivos:** `7/12` = Lista de saídas/entradas com capacidades sondadas pelo HAL (taxa nominal, formato físico, clock, volume HW/SW); `5/12` = Painel do driver ativo (Momentum 4: bateria, ANC, Transparency, EQ interno + G-04; **Apple:** SF Symbol + L/R/Case Continuity + copy AACP fechado + aviso Spatial — nunca sliders ANC falsos).
   - **Tela Observatório:** Bloco superior `12/12` = Diagrama horizontal do caminho do sinal (`Fonte → Mixer → Correção → Gosto → Preamp/Limiter → Saída → Fone`), cada nó clicável mostrando latência e selo `MEDIDO` / `REPORTADO` / `INFERIDO`; abaixo em `7/5` = Medidores calibrados (Peak / dBTP / EBU R128) à esquerda e Linha do tempo de eventos do Guardião à direita.
 
 ---

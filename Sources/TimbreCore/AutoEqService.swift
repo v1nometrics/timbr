@@ -78,6 +78,50 @@ public enum AutoEqService {
             Filter 3: ON PK Fc 6200 Hz Gain -1.8 dB Q 2.80
             Filter 4: ON HSC Fc 11500 Hz Gain 2.0 dB Q 0.70
             """
+        ),
+        AutoEqEntry(
+            id: "apple-airpods-pro-1-crinacle",
+            headphoneName: "Apple AirPods Pro",
+            source: "crinacle (AutoEq)",
+            rig: "IEC 60318-4",
+            target: "Harman in-ear 2019",
+            relativePath: "results/crinacle/in-ear/Apple%20AirPods%20Pro/Apple%20AirPods%20Pro%20ParametricEQ.txt",
+            bundledAPO: """
+            Preamp: -3.8 dB
+            Filter 1: ON PK Fc 180 Hz Gain -1.8 dB Q 1.10
+            Filter 2: ON PK Fc 2800 Hz Gain 2.6 dB Q 1.60
+            Filter 3: ON PK Fc 6800 Hz Gain -2.2 dB Q 2.40
+            """
+        ),
+        AutoEqEntry(
+            id: "apple-airpods-3-crinacle",
+            headphoneName: "Apple AirPods (3rd generation)",
+            source: "crinacle (AutoEq)",
+            rig: "IEC 60318-4",
+            target: "Harman in-ear 2019",
+            relativePath: "results/crinacle/in-ear/Apple%20AirPods%20%283rd%20generation%29/Apple%20AirPods%20%283rd%20generation%29%20ParametricEQ.txt",
+            bundledAPO: """
+            Preamp: -4.2 dB
+            Filter 1: ON LSC Fc 105 Hz Gain 2.0 dB Q 0.70
+            Filter 2: ON PK Fc 2400 Hz Gain 3.0 dB Q 1.40
+            Filter 3: ON PK Fc 7500 Hz Gain -2.5 dB Q 2.20
+            """
+        ),
+        AutoEqEntry(
+            id: "apple-airpods-max-oratory",
+            headphoneName: "Apple AirPods Max",
+            source: "oratory1990 (AutoEq)",
+            rig: "GRAS 45BC-10",
+            target: "Harman over-ear 2018",
+            relativePath: "results/oratory1990/over-ear/Apple%20AirPods%20Max/Apple%20AirPods%20Max%20ParametricEQ.txt",
+            bundledAPO: """
+            Preamp: -6.0 dB
+            Filter 1: ON LSC Fc 105 Hz Gain -2.5 dB Q 0.70
+            Filter 2: ON PK Fc 210 Hz Gain -2.0 dB Q 1.00
+            Filter 3: ON PK Fc 3200 Hz Gain 3.5 dB Q 1.50
+            Filter 4: ON PK Fc 6000 Hz Gain -1.8 dB Q 2.00
+            Filter 5: ON HSC Fc 10000 Hz Gain 1.2 dB Q 0.70
+            """
         )
     ]
 
@@ -90,7 +134,9 @@ public enum AutoEqService {
             var score = 0
             for t in tokens where targetNorm.contains(t) { score += t.count * 2 }
             if targetNorm.contains("momentum 4") && norm.contains("momentum") { score += 40 }
-            if targetNorm.contains("airpods pro") && norm.contains("airpods") { score += 40 }
+            if targetNorm.contains("airpods max") && norm.contains("airpods max") { score += 50 }
+            if targetNorm.contains("airpods pro") && norm.contains("airpods pro") { score += 50 }
+            else if targetNorm.contains("airpods") && norm.contains("airpods") { score += 30 }
             return (entry, score)
         }
         let matches = scored.filter { $0.1 > 0 }.sorted { $0.1 > $1.1 }.map(\.0)

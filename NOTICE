@@ -40,3 +40,13 @@ copies of the Software, and to permit persons to whom the Software is
 furnished to do so, subject to the following conditions:
 The above copyright notice and this permission notice shall be included in all
 copies or substantial portions of the Software.
+
+--------------------------------------------------------------------------------
+3. Continuity proximity-pairing layout (public research) + MIT study refs
+References (study only; parser reimplemented in Swift under MPL-2.0):
+  - furiousMAC/continuity proximity_pairing.md (public RE documentation)
+  - hudsonbrendon/apple-ble (MIT) — Continuity proximity parser semantics
+  - imranhwafa/mubar (MIT) — CoreBluetooth 0x004C scan approach on macOS
+Adapted in: Sources/TimbreEngine/AirPodsFamilyDriver.swift
+  ContinuityProximityParser + ContinuityBLEScanner (independent reimplementation).
+  Zero code from LibrePods (GPL-3.0) or AirBattery (AGPL-3.0).

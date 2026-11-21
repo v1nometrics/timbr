@@ -80,7 +80,7 @@ swiftc -sdk "$SDK" -swift-version 6 -wmo -parse-as-library \
   "$BUILD/TimbreEngine.o" "$BUILD/TimbreCore.o" "$BUILD/libCTimbreDSP.a" \
   -Xlinker -lsqlite3 -Xlinker -lc++ \
   -framework Accelerate -framework CoreAudio -framework AudioToolbox \
-  -framework IOBluetooth -framework AppKit
+  -framework IOBluetooth -framework CoreBluetooth -framework AppKit
 "$BUILD/TimbreEngineTests"
 
 echo "=== 8. Timbr.app Bundle Smoke Launch & Clean Exit ==="

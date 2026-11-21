@@ -23,6 +23,7 @@
 | **Tapline** (`belugaming/tapline`) | OSS (`GPL-3.0`) | Process Taps no macOS com EQ por app, `LinearPhaseEQ`, `RoomAdvisor` e fix para HFP `< 40 kHz` (PR #33). | Sem notch, `GPL-3.0` (incompatível com projetos MPL-2.0/híbridos), sem driver Momentum 4 nem `PairwiseGP`. | Mesma proteção Nyquist HFP implementada em `CTimbreDSP` (`Float64` C++20), somada a Notch Editorial, Guardião e licença **MPL-2.0**. |
 | **AudioRouter** (`AbhisekGanguly/AudioRouter`) | OSS (`MIT`) | Roteamento per-app via Process Taps + extensão Chrome Tabs e **`OrphanedTapCleanup`** para evitar apps presos em mudo após crash. | Sem EQ, sem notch, sem metrologia DSP nem proteção HFP/driver BT. | **Padrão `OrphanedTapCleanup` adaptado (MIT, em `NOTICE`)** dentro de `ProcessTapEngine`, somado a todo o pipeline DSP `Float64`, Guardião e Notch do `timbr.`. |
 | **M4 Companion** (`Zhengyang-Liu/m4-companion`) | OSS (`MIT`) | Cliente Swift nativo exemplar para Sennheiser Momentum 4 via `IOBluetooth` RFCOMM GAIA v3 (bateria, SoundMode, ANC, EQ 5 bandas, multiponto). | Focado apenas em utilitário menu bar do Momentum 4; sem Process Tap, sem EQ do sistema, sem AutoEq e sem proteção `G-04` integrada ao DSP do Mac. | **Framing `GaiaSPP` (`0xFF 0x03`) + opcodes read-only adaptados (MIT, em `NOTICE`)** em `Momentum4Driver`, alimentando diretamente o Guardião `G-04` (Duplo EQ). |
+| **LibrePods / AirBattery / apple-ble / mubar** | GPL-3 / AGPL-3 / MIT / MIT | Estado da arte AACP (Linux) e Continuity BLE no macOS. | AACP bloqueado no macOS user-space; AirBattery AGPL. | **HAL + Continuity parser próprio (MPL-2.0)** + AutoEq; zero GPL/AGPL; UI honesta AACP fechado (Nota 12). |
 
 ---
 
@@ -30,7 +31,7 @@
 
 O **`timbr.`** ocupa um espaço hoje **vazio** no macOS: a interseção entre:
 1. **Confiabilidade de engenharia de áudio real-time** (nível SoundSource / CamillaDSP, com testes metrológicos públicos e fail-safe em `< 1s`);
-2. **Controle hardware-aware profundo** (começando pelo Sennheiser Momentum 4 via GAIA v3 + proteção anti-HFP para AirPods Pro e qualquer fone);
+2. **Controle hardware-aware profundo** (Momentum 4 via GAIA v3 + linha Apple via HAL/Continuity + proteção anti-HFP para qualquer fone BT);
 3. **Arquitetura de EQ em duas camadas (Correção × Gosto) + Observatório + Guardião** — elimina erro de iniciante e dá controle cirúrgico ao audiófilo;
 4. **Notch Editorial silencioso e elegante** (baseado no Design System `timbr.`, sem ruído visual);
 5. **100% local-first, open source MPL-2.0 e trilíngue (`PT`, `ES`, `EN`) desde a v1.**

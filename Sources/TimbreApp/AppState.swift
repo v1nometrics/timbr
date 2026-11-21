@@ -298,6 +298,7 @@ public final class AppState: ObservableObject {
             logEvent(category: "ipc", message: "Extension IPC port 48192 unavailable: \(error.localizedDescription)")
         }
 
+        ContinuityBLEScanner.shared.ensureStarted()
         refreshSystemState()
         setupMediaKeysIfGranted()
 

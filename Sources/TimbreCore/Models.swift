@@ -495,35 +495,65 @@ public struct AudioScene: Identifiable, Codable, Hashable, Sendable {
 public struct HardwareDriverTelemetry: Codable, Hashable, Sendable {
     public let driverName: String
     public var batteryPercent: Int?
+    public var batteryLeftPercent: Int?
+    public var batteryRightPercent: Int?
+    public var batteryCasePercent: Int?
     public var isCharging: Bool?
+    public var leftCharging: Bool?
+    public var rightCharging: Bool?
+    public var caseCharging: Bool?
     public var firmwareVersion: String?
     public var ancEnabled: Bool?
     public var transparencyPercent: Int?
     public var internalEQNonFlat: Bool?
     public var reportedCodec: String?
+    public var accessoryFamily: String?
+    public var modelIdentifier: String?
+    public var spatialAudioMayAlterFR: Bool?
+    public var trustBadge: SignalTrustBadge?
     public var updatedAt: Date
     public var connectionStatus: String
 
     public init(
         driverName: String,
         batteryPercent: Int? = nil,
+        batteryLeftPercent: Int? = nil,
+        batteryRightPercent: Int? = nil,
+        batteryCasePercent: Int? = nil,
         isCharging: Bool? = nil,
+        leftCharging: Bool? = nil,
+        rightCharging: Bool? = nil,
+        caseCharging: Bool? = nil,
         firmwareVersion: String? = nil,
         ancEnabled: Bool? = nil,
         transparencyPercent: Int? = nil,
         internalEQNonFlat: Bool? = nil,
         reportedCodec: String? = nil,
+        accessoryFamily: String? = nil,
+        modelIdentifier: String? = nil,
+        spatialAudioMayAlterFR: Bool? = nil,
+        trustBadge: SignalTrustBadge? = nil,
         updatedAt: Date = Date(),
         connectionStatus: String = "unavailable"
     ) {
         self.driverName = driverName
         self.batteryPercent = batteryPercent
+        self.batteryLeftPercent = batteryLeftPercent
+        self.batteryRightPercent = batteryRightPercent
+        self.batteryCasePercent = batteryCasePercent
         self.isCharging = isCharging
+        self.leftCharging = leftCharging
+        self.rightCharging = rightCharging
+        self.caseCharging = caseCharging
         self.firmwareVersion = firmwareVersion
         self.ancEnabled = ancEnabled
         self.transparencyPercent = transparencyPercent
         self.internalEQNonFlat = internalEQNonFlat
         self.reportedCodec = reportedCodec
+        self.accessoryFamily = accessoryFamily
+        self.modelIdentifier = modelIdentifier
+        self.spatialAudioMayAlterFR = spatialAudioMayAlterFR
+        self.trustBadge = trustBadge
         self.updatedAt = updatedAt
         self.connectionStatus = connectionStatus
     }

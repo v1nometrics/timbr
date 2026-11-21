@@ -107,6 +107,26 @@ public enum TimbreStrings {
         "dev.m4.p2_active": [.ptBR: "Ativo 470 Ω", .es: "Activo 470 Ω", .en: "Active 470 Ω"],
         "dev.m4.p2_passive": [.ptBR: "Passivo 60 Ω", .es: "Pasivo 60 Ω", .en: "Passive 60 Ω"],
         "dev.m4.read_only": [.ptBR: "Somente leitura", .es: "Solo lectura", .en: "Read-only"],
+        "dev.apple.family": [.ptBR: "Linha Apple", .es: "Línea Apple", .en: "Apple lineup"],
+        "dev.apple.battery_l": [.ptBR: "Esq.", .es: "Izq.", .en: "L"],
+        "dev.apple.battery_r": [.ptBR: "Dir.", .es: "Der.", .en: "R"],
+        "dev.apple.battery_case": [.ptBR: "Case", .es: "Estuche", .en: "Case"],
+        "dev.apple.aacp_closed": [
+            .ptBR: "ANC/Transparency: controlados pelo macOS (AACP fechado a apps de terceiros).",
+            .es: "ANC/Transparency: controlados por macOS (AACP cerrado a apps de terceros).",
+            .en: "ANC/Transparency: controlled by macOS (AACP closed to third-party apps)."
+        ],
+        "dev.apple.spatial_warn": [
+            .ptBR: "Áudio Espacial / Head Tracking pode alterar a resposta — AutoEq é aproximado.",
+            .es: "Audio Espacial / Head Tracking puede alterar la respuesta — AutoEq es aproximado.",
+            .en: "Spatial Audio / Head Tracking may alter FR — AutoEq is approximate."
+        ],
+        "dev.apple.continuity_hint": [
+            .ptBR: "Bateria L/R/Case via Continuity BLE quando o case está aberto (passivo, sem AACP).",
+            .es: "Batería L/R/Estuche vía Continuity BLE con el estuche abierto (pasivo, sin AACP).",
+            .en: "L/R/Case battery via Continuity BLE when the lid is open (passive, no AACP)."
+        ],
+        "dev.apple.refresh_scan": [.ptBR: "Atualizar Continuity", .es: "Actualizar Continuity", .en: "Refresh Continuity"],
         "dev.hw_volume": [.ptBR: "Volume de Hardware", .es: "Volumen de Hardware", .en: "Hardware Volume"],
         "dev.sw_volume": [.ptBR: "Volume em Software", .es: "Volumen por Software", .en: "Software Volume"],
 

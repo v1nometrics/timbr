@@ -58,7 +58,8 @@ swiftc -sdk "$SDK" -swift-version 6 -wmo -parse-as-library \
   "$BUILD/TimbreEngine.o" "$BUILD/TimbreCore.o" "$BUILD/TimbreTokens.o" "$BUILD/libCTimbreDSP.a" \
   -Xlinker -lsqlite3 -Xlinker -lc++ \
   -framework Accelerate -framework CoreAudio -framework AudioToolbox \
-  -framework IOBluetooth -framework Carbon -framework AppKit -framework SwiftUI
+  -framework IOBluetooth -framework CoreBluetooth -framework Carbon \
+  -framework AppKit -framework SwiftUI
 
 echo "==> Assembling $APP"
 rm -rf "$APP"

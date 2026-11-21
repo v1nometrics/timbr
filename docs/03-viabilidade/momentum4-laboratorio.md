@@ -88,6 +88,8 @@ public protocol DeviceDriver: Actor {
 
 ## 5. Escopo Realista para AirPods Pro (Sem Quebrar Segurança do macOS)
 
+> **Documento dedicado (paridade M4):** [`airpods-laboratorio.md`](airpods-laboratorio.md) · Nota [`12_airpods_linha_apple.md`](../00-pesquisa/notas-fase-2/12_airpods_linha_apple.md).
+
 | Recurso | Status no macOS (App Developer ID) | Estratégia no `timbr.` |
 |---|---|---|
 | **Volume, mute, balanço, seleção, Spatial status** | **Comprovado (Core Audio HAL)** | Totalmente suportado nativamente. |

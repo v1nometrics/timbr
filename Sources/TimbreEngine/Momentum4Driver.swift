@@ -758,20 +758,4 @@ public final class Momentum4Driver: HeadphoneDeviceDriver, @unchecked Sendable {
     }
 }
 
-public final class AirPodsProAdapter: HeadphoneDeviceDriver, @unchecked Sendable {
-    public let driverID = "apple-airpods-pro-hal"
-
-    public init() {}
-
-    public func matches(device: AudioDeviceDescriptor) -> Bool {
-        device.name.localizedCaseInsensitiveContains("AirPods Pro")
-    }
-
-    public func readTelemetry(for device: AudioDeviceDescriptor) -> HardwareDriverTelemetry {
-        HardwareDriverTelemetry(
-            driverName: "AirPods Pro (HAL)",
-            reportedCodec: "AAC (Apple AudioAccessory)",
-            connectionStatus: "hal-observed-aacp-closed"
-        )
-    }
-}
+// AirPods / AirPods Pro / AirPods Max / Beats → Sources/TimbreEngine/AirPodsFamilyDriver.swift
