@@ -10,11 +10,18 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
     public let appState = AppState()
     private var notchController: NotchPanelController?
     private var studioWindow: NSWindow?
+    private var onboardingWindow: NSWindow?
 
     public func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
         appState.openStudioHandler = { [weak self] in
             self?.openStudio()
+        }
+        appState.presentOnboardingHandler = { [weak self] in
+            self?.openOnboarding()
+        }
+        appState.dismissOnboardingHandler = { [weak self] in
+            self?.closeOnboarding()
         }
         appState.start()
         notchController = NotchPanelController(appState: appState)
@@ -35,6 +42,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     public func openStudio() {
+        closeOnboarding()
         if studioWindow == nil {
             let view = StudioWindow(appState: appState)
             let hosting = NSHostingController(rootView: view)
@@ -49,6 +57,31 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.setActivationPolicy(.regular)
         studioWindow?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
+    }
+
+    public func openOnboarding() {
+        if onboardingWindow == nil {
+            let view = OnboardingWindow(appState: appState)
+            let hosting = NSHostingController(rootView: view)
+            let win = NSWindow(contentViewController: hosting)
+            win.title = "timbr."
+            win.styleMask = [.titled, .closable]
+            win.setContentSize(NSSize(width: 720, height: 520))
+            win.center()
+            win.isReleasedWhenClosed = false
+            win.isMovableByWindowBackground = true
+            onboardingWindow = win
+        }
+        NSApp.setActivationPolicy(.regular)
+        onboardingWindow?.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+    }
+
+    public func closeOnboarding() {
+        onboardingWindow?.orderOut(nil)
+        if studioWindow == nil || !(studioWindow?.isVisible ?? false) {
+            NSApp.setActivationPolicy(.accessory)
+        }
     }
 }
 
@@ -71,6 +104,12 @@ private struct MenuBarContent: View {
 
     var body: some View {
         Text("timbr. — \(appState.activeOutputDevice?.name ?? "—")")
+        if appState.needsOnboarding || appState.showOnboarding {
+            Button(appState.t("onboard.kicker") + "…") {
+                delegate.openOnboarding()
+            }
+            Divider()
+        }
         Divider()
         Button(appState.t("notch.open_studio") + " (⌥⌘,)") {
             delegate.openStudio()

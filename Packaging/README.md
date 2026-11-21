@@ -1,5 +1,14 @@
 # Packaging · `timbr.`
 
+## Instalação local (primeira abertura)
+
+```bash
+./scripts/build_app.sh
+./scripts/install_local.sh --reset-onboarding
+```
+
+Copia `dist/Timbr.app` para `/Applications`, remove quarentena (`xattr -cr`) e abre o app. Com `--reset-onboarding`, a janela de boas-vindas (RF-1401) aparece de novo.
+
 ## DMG local (ad-hoc)
 
 ```bash

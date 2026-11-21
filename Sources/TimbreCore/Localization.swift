@@ -139,6 +139,71 @@ public enum TimbreStrings {
             .es: "Opcional: lee telemetría (batería, ANC y EQ interno) del Sennheiser Momentum 4 vía RFCOMM.",
             .en: "Optional: reads telemetry (battery, ANC, internal EQ) on Sennheiser Momentum 4 via RFCOMM."
         ],
+        "tcc.audio.title": [.ptBR: "Captura de áudio do sistema", .es: "Captura de audio del sistema", .en: "System audio capture"],
+        "tcc.ax.title": [.ptBR: "Acessibilidade (teclas de mídia)", .es: "Accesibilidad (teclas de medios)", .en: "Accessibility (media keys)"],
+        "tcc.bt.title": [.ptBR: "Bluetooth (Momentum 4)", .es: "Bluetooth (Momentum 4)", .en: "Bluetooth (Momentum 4)"],
+        "tcc.open_settings": [.ptBR: "Abrir Ajustes do Sistema", .es: "Abrir Ajustes del Sistema", .en: "Open System Settings"],
+        "tcc.status.ok": [.ptBR: "Concedido", .es: "Concedido", .en: "Granted"],
+        "tcc.status.pending": [.ptBR: "Pendente", .es: "Pendiente", .en: "Pending"],
+        "tcc.status.optional": [.ptBR: "Opcional", .es: "Opcional", .en: "Optional"],
+
+        // First-run onboarding (RF-1401)
+        "onboard.kicker": [.ptBR: "Bem-vindo", .es: "Bienvenido", .en: "Welcome"],
+        "onboard.step.welcome": [.ptBR: "Olá", .es: "Hola", .en: "Hello"],
+        "onboard.step.promise": [.ptBR: "Promessa", .es: "Promesa", .en: "Promise"],
+        "onboard.step.permissions": [.ptBR: "Permissões", .es: "Permisos", .en: "Permissions"],
+        "onboard.step.ready": [.ptBR: "Pronto", .es: "Listo", .en: "Ready"],
+        "onboard.welcome.title": [.ptBR: "Som, precisamente seu.", .es: "Sonido, precisamente tuyo.", .en: "Sound, precisely yours."],
+        "onboard.welcome.body": [
+            .ptBR: "Mixer por app, equalização HiFi em Float64 e um observatório honesto — tudo no notch do seu Mac, 100% local.",
+            .es: "Mezclador por app, ecualización HiFi en Float64 y un observatorio honesto — todo en el notch de tu Mac, 100% local.",
+            .en: "Per-app mixer, Float64 HiFi EQ, and an honest observatory — right in your Mac notch, 100% local."
+        ],
+        "onboard.language": [.ptBR: "Idioma", .es: "Idioma", .en: "Language"],
+        "onboard.promise.title": [.ptBR: "Privacidade sem concessões", .es: "Privacidad sin concesiones", .en: "Privacy without compromise"],
+        "onboard.promise.local": [
+            .ptBR: "Todo o áudio fica neste Mac. Sem nuvem, sem telemetria, sem conta.",
+            .es: "Todo el audio permanece en este Mac. Sin nube, sin telemetría, sin cuenta.",
+            .en: "All audio stays on this Mac. No cloud, no telemetry, no account."
+        ],
+        "onboard.promise.trace": [
+            .ptBR: "Ao sair, o sistema volta exatamente como estava (dispositivo padrão, volumes, aggregates).",
+            .es: "Al salir, el sistema vuelve exactamente como estaba (salida por defecto, volúmenes, aggregates).",
+            .en: "On quit, the system is restored exactly as it was (default device, volumes, aggregates)."
+        ],
+        "onboard.promise.honest": [
+            .ptBR: "O selo BIT-PERFECT só acende quando não há taps ativos. Sem marketing de fidelidade falsa.",
+            .es: "El sello BIT-PERFECT solo se enciende sin taps activos. Sin marketing de fidelidad falsa.",
+            .en: "The BIT-PERFECT badge only lights when zero taps are active. No fake-fidelity marketing."
+        ],
+        "onboard.permissions.title": [.ptBR: "Permissões no momento certo", .es: "Permisos en el momento justo", .en: "Permissions at the right moment"],
+        "onboard.permissions.body": [
+            .ptBR: "Explicamos antes de pedir. Você decide o que conceder — nada é solicitado automaticamente nesta tela.",
+            .es: "Explicamos antes de pedir. Tú decides qué conceder — nada se solicita automáticamente en esta pantalla.",
+            .en: "We explain before asking. You choose what to grant — nothing is prompted automatically on this screen."
+        ],
+        "onboard.permissions.later": [
+            .ptBR: "Você pode conceder depois em Ajustes → Permissões, quando for usar EQ ou teclas de mídia.",
+            .es: "Puedes conceder después en Ajustes → Permisos, cuando uses EQ o teclas de medios.",
+            .en: "You can grant later in Settings → Permissions when you use EQ or media keys."
+        ],
+        "onboard.ready.title": [.ptBR: "Tudo pronto para escutar", .es: "Todo listo para escuchar", .en: "Ready to listen"],
+        "onboard.ready.body": [
+            .ptBR: "O timbr. vive na barra de menus e no notch. Abra o Estúdio para o mixer e o EQ, ou comece a tocar música e expanda o notch com ⌥⌘V.",
+            .es: "timbr. vive en la barra de menús y en el notch. Abre el Estudio para el mezclador y el EQ, o reproduce música y expande el notch con ⌥⌘V.",
+            .en: "timbr. lives in the menu bar and notch. Open Studio for the mixer and EQ, or start playing music and expand the notch with ⌥⌘V."
+        ],
+        "onboard.ready.hint": [
+            .ptBR: "Atalhos: ⌥⌘, Estúdio · ⌥⌘V Notch · ⌥⌘B Bypass · ⌥⌘A A/B neutro",
+            .es: "Atajos: ⌥⌘, Estudio · ⌥⌘V Notch · ⌥⌘B Bypass · ⌥⌘A A/B neutro",
+            .en: "Shortcuts: ⌥⌘, Studio · ⌥⌘V Notch · ⌥⌘B Bypass · ⌥⌘A Neutral A/B"
+        ],
+        "onboard.next": [.ptBR: "Continuar", .es: "Continuar", .en: "Continue"],
+        "onboard.back": [.ptBR: "Voltar", .es: "Atrás", .en: "Back"],
+        "onboard.skip_perms": [.ptBR: "Continuar sem conceder agora", .es: "Continuar sin conceder ahora", .en: "Continue without granting now"],
+        "onboard.open_studio": [.ptBR: "Abrir o Estúdio", .es: "Abrir el Estudio", .en: "Open Studio"],
+        "onboard.finish_menubar": [.ptBR: "Começar pela barra de menus", .es: "Empezar desde la barra de menús", .en: "Start from the menu bar"],
+        "onboard.replay": [.ptBR: "Repetir introdução", .es: "Repetir introducción", .en: "Replay introduction"],
 
         // Support & Donations Tab
         "support.title": [.ptBR: "Apoiar o timbr.", .es: "Apoyar a timbr.", .en: "Support timbr."],

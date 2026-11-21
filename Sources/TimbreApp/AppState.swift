@@ -181,6 +181,10 @@ public final class AppState: ObservableObject {
     @Published public var accessibilityGranted: Bool = false
     @Published public var ipcPortActive: Bool = false
 
+    // First-run onboarding (RF-1401)
+    @Published public var needsOnboarding: Bool = true
+    @Published public var showOnboarding: Bool = false
+
     private var refreshTimer: Timer?
     private var telemetryTimer: Timer?
     private var hudDismissWorkItem: DispatchWorkItem?
@@ -189,6 +193,8 @@ public final class AppState: ObservableObject {
     private var started = false
 
     public var openStudioHandler: (() -> Void)?
+    public var presentOnboardingHandler: (() -> Void)?
+    public var dismissOnboardingHandler: (() -> Void)?
 
     public init() {
         let defaultPreset = TimbrePreset(
@@ -200,6 +206,7 @@ public final class AppState: ObservableObject {
         )
         self.activePreset = defaultPreset
         self.trainerPair = gpTrainer.proposeNextPair(history: [], seed: 42)
+        self.language = TimbreLanguage.fromSystemLocale()
     }
 
     public func t(_ key: String) -> String {
@@ -250,6 +257,8 @@ public final class AppState: ObservableObject {
             Task { @MainActor in self?.refreshSystemState() }
         }
 
+        let isSmoke = ProcessInfo.processInfo.arguments.contains("--smoke-check")
+
         if let db = try? SQLiteStore() {
             self.store = db
             if let langStr = db.getKV("language"), let savedLang = TimbreLanguage(rawValue: langStr) {
@@ -264,6 +273,15 @@ public final class AppState: ObservableObject {
                 self.activePreset = first
             }
             self.recentEvents = db.loadRecentEvents(limit: 80)
+            let completed = db.getKV("onboardingCompleted") == "1"
+            self.needsOnboarding = !completed && !isSmoke
+        } else {
+            self.needsOnboarding = !isSmoke
+        }
+
+        if isSmoke {
+            self.needsOnboarding = false
+            self.showOnboarding = false
         }
 
         let server = ExtensionIPCServer { [weak self] update in
@@ -300,6 +318,32 @@ public final class AppState: ObservableObject {
         }
 
         logEvent(category: "lifecycle", message: "timbr. started (MPL-2.0, 100% local, 0 telemetry)")
+
+        if needsOnboarding {
+            showOnboarding = true
+            DispatchQueue.main.async { [weak self] in
+                self?.presentOnboardingHandler?()
+            }
+        }
+    }
+
+    public func completeOnboarding(openStudio: Bool) {
+        needsOnboarding = false
+        showOnboarding = false
+        try? store?.setKV("onboardingCompleted", value: "1")
+        try? store?.setKV("language", value: language.rawValue)
+        dismissOnboardingHandler?()
+        logEvent(category: "onboarding", message: "First-run introduction completed")
+        if openStudio {
+            openStudioHandler?()
+        }
+    }
+
+    public func replayOnboarding() {
+        needsOnboarding = true
+        showOnboarding = true
+        try? store?.setKV("onboardingCompleted", value: "0")
+        presentOnboardingHandler?()
     }
 
     public func shutdown() {
@@ -877,15 +921,32 @@ public final class AppState: ObservableObject {
     }
 
     public func openSystemSettingsTCC(_ pane: String) {
-        let urlStr: String
+        // Prefer modern System Settings deep links; fall back to legacy Security pane URLs.
+        let candidates: [String]
         switch pane {
-        case "audio": urlStr = "x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent"
-        case "accessibility": urlStr = "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"
-        case "bluetooth": urlStr = "x-apple.systempreferences:com.apple.preference.security?Privacy_Bluetooth"
-        default: urlStr = "x-apple.systempreferences:com.apple.preference.security"
+        case "audio":
+            candidates = [
+                "x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension?Privacy_AudioCapture",
+                "x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent",
+                "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture"
+            ]
+        case "accessibility":
+            candidates = [
+                "x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension?Privacy_Accessibility",
+                "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"
+            ]
+        case "bluetooth":
+            candidates = [
+                "x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension?Privacy_Bluetooth",
+                "x-apple.systempreferences:com.apple.preference.security?Privacy_Bluetooth"
+            ]
+        default:
+            candidates = ["x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension"]
         }
-        if let url = URL(string: urlStr) {
-            NSWorkspace.shared.open(url)
+        for urlStr in candidates {
+            if let url = URL(string: urlStr), NSWorkspace.shared.open(url) {
+                return
+            }
         }
     }
 

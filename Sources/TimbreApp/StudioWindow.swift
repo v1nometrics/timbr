@@ -678,9 +678,13 @@ public struct StudioWindow: View {
             }
 
             card(title: "Permissions (Pre-TCC Privacy)") {
-                tccRow(title: "Audio Capture", detail: appState.t("tcc.audio.why"), granted: !appState.tapEngine.tccAudioCaptureDeniedOrZeroed, pane: "audio")
-                tccRow(title: "Accessibility (Media Keys)", detail: appState.t("tcc.ax.why"), granted: appState.accessibilityGranted, pane: "accessibility")
-                tccRow(title: "Bluetooth (Momentum 4)", detail: appState.t("tcc.bt.why"), granted: true, pane: "bluetooth")
+                tccRow(title: appState.t("tcc.audio.title"), detail: appState.t("tcc.audio.why"), granted: !appState.tapEngine.tccAudioCaptureDeniedOrZeroed, pane: "audio")
+                tccRow(title: appState.t("tcc.ax.title"), detail: appState.t("tcc.ax.why"), granted: appState.accessibilityGranted, pane: "accessibility")
+                tccRow(title: appState.t("tcc.bt.title"), detail: appState.t("tcc.bt.why"), granted: true, pane: "bluetooth")
+                Button(appState.t("onboard.replay")) {
+                    appState.replayOnboarding()
+                }
+                .buttonStyle(.bordered)
             }
 
             card(title: "Browser Extension IPC & Diagnostics") {
@@ -807,12 +811,22 @@ public struct StudioWindow: View {
             VStack(alignment: .leading, spacing: 2) {
                 HStack {
                     Text(title).font(TimbreTypography.body.font)
-                    badge(granted ? "OK" : "Pending", color: granted ? colors.semantic_positive : colors.semantic_warning)
+                    badge(
+                        granted ? appState.t("tcc.status.ok") : appState.t("tcc.status.pending"),
+                        color: granted ? colors.semantic_positive : colors.semantic_warning
+                    )
                 }
                 Text(detail).font(TimbreTypography.caption.font).foregroundStyle(colors.ink_muted)
             }
             Spacer()
-            Button("System Settings") { appState.openSystemSettingsTCC(pane) }
+            Button(appState.t("tcc.open_settings")) {
+                appState.openSystemSettingsTCC(pane)
+                if pane == "accessibility" {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+                        appState.setupMediaKeysIfGranted()
+                    }
+                }
+            }
         }
     }
 }

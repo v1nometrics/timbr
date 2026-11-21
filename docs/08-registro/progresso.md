@@ -42,8 +42,8 @@
 
 ## Próximo Passo Imediato (fora de CI headless)
 
-1. Conectar Momentum 4 + AirPods Pro e fechar **E-08 / E-09 / E-10** (HFP, GAIA RFCOMM live, coexistência de taps).
-2. Rodar grants TCC interativos (Audio Capture + Accessibility) com a UI aberta e repetir fail-safe `kill -9` sob captura real.
+1. Instalar localmente com `./scripts/install_local.sh --reset-onboarding` e percorrer o onboarding (RF-1401) + conceder TCC na hora do uso.
+2. Conectar Momentum 4 + AirPods Pro e fechar **E-08 / E-09 / E-10** (HFP, GAIA RFCOMM live, coexistência de taps).
 3. Iniciar dogfood diário de 14 dias (**Gate G2**).
 4. Com certificado Developer ID: `DEVELOPER_ID=… NOTARY_PROFILE=… ./scripts/build_dmg.sh` → publicar release + atualizar `sha256` do cask Homebrew; depois Sparkle 2 (**B-208** / Gate G3).
 
@@ -78,3 +78,10 @@
    - `Packaging/Homebrew/timbr.rb` (B-110 scaffold).
 3. **Verificação local (2026-11-21):** `./scripts/ci_check.sh` **ALL PASSED**; `hdiutil verify dist/Timbr.dmg` **VALID**; SHA-256 `83f4b4e1749f82704a80a85c871e9b9d86031a5945cd3f9956693e9a614e47fd`.
 4. **O que o plano total ainda exige (não esquecido, só impossível headless):** hardware M4/AirPods (E-08/09/10), TCC real, G2 dogfood, G3 beta+notarização, Sparkle 2 (B-208). A parte pesada de engenharia/código/CI deste ambiente está fechada.
+
+### 2026-11-21 · First-run onboarding (RF-1401) + install local
+
+1. **Onboarding em 4 passos** (`OnboardingWindow`): marca → promessa de privacidade/P3 → permissões explicadas *antes* de abrir Ajustes (nada auto-prompt) → pronto com atalhos e CTA Estúdio / barra de menus.
+2. **Persistência:** `onboardingCompleted` no SQLite; idioma inicial via locale do sistema; `--smoke-check` pula a intro; Ajustes → “Repetir introdução”.
+3. **`scripts/install_local.sh`:** instala em `/Applications`, limpa quarentena Gatekeeper e opcionalmente reseta onboarding para ensaio de 1ª abertura.
+4. **CI:** `./scripts/ci_check.sh` verde (114 chaves PT/ES/EN).
