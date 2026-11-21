@@ -86,11 +86,11 @@
       "bounce": 0.0
     },
     "notchOpen": {
-      "duration": 0.44,
-      "bounce": 0.14
+      "duration": 0.38,
+      "bounce": 0.12
     },
     "notchClose": {
-      "duration": 0.32,
+      "duration": 0.3,
       "bounce": 0.0
     },
     "responsive": {

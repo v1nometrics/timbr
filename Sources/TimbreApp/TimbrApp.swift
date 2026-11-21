@@ -49,6 +49,9 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
 
+        if args.contains("--demo") {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in self?.notchController?.runDemo() }
+        }
         if args.contains("--onboarding") {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak self] in self?.openOnboarding() }
         }

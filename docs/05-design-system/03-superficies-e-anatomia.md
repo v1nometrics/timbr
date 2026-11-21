@@ -18,56 +18,58 @@ O preenchimento é `Color(.sRGB, 0, 0, 0, 1)`: zero absoluto, sem contorno, sem 
 
 O que está sob nosso controle, e foi corrigido na v2.0: (1) não existe mais contorno de 11% de branco, que era o que tornava a borda visível em qualquer tela; (2) o topo é reto e encosta na moldura, sem frestas da barra de menus entre a moldura e a forma; (3) os ombros côncavos continuam a curva do hardware; (4) em repouso não desenhamos nada, só o notch físico aparece.
 
-### 1.2 Geometria
+### 1.2 Pescoço e corpo: o notch nunca disputa a barra de menus
 
-`NotchScreenGeometry.measure()` escolhe a tela com `safeAreaInsets.top > 0` e mede:
-- **largura do notch** = `auxiliaryTopRightArea.minX − auxiliaryTopLeftArea.maxX` (mínimo 120);
-- **altura do notch** = `safeAreaInsets.top`.
-
-`NotchShape` (animável) desenha, a partir do centro superior:
+A forma tem duas partes (`NotchShape`, animável em 6 medidas):
 
 ```
-(left − s, top) ─╮                         ╭─ (right + s, top)     s = ombro côncavo (9 pt)
-                  │                         │
-                  │                         │
-                   ╰── r ─────────────── r ─╯                        r = raio inferior contínuo
+   ombro ╮                    ╭ ombro                ← altura da barra de menus (H)
+          │   PESCOÇO = notch  │                        largura ≤ notch físico (+ orelhas medidas)
+   ╭──────╯  filete côncavo    ╰──────╮              ← y = H
+   │               CORPO                 │            abaixo da barra de menus
+   ╰─────────────────────────────────────╯           cantos contínuos
 ```
 
-- Ombros: curva quadrática de `(left − s, top)` a `(left, top + s)`, com controle em `(left, top)`. É côncava como a do hardware.
-- Cantos inferiores: duas cúbicas com controles a 38% do raio (aproxima o squircle da Apple).
-- Sem notch físico: a forma vira uma pílula contínua flutuando 6 pt abaixo do topo.
+- **Pescoço:** na altura da barra de menus, a forma nunca é mais larga que o notch físico. A única exceção são as orelhas do estado compacto, e só onde a barra está **medida como livre**.
+- **Corpo:** tudo o que é espiada, expandido ou HUD fica **abaixo** da barra de menus, ligado ao notch por filetes côncavos (14 pt) e cantos superiores convexos (14 pt). Resultado: menus de apps (Chrome, Safari) e ícones de status nunca ficam cobertos.
+- **Ombros** côncavos de 9 pt no topo do pescoço continuam a curva do hardware.
 
-### 1.3 Estados e medidas
+### 1.3 Orelhas medidas (divisão de espaço com a barra de menus)
 
-`W` e `H` são a largura e a altura do notch físico. A **orelha** mede 42 pt.
+`MenuBarSpace.freeEars` mede o espaço livre de cada lado do notch:
+- **Direita:** janelas de ícones de status (`CGWindowList`, camada 25; sem permissão).
+- **Esquerda:** menus do app em primeiro plano, via Acessibilidade (só quando já concedida). Sem ela, o lado esquerdo é tratado como ocupado: nunca adivinhamos por cima dos menus de alguém.
+- Orelha = espaço livre − 8 pt de respiro, limitada a 44 pt; abaixo de 26 pt, não há orelha.
+- Remede ao trocar de app em primeiro plano, ao entrar no compacto e a cada 4 s enquanto compacto.
 
-| Estado | Largura do corpo | Altura | Raio inferior | Conteúdo |
-|---|---|---|---|---|
-| Repouso | W | H | min(10, H/2) | Nada (só o hardware) |
-| Compacto | W + 2×42 | H | min(11, H/2) | Orelha esquerda: ícone do app em foco (17 pt). Direita: MiniMeter (nível real) ou ponto do Guardião. Nada sob a câmera. |
-| HUD | max(W + 120, 300) | H + 20 | 16 | Orelhas: ícone de volume e valor; abaixo da câmera, barra de 3 pt |
-| Espiada | max(W + 300, 480) | H + 50 | 20 | Faixa superior: app em foco e volume; corpo: fader da fonte em foco |
-| Expandido | max(W + 300, 516) | H + 10 + foco (76, ou 58 sem fonte) + 34×linhas (≤3) + alerta (44) + rodapé (46) + 8 | 26 | Marca e saída na faixa superior; bloco da fonte em foco; até 3 outras fontes; alerta; rodapé |
+| Espaço livre | Compacto mostra |
+|---|---|
+| Dois lados | Ícone do app à esquerda, medidor à direita |
+| Só um lado (≥ 40 pt) | Ícone e medidor dividem a orelha disponível |
+| Só um lado (26–40 pt) | Só o ícone |
+| Nenhum | **Queixo**: o notch cresce 20 pt para baixo, com ícone e medidor dentro, sem tocar a barra |
 
-**Faixa superior:** tudo que fica na altura `H` é dividido em esquerda | vão da câmera | direita. Nada é desenhado sob a câmera.
+### 1.4 Estados e medidas
 
-### 1.4 Expandido: anatomia
+`W` e `H` são a largura e a altura do notch físico.
 
-| Zona | Elementos | Tipografia |
-|---|---|---|
-| Faixa superior | `timbr.` + ponto de estado (verde = nativo, violeta = processando, cinza = desligado) · glifo + nome da saída | marca 13 semibold · `caption` |
-| Foco | Ícone do app 30 pt · nome · "Tocando · 0.0 dB" · valor grande `72` `%` · mudo · fader com unidade a 75% do curso | `notchTitle`, `caption`, `notchValue` |
-| Lista | Até 3 fontes: ícone 16 pt, nome, fader fino (2 pt), valor, mudo | `caption`, `monoSmall` |
-| Alerta | Ponto âmbar, título, ação | `caption` |
-| Rodapé | Chip "Ativo" (liga/desliga processamento) · "A/B neutro" · seletor de saída · "Estúdio ↗" | `caption` medium |
+| Estado | Pescoço | Corpo (largura × profundidade abaixo da barra) | Raio |
+|---|---|---|---|
+| Repouso | W | — (só o hardware, nada desenhado) | — |
+| Compacto | W + orelhas medidas | — (ou queixo W × 20) | 10 / 12 |
+| HUD | W | 248 × 34: ícone de volume, barra, valor | 17 |
+| Espiada | W | 360 × 66: ícone, nome, volume, fader | 22 |
+| Expandido | W | 444 × (cabeçalho 30 + foco 74 + 34 por fonte até 3 + alerta 44 + rodapé 46) | 26 |
+
+A janela tem **tamanho fixo** (cabe o maior estado) e nunca é redimensionada. Só a forma se move. Os cliques atravessam a janela fora da forma (`ignoresMouseEvents` atualizado a cada movimento do ponteiro enquanto aberta).
 
 ### 1.5 Interação
 
-- Hover sobre o notch físico por 120 ms → espiada. Sair da espiada por 300 ms → volta. Clique → expandido.
-- Detecção por um painel-sensor invisível com `NSTrackingArea` do tamanho do notch (mais as orelhas, no compacto). **Zero polling** em repouso.
-- Expandido: clique fora ou `Esc` fecha. O painel não ativa o app (`nonactivatingPanel`); só aceita foco de teclado no estado expandido.
-- Telas cheias: `.fullScreenAuxiliary`; HUD e expandido sobem ao nível `popUpMenu`.
-- Vários monitores: o notch vive na tela que tem notch. Troca de tela recalcula a geometria.
+- **Abrir:** hover de 70 ms sobre o notch (ou sobre as orelhas) abre a espiada; clique abre o expandido. Detecção por `NSTrackingArea`, sem polling.
+- **Fechar acompanhando o ponteiro:** enquanto aberto, a distância do ponteiro até a forma dirige um progresso contínuo de 0 a 1 (espiada: 70 pt; expandido: 110 pt), com curva elástica. A forma encolhe em direção ao estado fechado, o conteúdo desfoca (até 6 pt) e some, e o ícone viaja de volta para a orelha, tudo em tempo real. Se o ponteiro volta, tudo volta. Passando o limite, fecha com a mola `notchClose`, partindo exatamente de onde estava (sem salto).
+- **Expandido por clique ou atalho:** só passa a seguir o ponteiro depois que ele entra na forma uma vez; abrir pelo teclado não fecha sozinho.
+- **Um único ícone viaja** entre orelha, espiada e expandido; os blocos de conteúdo reservam o espaço dele. Nunca há duas cópias se cruzando.
+- Clique fora ou `Esc` fecham. O monitoramento de movimento só existe enquanto aberto (custo zero em repouso).
 
 ### 1.6 Personalização permitida
 

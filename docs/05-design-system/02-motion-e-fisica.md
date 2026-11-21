@@ -15,8 +15,8 @@
 
 | Token | Definição | Uso |
 |---|---|---|
-| `notchOpen` | mola, duração 0,44 s, bounce 0,14 | Repouso/compacto → espiada, expandido, HUD. O leve bounce é a assinatura da Dynamic Island. |
-| `notchClose` | mola, 0,32 s, bounce 0 | Fechar. Mais rápido que abrir (assimetria: o sistema responde rápido). |
+| `notchOpen` | mola, duração 0,38 s, bounce 0,12 | Repouso/compacto → espiada, expandido, HUD. O leve bounce é a assinatura da Dynamic Island. |
+| `notchClose` | mola, 0,30 s, bounce 0 | Fechar. Mais rápido que abrir (assimetria: o sistema responde rápido). |
 | `morph` | mola, 0,42 s, bounce 0 | Mudanças de layout grandes |
 | `smooth` | mola, 0,36 s, bounce 0 | Entrada/saída de linhas no mixer do notch |
 | `snappy` | mola, 0,24 s, bounce 0 | Switch, segmentado, polegar, alças da curva |
@@ -26,11 +26,14 @@
 
 ## 3. Coreografia do notch
 
-1. **A janela não anima.** O painel cresce instantaneamente para o maior tamanho necessário e só encolhe 0,5 s depois que a mola assentou. A forma (`NotchShape`, animável em largura, altura e raio) é quem se move. Isso elimina o tranco de "janela redimensionando".
-2. **Forma primeiro, conteúdo depois.** O conteúdo entra com 60 ms de atraso, de blur 6 pt e opacidade 0 para nítido (`enter`). Sai em 100 ms com blur 4 pt. O blur une os dois estados e evita ver dois objetos sobrepostos.
-3. **A origem é o hardware.** Toda abertura nasce da largura e altura exatas do notch físico e volta para ela.
-4. **Interrompível.** Molas partem do valor atual; passar o mouse e sair no meio da abertura reverte sem salto.
-5. **Números mudam com `contentTransition(.numericText)`**; ícones de volume trocam com `.symbolEffect(.replace)`.
+1. **A janela não anima nem muda de tamanho.** Canvas fixo; só a `NotchShape` (6 medidas animáveis) se move.
+2. **Forma e conteúdo juntos, sem atraso artificial.** O conteúdo do corpo entra com opacidade e 6 pt de deslocamento em 200 ms `easeOut` enquanto a mola da forma corre; sai em 80 ms.
+3. **Um ícone persistente** (`focusIcon`) muda de posição e tamanho com a mesma mola. Nada de copiar e cruzar.
+4. **Fechar segue o ponteiro** (`dismissProgress`): `interactiveSpring(response: 0.16, damping: 0.86)` a cada movimento; curva elástica `1 − (1 − d)^1.8`; ao passar o limite, `notchClose` assume a partir do valor atual.
+5. **A origem é o hardware.** Toda abertura nasce do notch e volta para ele.
+6. Números com `contentTransition(.numericText)`; ícone de volume com `.symbolEffect(.replace)`.
+
+**Verificação:** `Timbr --demo` executa a coreografia completa (abrir, fechar seguindo o ponteiro, expandir, fechar, HUD). Grave com `screencapture -v -V 9` e inspecione quadro a quadro (folhas de contato com `ffmpeg … tile=3x5`).
 
 ## 4. Pressão, hover e arraste
 

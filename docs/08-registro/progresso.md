@@ -17,6 +17,16 @@
 ## Histórico Consolidado
 
 
+
+### 2026-11-21 · Notch v2.1 — fluidez, espaço da barra de menus e fechamento que segue o ponteiro
+
+1. **Causas:** ícone duplicado (cópias por estado cruzando opacidade), atraso de 60 ms na entrada do conteúdo, redimensionamento da janela, notch alargando na altura da barra de menus, fechamento só após 300 ms parado.
+2. **Forma pescoço + corpo** (`NotchShape` com 6 medidas animáveis): na altura da barra, nunca mais larga que o notch (+ orelhas medidas); espiada, expandido e HUD descem abaixo da barra.
+3. **Orelhas medidas** (`MenuBarSpace`: CGWindowList para status items, Acessibilidade para menus do app) e queixo quando não há espaço.
+4. **Ícone único viajante**, canvas fixo, molas 0,38/0,30 s, hover 70 ms.
+5. **Fechamento contínuo** guiado pela distância do ponteiro, reversível, com commit sem salto.
+6. **Verificação:** capturas com Finder e Chrome em primeiro plano; vídeo `--demo` inspecionado quadro a quadro (abrir, fechar seguindo o ponteiro, expandir). CI verde.
+
 ### 2026-11-21 · UI/UX v2.0 — redesign completo, notch preto de hardware e auditoria E2E
 
 1. **Diagnóstico com causa no código** (notch com contorno 11% e topo arredondado, controles padrão do macOS, Geist nunca empacotada, métricas sem sinal mostrando zero, polling de 50 ms): ver [auditoria-e2e-2026-11-21.md](auditoria-e2e-2026-11-21.md).

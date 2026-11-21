@@ -26,6 +26,7 @@ Três frases-teste. Se uma tela falha em uma delas, ela está errada:
 | L7 | **Movimento com propósito.** Molas para o que o usuário toca; `notchOpen` com leve bounce (0.14) porque imita a Dynamic Island; fechar sem bounce e mais rápido. Ação por teclado nunca anima. | Tabela em `02-motion-e-fisica.md`. |
 | L8 | **Densidade editorial.** Página = eyebrow numerado + título + frase-resumo + KPIs + seções numeradas (`01`, `02`…). Listas em cartão com hairlines, não cartões empilhados. | Estrutura das páginas do Estúdio. |
 | L9 | **Divulgação progressiva.** Notch: estado e ação direta. Estúdio: configuração. Termos técnicos (tap, HAL, IPC) só no Observatório e na documentação. | Revisão de texto (`07` abaixo). |
+| L11 | **O notch nunca cobre a barra de menus.** Na altura da barra, a forma tem no máximo a largura do notch físico mais as orelhas medidas como livres; tudo o mais desce abaixo da barra. | Captura com um app de muitos menus em primeiro plano. |
 | L10 | **Calma.** Em repouso o notch é invisível e não consome CPU (hover por `NSTrackingArea`, sem polling). Um alerta por vez. | Instruments em repouso. |
 
 ## 3. Mapa do sistema
@@ -81,5 +82,6 @@ Fotografe com `screencapture -x` e revise com o checklist acima. As capturas da 
 
 | Versão | Data | Mudança |
 |---|---|---|
+| v2.1 | 2026-11-21 | Notch em pescoço + corpo (nunca cobre menus), orelhas medidas na barra (CGWindowList + Acessibilidade) com queixo quando não há espaço, canvas fixo, ícone único viajante, fechamento contínuo seguindo o ponteiro, molas mais rápidas (0,38/0,30 s), flag `--demo` para inspeção quadro a quadro. |
 | v2.0 | 2026-11-21 | Reescrita completa: notch com forma de hardware e preto sem contorno; tipografia SF (ADR-0015) com tracking efetivamente aplicado; paleta acromática quente (ronda/Órbita) com acento único de sinal; biblioteca de componentes própria; trava de CI contra controles padrão; honestidade de métricas sem sinal. |
 | v1.0 | 2026-11-21 | Primeira versão (Geist, controles do sistema, notch com contorno). Substituída. |

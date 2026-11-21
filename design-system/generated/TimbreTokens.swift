@@ -141,8 +141,8 @@ public enum TimbreMotion {
     public static let snappy = Animation.spring(duration: 0.24, bounce: 0.0)
     public static let smooth = Animation.spring(duration: 0.36, bounce: 0.0)
     public static let morph = Animation.spring(duration: 0.42, bounce: 0.0)
-    public static let notchOpen = Animation.spring(duration: 0.44, bounce: 0.14)
-    public static let notchClose = Animation.spring(duration: 0.32, bounce: 0.0)
+    public static let notchOpen = Animation.spring(duration: 0.38, bounce: 0.12)
+    public static let notchClose = Animation.spring(duration: 0.3, bounce: 0.0)
     public static let responsive = Animation.interpolatingSpring(stiffness: 520, damping: 44)
     public static let staggerItem: Double = 0.035
     public static let staggerMaxTotal: Double = 0.35
