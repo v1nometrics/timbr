@@ -94,6 +94,13 @@ public enum TimbreStrings {
         "obs.stage.headphone": [.ptBR: "Fone", .es: "Auricular", .en: "Headphone"],
 
         // Momentum 4 & Devices
+        "obs.clean_chain": [.ptBR: "Nenhuma anomalia ativa. Cadeia limpa.", .es: "Sin anomalías activas. Cadena limpia.", .en: "No active anomalies. Signal chain clean."],
+        "dev.m4.refresh": [.ptBR: "Atualizar telemetria", .es: "Actualizar telemetría", .en: "Refresh telemetry"],
+        "dev.m4.battery": [.ptBR: "Bateria", .es: "Batería", .en: "Battery"],
+        "dev.m4.anc_on": [.ptBR: "ANC Ativo", .es: "ANC Activo", .en: "ANC On"],
+        "dev.m4.anc_off": [.ptBR: "ANC Desligado", .es: "ANC Desactivado", .en: "ANC Off"],
+        "dev.m4.transparency": [.ptBR: "Transparência", .es: "Transparencia", .en: "Transparency"],
+        "dev.m4.eq_non_flat": [.ptBR: "EQ interno ativo", .es: "EQ interno activo", .en: "Internal EQ active"],
         "dev.m4.p2_active": [.ptBR: "Ativo 470 Ω", .es: "Activo 470 Ω", .en: "Active 470 Ω"],
         "dev.m4.p2_passive": [.ptBR: "Passivo 60 Ω", .es: "Pasivo 60 Ω", .en: "Passive 60 Ω"],
         "dev.m4.read_only": [.ptBR: "Somente leitura", .es: "Solo lectura", .en: "Read-only"],

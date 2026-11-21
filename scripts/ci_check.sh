@@ -14,10 +14,10 @@ echo "=== 1. Design Token Generation & Sync Check ==="
 python3 "$ROOT/design-system/scripts/generate_tokens.py"
 
 echo "=== 2. Browser Extensions JSON & Playground Check ==="
-python3 - <<'INNER_PY'
-import json
+ROOT="$ROOT" python3 - <<'INNER_PY'
+import json, os
 from pathlib import Path
-root = Path('/Users/viniciustorres/Documents/timbre')
+root = Path(os.environ['ROOT'])
 for mf in [root/'extensions/chrome-mv3/manifest.json', root/'extensions/safari-web-ext/manifest.json']:
     data = json.loads(mf.read_text())
     assert data['manifest_version'] == 3, mf

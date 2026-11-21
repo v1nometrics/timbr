@@ -526,12 +526,31 @@ public struct StudioWindow: View {
             // Driver Telemetry Card
             if let drv = appState.driverTelemetry {
                 card(title: drv.driverName) {
-                    HStack(spacing: TimbreSpacing.s4) {
+                    HStack(spacing: TimbreSpacing.s3) {
                         Text("Status: \(drv.connectionStatus)").font(TimbreTypography.small.font)
                         if let codec = drv.reportedCodec {
                             badge(codec, color: colors.semantic_info)
                         }
+                        if let bat = drv.batteryPercent {
+                            badge("\(appState.t("dev.m4.battery")): \(bat)%", color: bat < 20 ? colors.semantic_warning : colors.semantic_positive)
+                        }
+                        if let anc = drv.ancEnabled {
+                            badge(anc ? appState.t("dev.m4.anc_on") : appState.t("dev.m4.anc_off"), color: colors.ink_secondary)
+                        }
+                        if let tr = drv.transparencyPercent {
+                            badge("\(appState.t("dev.m4.transparency")): \(tr)%", color: colors.ink_secondary)
+                        }
+                        if drv.internalEQNonFlat == true {
+                            badge(appState.t("dev.m4.eq_non_flat"), color: colors.semantic_warning)
+                        }
                         badge(appState.t("dev.m4.read_only"), color: colors.ink_muted)
+                        Spacer()
+                        if drv.driverName.contains("Momentum 4") {
+                            Button(appState.t("dev.m4.refresh")) {
+                                appState.refreshHardwareTelemetryNow()
+                            }
+                            .buttonStyle(.bordered)
+                        }
                     }
                 }
             }
@@ -539,7 +558,7 @@ public struct StudioWindow: View {
             // Guardian Alerts
             card(title: "Guardian") {
                 if appState.guardianAlerts.isEmpty {
-                    Text("Nenhuma anomalia ativa. Cadeia limpa.")
+                    Text(appState.t("obs.clean_chain"))
                         .font(TimbreTypography.body.font)
                         .foregroundStyle(colors.semantic_positive)
                 } else {

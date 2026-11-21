@@ -450,6 +450,17 @@ public final class AppState: ObservableObject {
         )
     }
 
+    public func refreshHardwareTelemetryNow() {
+        guard let out = activeOutputDevice, m4Driver.matches(device: out) else { return }
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            _ = await self.m4Driver.refreshTelemetryNow()
+            self.driverTelemetry = self.m4Driver.readTelemetry(for: out)
+            self.evaluateGuardian()
+            self.logEvent(category: "hardware", message: "Momentum 4 read-only GAIA v3 telemetry refreshed")
+        }
+    }
+
     public func evaluateGuardian() {
         let out = activeOutputDevice
         let competingCapture = halManager.detectCompetingCaptureApps(devices: devices)

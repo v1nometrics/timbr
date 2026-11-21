@@ -301,10 +301,10 @@ public final class ProcessTapEngine: @unchecked Sendable {
             tapDesc.isPrivate = true
             tapDesc.isExclusive = true
             tapDesc.muteBehavior = .mutedWhenTapped
-            if #available(macOS 26.0, *) {
+            if tapDesc.responds(to: NSSelectorFromString("setBundleIDs:")) {
                 var excludes = excludedBundleIDs
                 if let selfID = Bundle.main.bundleIdentifier { excludes.append(selfID) }
-                tapDesc.bundleIDs = excludes
+                tapDesc.setValue(excludes, forKey: "bundleIDs")
             }
 
             var tapID = AudioObjectID(kAudioObjectUnknown)

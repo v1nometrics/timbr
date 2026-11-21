@@ -10,14 +10,33 @@ public enum CompetingNotchDetector {
         "com.mediamate.MediaMate",
         "com.alcove.Alcove",
         "com.dynamiclake.DynamicLake",
-        "com.atoll.Atoll"
+        "com.atoll.Atoll",
+        "dev.notchy.Notchy",
+        "com.notchy.app",
+        "com.omnimac.OmniMac",
+        "com.ilovenotch.ILoveNotch",
+        "com.opennotch.OpenNotch"
     ]
 
+    public static let knownNotchNameKeywords: [String] = [
+        "boring.notch", "mediamate", "alcove", "dynamiclake", "atoll", "notchy", "omnimac", "ilovenotch", "opennotch"
+    ]
+
+    public static func matchesCompetitor(bundleID: String?, localizedName: String?) -> Bool {
+        if let id = bundleID, knownNotchBundleIDs.contains(id) {
+            return true
+        }
+        let haystack = "\(bundleID ?? "") \(localizedName ?? "")".lowercased()
+        return knownNotchNameKeywords.contains { haystack.contains($0) }
+    }
+
     public static func detectRunningCompetitors() -> [String] {
-        NSWorkspace.shared.runningApplications
+        let selfPID = ProcessInfo.processInfo.processIdentifier
+        return NSWorkspace.shared.runningApplications
             .compactMap { app -> String? in
-                guard let id = app.bundleIdentifier, knownNotchBundleIDs.contains(id) else { return nil }
-                return app.localizedName ?? id
+                guard app.processIdentifier != selfPID else { return nil }
+                guard matchesCompetitor(bundleID: app.bundleIdentifier, localizedName: app.localizedName) else { return nil }
+                return app.localizedName ?? app.bundleIdentifier
             }
     }
 }
