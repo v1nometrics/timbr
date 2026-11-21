@@ -1,5 +1,6 @@
 # Build & SwiftPM
 .build/
+.build-local/
 .swiftpm/
 Package.resolved
 dist/

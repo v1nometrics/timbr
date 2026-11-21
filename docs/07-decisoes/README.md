@@ -6,9 +6,9 @@ Uma decisão "Proposta" só vira "Aceita" quando (a) o dono aprova, quando é de
 
 | ADR | Decisão | Status | Depende de |
 |---|---|---|---|
-| [0001](ADR-0001-licenca.md) | Licença MPL-2.0 + DCO; GPL só como referência de estudo | Proposto (decisão do dono) | — |
+| [0001](ADR-0001-licenca.md) | Licença MPL-2.0 + DCO; GPL só como referência de estudo | **Aceito** | — |
 | [0002](ADR-0002-plataforma-nativa.md) | App nativo Swift 6 + SwiftUI/AppKit; stack web só para docs, site e playground do design system | Aceito | — |
-| [0003](ADR-0003-nucleo-dsp.md) | Núcleo DSP em double com fronteira C ABI; implementação (C++ próprio vs crate CamillaDSP) decidida por E-06 | Proposto | E-06 |
+| [0003](ADR-0003-nucleo-dsp.md) | Núcleo DSP em `Float64` (`C++20 + Accelerate/vDSP`) com fronteira C ABI | **Aceito** (`E-06`) | E-06 |
 | [0004](ADR-0004-captura-por-process-taps.md) | Captura por process taps; sem plug-in HAL no MVP | Aceito na direção, topologia fina por E-02/E-04 | E-02, E-04 |
 | [0005](ADR-0005-piso-macos.md) | Piso de sistema: macOS 15; recursos de taps do 26 usados quando disponíveis | Proposto | E-02 |
 | [0006](ADR-0006-processo-do-motor.md) | Motor de áudio em processo auxiliar separado da UI | Proposto | E-16 |
