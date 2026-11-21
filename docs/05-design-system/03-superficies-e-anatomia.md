@@ -31,7 +31,7 @@ A forma tem duas partes (`NotchShape`, animável em 6 medidas):
 ```
 
 - **Pescoço:** na altura da barra de menus, a forma nunca é mais larga que o notch físico. A única exceção são as orelhas do estado compacto, e só onde a barra está **medida como livre**.
-- **Corpo:** tudo o que é espiada, expandido ou HUD fica **abaixo** da barra de menus, ligado ao notch por filetes côncavos (14 pt) e cantos superiores convexos (14 pt). Resultado: menus de apps (Chrome, Safari) e ícones de status nunca ficam cobertos.
+- **Corpo:** tudo o que é espiada, expandido ou HUD fica **abaixo** da barra de menus. O pescoço **desce 14 pt abaixo da barra** antes de se abrir no corpo, com filetes côncavos de 22 pt e cantos superiores convexos de 18 pt. Essa descida é o que faz o corpo ler como o próprio notch crescendo, e não como um cartão colado sob a barra (erro da v2.1 inicial, corrigido). A descida é proporcional ao quanto o corpo se abre, então o morph a partir do compacto é contínuo. Menus de apps (Chrome, Safari) e ícones de status nunca ficam cobertos.
 - **Ombros** côncavos de 9 pt no topo do pescoço continuam a curva do hardware.
 
 ### 1.3 Orelhas medidas (divisão de espaço com a barra de menus)

@@ -127,6 +127,9 @@ struct NotchLayout {
     var useChin: Bool { ears.left == 0 && ears.right == 0 }
 
     static let chinHeight: CGFloat = 20
+    /// The neck continues this far below the menu bar before flaring into the body,
+    /// so the body reads as the notch itself growing, not a card stuck under the menu bar.
+    static let drop: CGFloat = 14
     static let peekHalf: CGFloat = 180
     static let expandedHalf: CGFloat = 222
     static let hudHalf: CGFloat = 124
@@ -146,20 +149,20 @@ struct NotchLayout {
             return NotchSpec(nL: l, nR: r, bL: l, bR: r, h: H, r: min(10, H / 2 - 1))
         case .hud:
             let b = max(Self.hudHalf, half + 36)
-            return NotchSpec(nL: half, nR: half, bL: b, bR: b, h: H + 34, r: 17)
+            return NotchSpec(nL: half, nR: half, bL: b, bR: b, h: H + Self.drop + 34, r: 17)
         case .peek:
             let b = max(Self.peekHalf, half + 40)
-            return NotchSpec(nL: half, nR: half, bL: b, bR: b, h: H + 66, r: 22)
+            return NotchSpec(nL: half, nR: half, bL: b, bR: b, h: H + Self.drop + 64, r: 22)
         case .expanded:
             let b = max(Self.expandedHalf, half + 40)
-            return NotchSpec(nL: half, nR: half, bL: b, bR: b, h: H + Self.expandedBodyHeight(rows: rows, hasAlert: hasAlert, hasFocus: hasFocus), r: 26)
+            return NotchSpec(nL: half, nR: half, bL: b, bR: b, h: H + Self.drop + Self.expandedBodyHeight(rows: rows, hasAlert: hasAlert, hasFocus: hasFocus), r: 26)
         }
     }
 
     /// Fixed canvas: large enough for every state, so the window never resizes.
     var canvas: CGSize {
         CGSize(width: max(Self.expandedHalf, half + 40, half + MenuBarSpace.earMax) * 2 + 40,
-               height: H + Self.expandedBodyHeight(rows: 3, hasAlert: true, hasFocus: true) + 12)
+               height: H + Self.drop + Self.expandedBodyHeight(rows: 3, hasAlert: true, hasFocus: true) + 12)
     }
 }
 
@@ -170,8 +173,9 @@ struct NotchShape: Shape {
     var spec: NotchSpec
     var neckHeight: CGFloat
     var shoulder: CGFloat
-    var fillet: CGFloat = 14
-    var bodyTopRadius: CGFloat = 14
+    var drop: CGFloat = NotchLayout.drop
+    var fillet: CGFloat = 22
+    var bodyTopRadius: CGFloat = 18
 
     var animatableData: AnimatablePair<AnimatablePair<AnimatablePair<CGFloat, CGFloat>, AnimatablePair<CGFloat, CGFloat>>, AnimatablePair<CGFloat, CGFloat>> {
         get { AnimatablePair(AnimatablePair(AnimatablePair(spec.nL, spec.nR), AnimatablePair(spec.bL, spec.bR)), AnimatablePair(spec.h, spec.r)) }
@@ -184,14 +188,19 @@ struct NotchShape: Shape {
 
     func path(in rect: CGRect) -> Path {
         let cx = rect.midX, top = rect.minY
-        let H = neckHeight
-        let h = max(spec.h, H)
+        let menuH = neckHeight
+        let h = max(spec.h, menuH)
         let nL = spec.nL, nR = spec.nR
         let bL = max(spec.bL, nL), bR = max(spec.bR, nR)
         let s = shoulder
         let bottom = top + h
+        let flares = (bL - nL) > 0.5 || (bR - nR) > 0.5
+        // Junction height: the neck drops below the menu bar (scaled by how far the body flares).
+        let flareAmount = min(1, max(bL - nL, bR - nR) / 40)
+        let H = menuH + (flares ? drop * flareAmount : 0)
         let bodyDepth = max(0, h - H)
         let r = min(spec.r, (bL + bR) / 2, max(2, h - s) * 0.5)
+        _ = flares
 
         // No hardware notch: a floating continuous pill.
         guard s > 0 else {
@@ -199,7 +208,7 @@ struct NotchShape: Shape {
         }
 
         let flareL = bL - nL, flareR = bR - nR
-        let fL = min(fillet, flareL / 2, bodyDepth / 2), fR = min(fillet, flareR / 2, bodyDepth / 2)
+        let fL = min(fillet, flareL / 2, H - s), fR = min(fillet, flareR / 2, H - s)
         let tL = min(bodyTopRadius, flareL / 2, bodyDepth / 2), tR = min(bodyTopRadius, flareR / 2, bodyDepth / 2)
         let rr = min(r, bodyDepth > 1 ? bodyDepth - max(tL, tR) : r)
 
@@ -390,7 +399,7 @@ public final class NotchPanelController {
                 armed = pointerInsideShape(state: .expanded, margin: 2)
                 panel.makeKey()
             }
-            if state == .peek { armed = true }
+            if state == .peek, lastState != .peek { armed = pointerInsideShape(state: .peek, margin: 24) }
             updateMouseThrough()
         } else {
             stopFollowing()
@@ -639,10 +648,10 @@ public struct NotchOverlayView: View {
             return (CGPoint(x: cx - layout.half + 12, y: H / 2), 12, false)
         case .peek:
             let x0 = cx - spec(.peek).bL
-            return (CGPoint(x: x0 + 16 + 10, y: H + 12 + 11), 20, true)
+            return (CGPoint(x: x0 + 16 + 10, y: H + NotchLayout.drop + 12 + 11), 20, true)
         case .expanded:
             let x0 = cx - spec(.expanded).bL
-            return (CGPoint(x: x0 + 18 + 15, y: H + 10 + 30 + 6 + 15), 30, true)
+            return (CGPoint(x: x0 + 18 + 15, y: H + NotchLayout.drop + 10 + 30 + 6 + 15), 30, true)
         }
     }
 
@@ -667,7 +676,7 @@ public struct NotchOverlayView: View {
     @ViewBuilder
     private func content(_ s: NotchState, spec sp: NotchSpec, canvas: CGSize) -> some View {
         let cx = canvas.width / 2
-        let H = g.notchHeight
+        let H = g.notchHeight + NotchLayout.drop
         switch s {
         case .resting:
             EmptyView()
