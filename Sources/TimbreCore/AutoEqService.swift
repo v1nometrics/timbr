@@ -134,7 +134,7 @@ public enum AutoEqService {
             source: "Rtings (AutoEq)",
             rig: "Bruel & Kjaer 5128",
             target: "Harman in-ear 2019",
-            relativePath: "results/Rtings/Bruel%20%26%20Kjaer%205128%20earbud/Apple%20AirPods%204%20(ANC%20on)/Apple%20AirPods%204%20(ANC%20on)%20ParametricEQ.txt",
+            relativePath: "results/Rtings/Bruel%20%26%20Kjaer%205128%20earbud/Apple%20AirPods%204%20%28ANC%20on%29/Apple%20AirPods%204%20%28ANC%20on%29%20ParametricEQ.txt",
             bundledAPO: """
             Preamp: -6.2 dB
             Filter 1: ON LSC Fc 105 Hz Gain 12.7 dB Q 0.70
@@ -176,14 +176,38 @@ public enum AutoEqService {
             var score = 0
             for t in tokens where targetNorm.contains(t) { score += t.count * 2 }
             if targetNorm.contains("momentum 4") && norm.contains("momentum") { score += 40 }
-            if targetNorm.contains("airpods max") && norm.contains("airpods max") { score += 50 }
-            if targetNorm.contains("airpods 4") && (norm.contains("airpods 4") || (norm.contains("airpods") && norm.contains(" 4"))) {
-                score += 55
-                if targetNorm.contains("anc") && (norm.contains("anc") || norm.contains("noise")) { score += 15 }
-            }
-            if targetNorm.contains("airpods pro") && norm.contains("airpods pro") { score += 50 }
-            else if targetNorm.contains("airpods") && norm.contains("airpods") && !norm.contains("pro") && !norm.contains("max") {
-                score += 30
+
+            let wantsMax = norm.contains("airpods max")
+            let wantsPro = norm.contains("airpods pro")
+            let wantsFour = norm.contains("airpods 4") || (norm.contains("airpods") && tokens.contains("4"))
+            let wantsANC = norm.contains("anc") || norm.contains("noise")
+            let genericAirPods = norm.contains("airpods") && !wantsMax && !wantsPro && !wantsFour
+
+            if wantsMax {
+                if targetNorm.contains("airpods max") { score += 80 }
+                else { score = min(score, 5) }
+            } else if wantsPro {
+                if targetNorm.contains("airpods pro") {
+                    score += 70
+                    if norm.contains("3") && targetNorm.contains("3") { score += 25 }
+                    else if (norm.contains("2") || !norm.contains("1")) && targetNorm.contains("pro 2") { score += 20 }
+                    else if norm.contains("1") && targetNorm == "apple airpods pro" { score += 20 }
+                } else { score = min(score, 5) }
+            } else if wantsFour {
+                if targetNorm.contains("airpods 4") {
+                    score += 70
+                    if wantsANC && targetNorm.contains("anc") { score += 25 }
+                    else if !wantsANC && !targetNorm.contains("anc") { score += 15 }
+                    else if !wantsANC && targetNorm.contains("anc") { score -= 20 }
+                } else { score = min(score, 5) }
+            } else if genericAirPods {
+                // Prefer classic stem AirPods (3rd gen) over Pro/Max/4 when HAL name is bare "AirPods".
+                if targetNorm.contains("3rd generation") || targetNorm.contains("airpods 3") { score += 55 }
+                else if targetNorm.contains("airpods") && !targetNorm.contains("pro") && !targetNorm.contains("max") && !targetNorm.contains("airpods 4") {
+                    score += 35
+                } else {
+                    score = min(score, 8)
+                }
             }
             return (entry, score)
         }
@@ -199,8 +223,17 @@ public enum AutoEqService {
     }
 
     public static func cacheDirectory() -> URL {
-        let caches = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!
+        let caches = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first
+            ?? URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
         return caches.appendingPathComponent("dev.v1torres.timbr/autoeq", isDirectory: true)
+    }
+
+    /// Only paths present in `starterCatalog` may leave the process (SSRF / path abuse belt).
+    public static func isAllowlistedRelativePath(_ path: String) -> Bool {
+        starterCatalog.contains { $0.relativePath == path }
+            && !path.contains("..")
+            && !path.lowercased().hasPrefix("http")
+            && !path.contains("://")
     }
 
     public static func loadParametricEQ(
@@ -220,12 +253,20 @@ public enum AutoEqService {
             return (parsed, true)
         }
 
-        if allowNetwork,
+        if allowNetwork, isAllowlistedRelativePath(entry.relativePath),
            let url = URL(string: "https://raw.githubusercontent.com/jaakkopasanen/AutoEq/master/\(entry.relativePath)") {
             var req = URLRequest(url: url, timeoutInterval: 8.0)
             req.setValue("timbr/1.0", forHTTPHeaderField: "User-Agent")
-            if let (data, resp) = try? await URLSession.shared.data(for: req),
+            req.httpShouldHandleCookies = false
+            let session = URLSession(configuration: {
+                let c = URLSessionConfiguration.ephemeral
+                c.httpMaximumConnectionsPerHost = 2
+                c.timeoutIntervalForResource = 10
+                return c
+            }())
+            if let (data, resp) = try? await session.data(for: req),
                let http = resp as? HTTPURLResponse, http.statusCode == 200,
+               data.count <= 256_000,
                let text = String(data: data, encoding: .utf8),
                let parsed = try? EqualizerAPOParser.parse(text, layer: .correction) {
                 try? text.write(to: cachedURL, atomically: true, encoding: .utf8)

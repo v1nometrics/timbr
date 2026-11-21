@@ -95,3 +95,12 @@
 4. **Docs:** [`airpods-laboratorio.md`](../03-viabilidade/airpods-laboratorio.md), Nota [`12_airpods_linha_apple.md`](../00-pesquisa/notas-fase-2/12_airpods_linha_apple.md), ADR-0011, matriz, PRD RF-0808/0809, NOTICE §3.
 5. **Testes:** Pro 2 / AirPods 4 / 4 ANC / Pro 3 + flip + capabilities no `TimbreEngineTests`.
 6. **Ainda físico:** Continuity live com case aberto + E-08 HFP com AirPods conectados.
+
+### 2026-11-21 · CLEAN_SWEEP pré-merge (correções adversarial)
+
+1. **GAIA:** denylist completa Nota 07 (`0x0605–0x06FF`, `0x1403/05/06`, DFU) + allowlist read-only no `Gaia3Packet.encode`.
+2. **IA:** `adjust_band`/`setTilt` contam no cap de 3 bandas; teto absoluto de taste = ±6 dB.
+3. **Continuity:** sem fallback cross-family; scan duty-cycled; start só com saída Apple; Mixer strip só no destino ativo.
+4. **AutoEq:** match específico AirPods 4/Pro/Max; allowlist de `relativePath`; aviso Spatial no painel.
+5. **IPC:** clamp BOPLA de volume/título; CI `permissions: contents: read`; rollback de taps `mutedWhenTapped` em falha parcial (mirrors best-effort).
+7. **Passe D:** `requestScanBurst` rearmável; match Continuity same-family por tokens HAL; writes GAIA `0x1001`/`0x1003`/… na denylist; docs duty-cycle alinhadas.

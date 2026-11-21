@@ -423,6 +423,12 @@ public struct StudioWindow: View {
                             Button("Clear") { appState.clearCorrection() }
                         }
                     }
+                    if appState.driverTelemetry?.spatialAudioMayAlterFR == true {
+                        Text(appState.t("dev.apple.spatial_warn"))
+                            .font(TimbreTypography.caption.font)
+                            .foregroundStyle(colors.semantic_warning)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                     let matches = AutoEqService.matchDeviceName(appState.activeOutputDevice?.name ?? "Sennheiser MOMENTUM 4")
                     ForEach(matches.prefix(4)) { entry in
                         HStack {
@@ -745,11 +751,12 @@ public struct StudioWindow: View {
 
     @ViewBuilder
     private func appleDestinationStrip(for dev: AudioDeviceDescriptor) -> some View {
+        // Only the active Apple destination may show Continuity telemetry (no cross-row bleed).
+        let isActive = dev.isDefaultOutput || appState.activeOutputDevice?.uid == dev.uid
         let isAppleNamed = AirPodsProAdapter.classify(deviceName: dev.name) != .unknown
-        let telem = appState.driverTelemetry
-        let telemMatches = telem?.accessoryFamily != nil
-            && (dev.isDefaultOutput || appState.activeOutputDevice?.uid == dev.uid)
-        if isAppleNamed || telemMatches, let telem, telem.accessoryFamily != nil {
+        if isActive, isAppleNamed,
+           let telem = appState.driverTelemetry,
+           telem.accessoryFamily != nil {
             VStack(alignment: .leading, spacing: TimbreSpacing.s1) {
                 AppleAccessoryBatteryStrip(
                     telemetry: telem,

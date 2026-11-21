@@ -163,8 +163,17 @@ public final class ExtensionIPCServer: @unchecked Sendable {
 
         if parts.count > 1, let bodyData = parts[1].data(using: .utf8),
            let update = try? JSONDecoder().decode(TabAudioUpdate.self, from: bodyData) {
-            onTabUpdate(update)
-            let cmds = drainCommands(forBrowser: update.browser)
+            // Property-level clamp: never trust volume/title size from the browser.
+            let safe = TabAudioUpdate(
+                browser: String(update.browser.prefix(32)),
+                tabID: String(update.tabID.prefix(64)),
+                title: String(update.title.prefix(200)),
+                origin: String(update.origin.prefix(256)),
+                volume: min(max(update.volume.isFinite ? update.volume : 1.0, 0.0), 2.0),
+                isMuted: update.isMuted
+            )
+            onTabUpdate(safe)
+            let cmds = drainCommands(forBrowser: safe.browser)
             let encoded = (try? JSONEncoder().encode(TabCommandResponse(ok: true, commands: cmds)))
                 .flatMap { String(data: $0, encoding: .utf8) } ?? "{\"ok\":true,\"commands\":[]}"
             return ("200 OK", encoded)

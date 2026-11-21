@@ -41,7 +41,6 @@ public struct AppleAccessoryBatteryStrip: View {
                 cell(t("dev.m4.battery"), bat, charging: telemetry.isCharging == true)
             }
         }
-        .animation(TimbreMotion.snappy, value: telemetry.batteryPercent)
         .accessibilityElement(children: .combine)
     }
 
@@ -145,7 +144,7 @@ public struct AppleAccessoryCard: View {
             HStack {
                 Spacer()
                 Button(appState.t("dev.apple.refresh_scan")) {
-                    ContinuityBLEScanner.shared.ensureStarted()
+                    ContinuityBLEScanner.shared.requestScanBurst()
                     appState.refreshSystemState()
                 }
                 .buttonStyle(.bordered)

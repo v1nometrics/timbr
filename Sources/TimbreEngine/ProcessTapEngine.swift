@@ -476,7 +476,9 @@ public final class ProcessTapEngine: @unchecked Sendable {
             if !ok { allSuccess = false }
         }
 
-        // 3. Simultaneous multi-output mirror taps (E-04 / B-201)
+        // 3. Simultaneous multi-output mirror taps (E-04 / B-201) — unmuted; failure must NOT
+        // tear down the primary muted path (mirrors are best-effort).
+        var mirrorFailed = false
         for target in mirrorOutputs where target.device.uid != outputDevice.uid {
             let key = "mirror:\(target.device.uid)"
             desiredKeys.insert(key)
@@ -491,8 +493,31 @@ public final class ProcessTapEngine: @unchecked Sendable {
                 delayMs: target.delayMs,
                 excludedBundleIDs: excludedBundleIDs
             )
-            if !ok { allSuccess = false }
+            if !ok {
+                mirrorFailed = true
+                desiredKeys.remove(key)
+            }
         }
+
+        // If any mutedWhenTapped slot failed, roll back muted taps so apps are never
+        // left silent without a working global path (P1 / orphaned-mute invariant).
+        // Mirror-only failures do not trigger this rollback.
+        if !allSuccess {
+            lock.lock()
+            let rollbackKeys = activeSlots.keys.filter {
+                desiredKeys.contains($0) && ($0.hasPrefix("app:") || $0 == "global")
+            }
+            var rollback: [TapSlot] = []
+            for k in rollbackKeys {
+                if let slot = activeSlots.removeValue(forKey: k) {
+                    rollback.append(slot)
+                    desiredKeys.remove(k)
+                }
+            }
+            lock.unlock()
+            for slot in rollback { destroySlot(slot) }
+        }
+        if mirrorFailed { allSuccess = false }
 
         // Tear down any stale slots no longer in desiredKeys
         lock.lock()

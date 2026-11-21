@@ -298,7 +298,7 @@ public final class AppState: ObservableObject {
             logEvent(category: "ipc", message: "Extension IPC port 48192 unavailable: \(error.localizedDescription)")
         }
 
-        ContinuityBLEScanner.shared.ensureStarted()
+        // Continuity BLE starts only when an Apple accessory is the active output (TCC honesty).
         refreshSystemState()
         setupMediaKeysIfGranted()
 

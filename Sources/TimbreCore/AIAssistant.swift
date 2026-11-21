@@ -83,9 +83,17 @@ public enum EQDeltaValidator {
 
     public static func validateAndClamp(_ proposal: EQDeltaProposal, strict: Bool = true) throws -> EQDeltaProposal {
         guard !proposal.operations.isEmpty else { throw EQDeltaValidationError.emptyProposal }
-        let addCount = proposal.operations.filter { $0.op == .addFilter }.count
-        if addCount > maxNewFiltersPerRequest {
-            throw EQDeltaValidationError.tooManyNewFilters(count: addCount, maxAllowed: maxNewFiltersPerRequest)
+        // Count every op that can introduce a new band (addFilter, adjustBand miss→append, setTilt×2).
+        let projectedNewBands = proposal.operations.reduce(0) { partial, op -> Int in
+            switch op.op {
+            case .addFilter: return partial + 1
+            case .adjustBand: return partial + 1 // worst-case: no near band → append
+            case .setTilt: return partial + 2
+            case .removeFilter: return partial
+            }
+        }
+        if projectedNewBands > maxNewFiltersPerRequest {
+            throw EQDeltaValidationError.tooManyNewFilters(count: projectedNewBands, maxAllowed: maxNewFiltersPerRequest)
         }
 
         var validatedOps: [EQDeltaOperation] = []
@@ -128,10 +136,14 @@ public enum EQDeltaValidator {
     public static func apply(proposal: EQDeltaProposal, toTasteBands existing: [EQBand]) throws -> [EQBand] {
         let valid = try validateAndClamp(proposal)
         var result = existing
+        var newBandsIntroduced = 0
         for op in valid.operations {
             switch op.op {
             case .addFilter:
                 if let f = op.freqHz, let g = op.gainDB {
+                    guard newBandsIntroduced < maxNewFiltersPerRequest else {
+                        throw EQDeltaValidationError.tooManyNewFilters(count: newBandsIntroduced + 1, maxAllowed: maxNewFiltersPerRequest)
+                    }
                     result.append(EQBand(
                         type: op.filterType ?? .peak,
                         design: .vicanek,
@@ -141,13 +153,18 @@ public enum EQDeltaValidator {
                         q: op.q ?? 1.0,
                         enabled: true
                     ))
+                    newBandsIntroduced += 1
                 }
             case .adjustBand:
                 if let f = op.freqHz, let g = op.gainDB {
                     if let idx = result.enumerated().min(by: { abs($0.element.freqHz - f) < abs($1.element.freqHz - f) })?.offset,
                        abs(result[idx].freqHz - f) < f * 0.25 {
-                        result[idx].gainDB = min(max(result[idx].gainDB + g, -12.0), 12.0)
+                        // Per-proposal delta stays within ±maxAbsGainDB; absolute taste ceiling matches that bound.
+                        result[idx].gainDB = min(max(result[idx].gainDB + g, -maxAbsGainDB), maxAbsGainDB)
                     } else {
+                        guard newBandsIntroduced < maxNewFiltersPerRequest else {
+                            throw EQDeltaValidationError.tooManyNewFilters(count: newBandsIntroduced + 1, maxAllowed: maxNewFiltersPerRequest)
+                        }
                         result.append(EQBand(
                             type: op.filterType ?? .peak,
                             design: .vicanek,
@@ -157,6 +174,7 @@ public enum EQDeltaValidator {
                             q: op.q ?? 1.0,
                             enabled: true
                         ))
+                        newBandsIntroduced += 1
                     }
                 }
             case .removeFilter:
@@ -164,9 +182,13 @@ public enum EQDeltaValidator {
                     result.removeAll { abs($0.freqHz - f) < f * 0.15 }
                 }
             case .setTilt:
+                guard newBandsIntroduced + 2 <= maxNewFiltersPerRequest else {
+                    throw EQDeltaValidationError.tooManyNewFilters(count: newBandsIntroduced + 2, maxAllowed: maxNewFiltersPerRequest)
+                }
                 let tilt = op.tiltDBPerOctave ?? 0.0
                 result.append(EQBand(type: .lowShelf, design: .vicanek, layer: .taste, freqHz: 140, gainDB: -tilt, q: 0.7, enabled: true))
                 result.append(EQBand(type: .highShelf, design: .vicanek, layer: .taste, freqHz: 4500, gainDB: tilt, q: 0.7, enabled: true))
+                newBandsIntroduced += 2
             }
         }
         return result

@@ -24,22 +24,52 @@ public enum Momentum4ProtocolError: Error, Equatable, Sendable {
 }
 
 public enum Momentum4CommandSafety {
-    // Hard safety denylist from 07_momentum4_protocolo_e_ecossistema.md & momentum4-laboratorio.md
+    // Hard safety denylist — Nota 07 §3.3 + momentum4-laboratorio.md (framer gate before wire).
     public static let denylistedCommandCodes: Set<UInt16> = [
-        0x0607, // Factory reset / destructive disconnect in some firmwares
-        0x0040, // Pairing list clear
-        0x1405  // Persistent calibration reset
+        0x0040, // Service_FactoryReset / pairing wipe
+        0x1403, // PairedDevicesDisconnect without explicit user action
+        0x1405, // PairedDevicesDeleteEntry
+        0x1406, // PairedDevicesDeleteList
+        // Known write / set opcodes — blocked even if a caller forgets the read-only allowlist flag
+        0x0405, // set BT compatibility
+        0x0805, // set sidetone
+        0x1001, // set EQ config
+        0x1003, // set EQ band
+        0x1008  // set bass boost
+    ]
+
+    /// Read-only GET opcodes used by the live Momentum 4 client (belt-and-suspenders with denylist).
+    public static let readOnlyAllowlist: Set<UInt16> = [
+        Momentum4Commands.getBattery,
+        Momentum4Commands.getBluetoothCompatibilityMode,
+        Momentum4Commands.getSoundMode,
+        Momentum4Commands.getAncModes,
+        Momentum4Commands.getTransparencyLevel,
+        Momentum4Commands.getAncEnabled,
+        Momentum4Commands.getTransparentHearing,
+        Momentum4Commands.getEqConfig,
+        Momentum4Commands.getEqBand,
+        Momentum4Commands.getBassBoost
     ]
 
     public static func isDenylisted(commandCode: UInt16) -> Bool {
         let featureID = UInt8((commandCode >> 8) & 0xFF)
-        if featureID == 0x02 { return true } // Upgrade / DFU feature 0x02xx strictly forbidden
+        let pduID = UInt8(commandCode & 0xFF)
+        // Upgrade / DFU / OTA family (0x02xx and vendor 0x1Dxx / 0x001D)
+        if featureID == 0x02 || featureID == 0x1D { return true }
+        if featureID == 0x00 && pduID == 0x1D { return true }
+        // 0x0605…0x06FF lethal / power-cycle family — keep 0x0600…0x0603 (battery GET) open
+        if featureID == 0x06 && pduID >= 0x05 { return true }
         return denylistedCommandCodes.contains(commandCode)
     }
 
     public static func isDenylisted(featureID: UInt8, pduID: UInt8) -> Bool {
         let code = (UInt16(featureID) << 8) | UInt16(pduID)
         return isDenylisted(commandCode: code)
+    }
+
+    public static func isReadOnlyAllowed(_ commandCode: UInt16) -> Bool {
+        readOnlyAllowlist.contains(commandCode)
     }
 }
 
@@ -99,8 +129,12 @@ public struct Gaia3Packet: Equatable, Sendable {
         self.payload = Data(data.dropFirst(4))
     }
 
-    public func encode() throws -> Data {
+    /// - Parameter enforceReadOnlyAllowlist: when `true` (live RFCOMM path), only GET allowlist may leave the process.
+    public func encode(enforceReadOnlyAllowlist: Bool = false) throws -> Data {
         guard !Momentum4CommandSafety.isDenylisted(commandCode: commandID) else {
+            throw Momentum4ProtocolError.denylistedCommandBlocked(commandID)
+        }
+        if enforceReadOnlyAllowlist, !Momentum4CommandSafety.isReadOnlyAllowed(commandID) {
             throw Momentum4ProtocolError.denylistedCommandBlocked(commandID)
         }
         guard payload.count <= Int(UInt16.max) else {
@@ -641,19 +675,25 @@ public final class Momentum4RFCOMMClient {
         expecting expectedResponse: UInt16,
         on transport: Momentum4RFCOMMTransport
     ) async throws -> Gaia3Packet {
-        var matched: Gaia3Packet?
+        final class MatchBox: @unchecked Sendable {
+            private let lock = NSLock()
+            private var value: Gaia3Packet?
+            func store(_ pkt: Gaia3Packet) { lock.lock(); value = pkt; lock.unlock() }
+            func load() -> Gaia3Packet? { lock.lock(); defer { lock.unlock() }; return value }
+        }
+        let box = MatchBox()
         transport.onPacket = { data in
             guard let pkt = try? Gaia3Packet(data: data),
                   pkt.vendorID == Momentum4Commands.vendorID,
                   pkt.commandID == expectedResponse else { return }
-            matched = pkt
+            box.store(pkt)
         }
-        let wire = try Gaia3Packet(commandID: command, payload: payload).encode()
+        let wire = try Gaia3Packet(commandID: command, payload: payload).encode(enforceReadOnlyAllowlist: true)
         try transport.send(wire)
 
         for _ in 0..<40 { // up to 2.0s per command
             try Task.checkCancellation()
-            if let matched { return matched }
+            if let hit = box.load() { return hit }
             try await Task.sleep(for: .milliseconds(50))
         }
         throw Momentum4ProtocolError.responseTimedOut(command)

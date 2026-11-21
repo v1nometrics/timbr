@@ -43,9 +43,9 @@ struct TimbreEngineTestRunner {
         let batFrame = try! GaiaSPP.frame(batWire)
         expect(Array(batFrame) == [0xFF, 0x03, 0x00, 0x00, 0x04, 0x95, 0x06, 0x03], "GaiaSPP battery wire bytes")
 
-        for badCmd: UInt16 in [0x0607, 0x0040, 0x1405, 0x0200, 0x02AB] {
+        for badCmd: UInt16 in [0x0605, 0x0607, 0x0608, 0x0040, 0x1403, 0x1405, 0x1406, 0x0200, 0x02AB, 0x1D0C] {
             do {
-                _ = try Gaia3Packet(commandID: badCmd).encode()
+                _ = try Gaia3Packet(commandID: badCmd).encode(enforceReadOnlyAllowlist: false)
                 expect(false, "Gaia3Packet denylist must block 0x\(String(badCmd, radix: 16))")
             } catch Momentum4ProtocolError.denylistedCommandBlocked {
                 // expected
@@ -53,6 +53,16 @@ struct TimbreEngineTestRunner {
                 expect(false, "Unexpected Gaia3Packet error: \(error)")
             }
         }
+        // Live path allowlist: write opcodes fail when enforceReadOnlyAllowlist is on
+        do {
+            _ = try Gaia3Packet(commandID: 0x1001).encode(enforceReadOnlyAllowlist: true)
+            expect(false, "Non-allowlisted write opcode 0x1001 must be blocked on live path")
+        } catch Momentum4ProtocolError.denylistedCommandBlocked {
+            // expected
+        } catch {
+            expect(false, "Unexpected allowlist error: \(error)")
+        }
+        expect(Momentum4CommandSafety.isReadOnlyAllowed(Momentum4Commands.getBattery), "Battery GET is allowlisted")
 
         let resp1 = try! GaiaSPP.frame(try! Gaia3Packet(commandID: Momentum4Commands.getBatteryResponse, payload: Data([87])).encode())
         let resp2 = try! GaiaSPP.frame(try! Gaia3Packet(commandID: Momentum4Commands.getSoundModeResponse, payload: Data([0x00, 0x01])).encode())
@@ -217,6 +227,16 @@ struct TimbreEngineTestRunner {
             expect(telem.batteryLeftPercent == 80, "Continuity L battery surfaces in telemetry")
             expect(telem.systemManagedFeatureKeys?.contains("hearingAid") == true, "System-managed feature keys exposed")
             expect(telem.leftCharging != nil, "Charging flags surfaced")
+
+            // Cross-family Continuity must NOT paint onto a different HAL accessory.
+            let airOnly = AirPodsProAdapter().readTelemetry(for: AudioDeviceDescriptor(
+                uid: "bt-air4",
+                name: "AirPods 4",
+                transport: .bluetoothA2DP,
+                sampleRate: 48000
+            ))
+            expect(airOnly.batteryLeftPercent == nil, "No Pro Continuity bleed onto AirPods 4 HAL name")
+            expect(airOnly.connectionStatus.contains("aacp-closed") || airOnly.connectionStatus.contains("hal"), "AirPods 4 without matching Continuity stays HAL-only")
         }
         print("  [PASS] Continuity proximity parser, Apple family classifier & honest AACP boundary")
 

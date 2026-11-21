@@ -1,7 +1,7 @@
 # Laboratório · Linha Apple Audio Accessory (AirPods → AirPods Max)
 
-> **Status:** Especificação + implementação headless **2026-11-21** · Paridade documental com [`momentum4-laboratorio.md`](momentum4-laboratorio.md).  
-> **Princípios:** P3 (sem rastro), P7 (local), P11 (sem promessa falsa), [ADR-0011](../07-decisoes/ADR-0011-drivers-de-dispositivo.md), bíblia DS [`05-design-system/`](../05-design-system/), Nota [`07`](../00-pesquisa/notas-fase-2/07_momentum4_protocolo_e_ecossistema.md) §4 + [`12_airpods_linha_apple.md`](../00-pesquisa/notas-fase-2/12_airpods_linha_apple.md).  
+> **Status:** Especificação + implementação headless **2026-11-21** · Paridade documental com [`momentum4-laboratorio.md`](momentum4-laboratorio.md).
+> **Princípios:** P3 (sem rastro), P7 (local), P11 (sem promessa falsa), [ADR-0011](../07-decisoes/ADR-0011-drivers-de-dispositivo.md), bíblia DS [`05-design-system/`](../05-design-system/), Nota [`07`](../00-pesquisa/notas-fase-2/07_momentum4_protocolo_e_ecossistema.md) §4 + [`12_airpods_linha_apple.md`](../00-pesquisa/notas-fase-2/12_airpods_linha_apple.md).
 > **Marcas:** “AirPods”, “AirPods Max”, “Beats” e “Apple” são marcas de terceiros; uso exclusivamente descritivo/nominativo.
 
 ---
@@ -26,10 +26,10 @@ Código: [`Sources/TimbreEngine/AirPodsFamilyDriver.swift`](../../Sources/Timbre
 
 1. **Classificação por nome HAL** → `AppleAudioAccessoryKind` (`airPods` / `airPodsPro` / `airPodsMax` / `beats`).
 2. **Telemetria HAL** → codec inferido (`AAC (A2DP)` vs `HFP/SCO (degraded)`), status `hal-observed · aacp-closed`.
-3. **Scan Continuity passivo** (`CBCentralManager`, sem conexão) → quando o case está aberto e o Mac vê o advert, preenche L/R/Case + charging + in-ear/lid (`trustBadge = reported`).
-4. **Matriz de capacidades** por Model ID (`AppleModelCapabilityProfile`) — chips somente leitura (ANC, Adaptive Audio, Hearing Aid…); nunca toggles falsos.
+3. **Scan Continuity passivo** (burst duty-cycle ~8 s por `ensureStarted`/`requestScanBurst`, TTL 120 s, sem cross-family; same-family ambíguo → sem guess) → inicia **somente** quando a saída HAL ativa é Apple; L/R/Case + charging (`trustBadge = reported`). In-ear/lid parseados no snapshot para testes/lab; ainda **não** na UI.
+4. **Matriz de capacidades** por Model ID (`AppleModelCapabilityProfile`) — chips somente leitura; nunca toggles AACP.
 5. **Nunca inventa ANC/Transparency** (`ancEnabled = nil`) — P11.
-6. **Aviso Spatial Audio** (`spatialAudioMayAlterFR`) quando saída é A2DP — Observatório / card.
+6. **Aviso Spatial Audio** no card Apple **e** no painel AutoEq quando A2DP.
 
 ### O que a UI mostra (bíblia + Apple Design)
 

@@ -1,6 +1,6 @@
 # Nota 12 · Linha Apple Audio Accessory (AirPods → Max) no macOS
 
-> **Status:** Auditoria + implementação headless **2026-11-21**.  
+> **Status:** Auditoria + implementação headless **2026-11-21**.
 > **Regra de evidência:** Comprovado / Provável / Hipótese / Desconhecido. **Zero escrita AACP** e **zero código GPL/AGPL**.
 
 ---

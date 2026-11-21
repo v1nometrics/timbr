@@ -10,7 +10,7 @@
 //     INVÁVEL em user-space macOS — UI declara features como systemManaged (P11)
 //   • MagicAccIRK/EncKey: NÃO (exige AACP 0x30/0x31)
 import Foundation
-import CoreBluetooth
+@preconcurrency import CoreBluetooth
 import TimbreCore
 
 // MARK: - Family
@@ -269,10 +269,17 @@ public enum ContinuityProximityParser {
 
 public final class ContinuityBLEScanner: NSObject, CBCentralManagerDelegate, @unchecked Sendable {
     public static let shared = ContinuityBLEScanner()
+    private static let snapshotTTLSeconds: TimeInterval = 120
+    private static let maxTrackedModels = 32
+
+    private struct TimedSnapshot {
+        let snap: ContinuityProximitySnapshot
+        let seenAt: Date
+    }
 
     private let lock = NSLock()
     private var central: CBCentralManager?
-    private var latestByModel: [UInt16: ContinuityProximitySnapshot] = [:]
+    private var latestByModel: [UInt16: TimedSnapshot] = [:]
     private var started = false
     public private(set) var bluetoothPoweredOn: Bool = false
 
@@ -282,44 +289,95 @@ public final class ContinuityBLEScanner: NSObject, CBCentralManagerDelegate, @un
 
     public func ensureStarted() {
         lock.lock()
-        defer { lock.unlock() }
-        guard !started else { return }
-        started = true
-        central = CBCentralManager(delegate: self, queue: DispatchQueue(label: "dev.v1torres.timbr.continuity"), options: [
-            CBCentralManagerOptionShowPowerAlertKey: false
-        ])
+        let already = started
+        if !started {
+            started = true
+            central = CBCentralManager(delegate: self, queue: DispatchQueue(label: "dev.v1torres.timbr.continuity"), options: [
+                CBCentralManagerOptionShowPowerAlertKey: false
+            ])
+        }
+        let c = central
+        lock.unlock()
+        // Re-arm a duty-cycle burst on every ensure (Refresh Continuity / Apple output active).
+        if already, let c, c.state == .poweredOn {
+            startScanIfReady(c)
+        }
+    }
+
+    /// Explicit rescan for UI “Atualizar Continuity”.
+    public func requestScanBurst() {
+        ensureStarted()
+        lock.lock()
+        let c = central
+        lock.unlock()
+        if let c, c.state == .poweredOn {
+            startScanIfReady(c)
+        }
     }
 
     public func latest(matching kind: AppleAudioAccessoryKind? = nil) -> ContinuityProximitySnapshot? {
+        latestMatchingFamily(kind).sorted(by: { ($0.combinedBatteryPercent ?? -1) > ($1.combinedBatteryPercent ?? -1) }).first
+    }
+
+    public func latestMatchingFamily(_ kind: AppleAudioAccessoryKind?) -> [ContinuityProximitySnapshot] {
         lock.lock()
-        let values = Array(latestByModel.values)
+        pruneLocked(now: Date())
+        let values = latestByModel.values.map(\.snap)
         lock.unlock()
-        let filtered: [ContinuityProximitySnapshot]
-        if let kind {
-            let exact = values.filter { $0.kind == kind }
-            filtered = exact.isEmpty ? values : exact
-        } else {
-            filtered = values
-        }
-        return filtered.sorted(by: { ($0.combinedBatteryPercent ?? -1) > ($1.combinedBatteryPercent ?? -1) }).first
+        guard let kind else { return values }
+        return values.filter { $0.kind == kind }
     }
 
     public func ingestForTesting(_ snap: ContinuityProximitySnapshot) {
         lock.lock()
-        latestByModel[snap.modelID] = snap
+        latestByModel[snap.modelID] = TimedSnapshot(snap: snap, seenAt: Date())
         lock.unlock()
     }
 
+    public func stopScan() {
+        lock.lock()
+        defer { lock.unlock() }
+        central?.stopScan()
+        bluetoothPoweredOn = false
+    }
+
+    private var dutyToken: UInt64 = 0
+
     private func startScanIfReady(_ central: CBCentralManager) {
         guard central.state == .poweredOn else { return }
+        lock.lock()
         bluetoothPoweredOn = true
+        dutyToken &+= 1
+        let token = dutyToken
+        lock.unlock()
+        central.stopScan()
+        // Duty-cycled burst: ~8s with duplicates, then pause until next ensure/requestScanBurst.
         central.scanForPeripherals(withServices: nil, options: [
             CBCentralManagerScanOptionAllowDuplicatesKey: true
         ])
+        let queue = DispatchQueue(label: "dev.v1torres.timbr.continuity.duty")
+        queue.asyncAfter(deadline: .now() + 8.0) { [weak self, weak central] in
+            guard let self, let central else { return }
+            self.lock.lock()
+            let current = self.dutyToken
+            self.lock.unlock()
+            guard current == token, central.state == .poweredOn else { return }
+            central.stopScan()
+        }
+    }
+
+    private func pruneLocked(now: Date) {
+        latestByModel = latestByModel.filter { now.timeIntervalSince($0.value.seenAt) < Self.snapshotTTLSeconds }
+        if latestByModel.count > Self.maxTrackedModels {
+            let sorted = latestByModel.sorted { $0.value.seenAt > $1.value.seenAt }
+            latestByModel = Dictionary(uniqueKeysWithValues: sorted.prefix(Self.maxTrackedModels).map { ($0.key, $0.value) })
+        }
     }
 
     public func centralManagerDidUpdateState(_ central: CBCentralManager) {
+        lock.lock()
         bluetoothPoweredOn = central.state == .poweredOn
+        lock.unlock()
         if central.state == .poweredOn {
             startScanIfReady(central)
         }
@@ -338,7 +396,8 @@ public final class ContinuityBLEScanner: NSObject, CBCentralManagerDelegate, @un
         let payload = mfg.subdata(in: 2..<mfg.count)
         guard let snap = ContinuityProximityParser.parseManufacturerPayload(payload) else { return }
         lock.lock()
-        latestByModel[snap.modelID] = snap
+        latestByModel[snap.modelID] = TimedSnapshot(snap: snap, seenAt: Date())
+        pruneLocked(now: Date())
         lock.unlock()
     }
 }
@@ -381,7 +440,8 @@ public final class AirPodsProAdapter: HeadphoneDeviceDriver, @unchecked Sendable
         default: transportHint = device.transport.rawValue
         }
 
-        let continuity = ContinuityBLEScanner.shared.latest(matching: kind == .unknown ? nil : kind)
+        let candidates = ContinuityBLEScanner.shared.latestMatchingFamily(kind)
+        let continuity = Self.bestContinuityMatch(forDeviceName: device.name, kind: kind, candidates: candidates)
         let spatialWarning = device.transport == .bluetoothA2DP
         let trust: SignalTrustBadge = continuity != nil ? .reported : .inferred
 
@@ -425,5 +485,34 @@ public final class AirPodsProAdapter: HeadphoneDeviceDriver, @unchecked Sendable
             trustBadge: trust,
             connectionStatus: status
         )
+    }
+
+    /// Prefer Continuity model whose marketing name tokens appear in the HAL device name.
+    static func bestContinuityMatch(
+        forDeviceName name: String,
+        kind: AppleAudioAccessoryKind,
+        candidates: [ContinuityProximitySnapshot]
+    ) -> ContinuityProximitySnapshot? {
+        let n = name.lowercased()
+        let scored = candidates.map { snap -> (ContinuityProximitySnapshot, Int) in
+            var score = 0
+            let model = snap.modelName.lowercased()
+            if model.contains("pro 3") && n.contains("pro") && n.contains("3") { score += 50 }
+            else if model.contains("pro 2") && n.contains("pro") && (n.contains("2") || !n.contains("3")) { score += 40 }
+            else if model.contains("pro") && n.contains("pro") { score += 20 }
+            if model.contains("airpods 4") && n.contains("4") {
+                score += 40
+                if model.contains("anc") && (n.contains("anc") || n.contains("noise")) { score += 15 }
+                if model.contains("anc") && !(n.contains("anc") || n.contains("noise")) { score -= 10 }
+            }
+            if model.contains("max") && n.contains("max") { score += 40 }
+            if score == 0, snap.kind == kind { score = 1 } // last resort same-family only if unique
+            return (snap, score)
+        }.filter { $0.1 > 0 }
+        if scored.count == 1, scored[0].1 == 1, candidates.count > 1 {
+            // Ambiguous same-family crowd — refuse to guess (P11).
+            return nil
+        }
+        return scored.sorted { $0.1 > $1.1 }.first?.0
     }
 }

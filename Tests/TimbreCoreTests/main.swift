@@ -80,6 +80,25 @@ struct TimbreCoreTestRunner {
         } catch {
             expect(false, "Unexpected AI validation error: \(error)")
         }
+        do {
+            let sneak = EQDeltaProposal(
+                label: "sneak", rationale: "adjust_band append bypass", runtimeUsed: .offlineHeuristic,
+                operations: (0..<4).map { i in
+                    EQDeltaOperation(op: .adjustBand, filterType: .peak, freqHz: Double(100 + i * 200), gainDB: 3, q: 1)
+                }
+            )
+            _ = try EQDeltaValidator.apply(proposal: sneak, toTasteBands: [])
+            expect(false, "adjust_band must not bypass maxNewFiltersPerRequest")
+        } catch EQDeltaValidationError.tooManyNewFilters {
+            // expected
+        } catch {
+            expect(false, "Unexpected adjust_band validation error: \(error)")
+        }
+        let airPodsMatch = AutoEqService.matchDeviceName("AirPods")
+        expect(airPodsMatch.first?.id == "apple-airpods-3-crinacle", "Bare AirPods prefers 3rd gen, not Pro/Max")
+        let air4Match = AutoEqService.matchDeviceName("AirPods 4")
+        expect(air4Match.first?.id == "apple-airpods-4-rtings-5128", "AirPods 4 prefers non-ANC starter")
+        expect(AutoEqService.isAllowlistedRelativePath("../etc/passwd") == false, "AutoEq path traversal rejected")
         print("  [PASS] AI Safety bounds & validator")
 
         // 4. PairwiseGPTrainer preference convergence

@@ -219,6 +219,7 @@ public struct NotchOverlayView: View {
     @ObservedObject var appState: AppState
     let geometry: NotchScreenGeometry
     private let colors = TimbreColors.notch
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     public var body: some View {
         Group {
@@ -235,7 +236,7 @@ public struct NotchOverlayView: View {
                 expandedView
             }
         }
-        .animation(TimbreMotion.morph, value: appState.notchState)
+        .animation(reduceMotion ? nil : TimbreMotion.morph, value: appState.notchState)
         .onTapGesture {
             if appState.notchState == .compact || appState.notchState == .peek {
                 appState.notchState = .expanded
