@@ -24,11 +24,75 @@ public struct DSPTelemetrySnapshot: Sendable {
     )
 }
 
+/// Destroys orphaned private Core Audio aggregate devices left behind by a crash
+/// or SIGKILL (adapted from AbhisekGanguly/AudioRouter, MIT), so a leaked
+/// `.mutedWhenTapped` tap cannot leave applications silently muted.
+public enum OrphanedTapCleanup {
+    public static func isOrphanedAggregateUID(_ uid: String, activeUIDs: Set<String> = []) -> Bool {
+        uid.hasPrefix(ProcessTapEngine.aggregateUIDPrefix) && !activeUIDs.contains(uid)
+    }
+
+    @discardableResult
+    public static func cleanupOrphanedAggregates(excludingUIDs: Set<String> = []) -> Int {
+        var addr = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyDevices,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: 0
+        )
+        var size: UInt32 = 0
+        guard AudioObjectGetPropertyDataSize(AudioObjectID(kAudioObjectSystemObject), &addr, 0, nil, &size) == noErr,
+              size > 0 else { return 0 }
+
+        let count = Int(size) / MemoryLayout<AudioObjectID>.size
+        var deviceIDs = [AudioObjectID](repeating: 0, count: count)
+        guard AudioObjectGetPropertyData(AudioObjectID(kAudioObjectSystemObject), &addr, 0, nil, &size, &deviceIDs) == noErr else {
+            return 0
+        }
+
+        var destroyed = 0
+        for devID in deviceIDs {
+            var transport: UInt32 = 0
+            var tSize = UInt32(MemoryLayout<UInt32>.size)
+            var tAddr = AudioObjectPropertyAddress(
+                mSelector: kAudioDevicePropertyTransportType,
+                mScope: kAudioObjectPropertyScopeGlobal,
+                mElement: 0
+            )
+            guard AudioObjectHasProperty(devID, &tAddr),
+                  AudioObjectGetPropertyData(devID, &tAddr, 0, nil, &tSize, &transport) == noErr,
+                  transport == kAudioDeviceTransportTypeAggregate else {
+                continue
+            }
+
+            var uidCF: CFString?
+            var uSize = UInt32(MemoryLayout<CFString?>.size)
+            var uAddr = AudioObjectPropertyAddress(
+                mSelector: kAudioDevicePropertyDeviceUID,
+                mScope: kAudioObjectPropertyScopeGlobal,
+                mElement: 0
+            )
+            let uidErr = withUnsafeMutablePointer(to: &uidCF) { ptr in
+                AudioObjectGetPropertyData(devID, &uAddr, 0, nil, &uSize, ptr)
+            }
+            guard uidErr == noErr, let uid = uidCF as String? else { continue }
+            guard isOrphanedAggregateUID(uid, activeUIDs: excludingUIDs) else { continue }
+
+            if AudioHardwareDestroyAggregateDevice(devID) == noErr {
+                destroyed += 1
+            }
+        }
+        return destroyed
+    }
+}
+
 public final class ProcessTapEngine: @unchecked Sendable {
+    public static let aggregateUIDPrefix = "dev.v1torres.timbr.agg."
+
     private let lock = NSLock()
     private var dspEngine: OpaquePointer? // timbre_dsp_engine_t*
     private var activeTapID: AudioObjectID = AudioObjectID(kAudioObjectUnknown)
     private var activeAggregateID: AudioObjectID = AudioObjectID(kAudioObjectUnknown)
+    private var activeAggregateUID: String?
     private var ioProcID: AudioDeviceIOProcID?
     private var isTapRunning = false
     private var lastZeroBufferRecoveryAt: Date = .distantPast
@@ -41,6 +105,7 @@ public final class ProcessTapEngine: @unchecked Sendable {
         self.lastSampleRate = sampleRate
         let cfg = timbre_dsp_default_config(sampleRate, 1024)
         self.dspEngine = timbre_dsp_create(cfg)
+        _ = OrphanedTapCleanup.cleanupOrphanedAggregates()
     }
 
     deinit {
@@ -226,6 +291,10 @@ public final class ProcessTapEngine: @unchecked Sendable {
 
     private func startDestinationTap(outputDevice: AudioDeviceDescriptor, excludedBundleIDs: [String]) -> Bool {
         if #available(macOS 14.2, *) {
+            lock.lock()
+            let excluded = activeAggregateUID.map { Set([$0]) } ?? []
+            lock.unlock()
+            _ = OrphanedTapCleanup.cleanupOrphanedAggregates(excludingUIDs: excluded)
             // Global tap excluding self + VoIP/DAW safe ignore list (C-02)
             let tapDesc = CATapDescription(stereoGlobalTapButExcludeProcesses: [])
             tapDesc.name = "timbr.tap.\(outputDevice.uid)"
@@ -254,9 +323,10 @@ public final class ProcessTapEngine: @unchecked Sendable {
                 kAudioSubTapUIDKey as String: tapDesc.uuid.uuidString,
                 kAudioSubTapDriftCompensationKey as String: false
             ]
+            let aggregateUID = "\(Self.aggregateUIDPrefix)\(UUID().uuidString)"
             let aggDesc: [String: Any] = [
                 kAudioAggregateDeviceNameKey as String: "timbr.agg.\(outputDevice.name)",
-                kAudioAggregateDeviceUIDKey as String: "dev.v1torres.timbr.agg.\(UUID().uuidString)",
+                kAudioAggregateDeviceUIDKey as String: aggregateUID,
                 kAudioAggregateDeviceMainSubDeviceKey as String: outputDevice.uid,
                 kAudioAggregateDeviceSubDeviceListKey as String: [subDevDict],
                 kAudioAggregateDeviceTapListKey as String: [tapEntry],
@@ -311,6 +381,7 @@ public final class ProcessTapEngine: @unchecked Sendable {
             lock.lock()
             activeTapID = tapID
             activeAggregateID = aggID
+            activeAggregateUID = aggregateUID
             ioProcID = procID
             isTapRunning = true
             lock.unlock()
@@ -325,6 +396,7 @@ public final class ProcessTapEngine: @unchecked Sendable {
         let tap = activeTapID
         let proc = ioProcID
         activeAggregateID = AudioObjectID(kAudioObjectUnknown)
+        activeAggregateUID = nil
         activeTapID = AudioObjectID(kAudioObjectUnknown)
         ioProcID = nil
         isTapRunning = false

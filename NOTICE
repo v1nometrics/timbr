@@ -1,0 +1,42 @@
+timbr. — Third-Party Notices & Attributions
+SPDX-License-Identifier: MPL-2.0
+
+This project is licensed under the Mozilla Public License 2.0 (see LICENSE).
+The following components and protocol implementations include mechanisms adapted
+from license-compatible open-source projects (MIT):
+
+--------------------------------------------------------------------------------
+1. Zhengyang-Liu/m4-companion (MIT License)
+Repository: https://github.com/Zhengyang-Liu/m4-companion
+Adapted in: Sources/TimbreEngine/Momentum4Driver.swift
+Details: GAIA v3 SPP framing/deframing (0xFF 0x03 length framing), Sennheiser
+Momentum 4 read-only command opcodes (0x0603 battery, 0x0804 sound mode,
+0x1000/0x1002 EQ bands, 0x1009 bass boost, 0x1a05 ANC, 0x1805/0x1a03
+transparency, 0x0406 BT compatibility mode), and IOBluetooth RFCOMM read flow.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+--------------------------------------------------------------------------------
+2. AbhisekGanguly/AudioRouter (MIT License)
+Repository: https://github.com/AbhisekGanguly/AudioRouter
+Adapted in: Sources/TimbreEngine/ProcessTapEngine.swift (OrphanedTapCleanup)
+Details: Startup and pre-tap enumeration/destruction of leaked private Core
+Audio aggregate devices matching the app's aggregate UID prefix after crashes
+or SIGKILL, preventing `.mutedWhenTapped` taps from leaving apps silently muted.
+
+Copyright (c) 2026 Abhisek Ganguly
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.

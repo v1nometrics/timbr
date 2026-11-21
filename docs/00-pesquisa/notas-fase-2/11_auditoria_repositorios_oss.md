@@ -1,7 +1,7 @@
 # 11. Auditoria de Engenharia Open Source — Síntese, Matriz de Licenças e BOM
 
 - **Data de consulta:** 2026-11-21
-- **Escopo total:** **63 repositórios** no GitHub auditados via `gh api` e clones rasos (`--depth 1`) + **SoundTouch** (LGPL-2.1), **REW** (proprietário freeware) e **3 benchmarks comerciais** (SoundSource 6.2, Loopback 2.5, EQBase).
+- **Escopo total:** **68 repositórios** no GitHub auditados via `gh api` e clones rasos (`--depth 1`) + **SoundTouch** (LGPL-2.1), **REW** (proprietário freeware) e **3 benchmarks comerciais** (SoundSource 6.2, Loopback 2.5, EQBase).
 - **Documentos detalhados por domínio:**
   - [11a — Captura (Process Taps), Mixagem, HAL, Drivers Virtuais e Benchmarks](11a_auditoria_captura_audio_hal.md)
   - [11b — Motores DSP/EQ, Resamplers, Loudness, AutoEq e Frameworks](11b_auditoria_dsp_presets.md)
@@ -22,7 +22,7 @@
 
 ## Cited Findings
 
-### 1. Tabela-Resumo Geral (62 repositórios de `repos.txt` + JUCE + externos)
+### 1. Tabela-Resumo Geral (67 repositórios GitHub auditados + JUCE + externos)
 
 | Repositório | HEAD SHA (último push) | Licença verificada | Stars / Contrib. (top) | Issues+PRs abertas | Testes / CI | Classificação | Nota & Síntese |
 |---|---|---|---|---|---|---|---|
@@ -48,6 +48,11 @@
 | [`deweller/switchaudio-osx`](https://github.com/deweller/switchaudio-osx) | `6659247d96` (2024-07-07) | `MIT-like custom` | 1460 / 11 (top: deweller 16) | 21 | 0 testes / sem CI | **`DESCARTAR`** | [11a](11a_auditoria_captura_audio_hal.md) — CLI C antiga; sem AirPlay (#76/#63) |
 | [`karaggeorge/macos-audio-devices`](https://github.com/karaggeorge/macos-audio-devices) | `5b5db178bc` (2023-01-19) | `MIT` | 175 / 5 (top: karaggeorge 24) | 15 | 1 arq / CI | **`DESCARTAR`** | [11a](11a_auditoria_captura_audio_hal.md) — Sem manutenção desde 2020 |
 | [`belugaming/tapline`](https://github.com/belugaming/tapline) | `9036e352db` (2026-11-03) | `GPL-3.0` | 5 / 3 (top: belugaming 131) | 0 | 25 arqs / CI | **`ESTUDAR COMO REFERÊNCIA`** | [11a](11a_auditoria_captura_audio_hal.md) — TaplineCore (LinearPhaseEQ, ADI-2, HFP <40kHz fix) |
+| [`Zhengyang-Liu/m4-companion`](https://github.com/Zhengyang-Liu/m4-companion) | `6c04f5e069` (2026-11-15) | `MIT` | 5 / 1 (top: Zhengyang-Liu 24) | 1 | 2 arqs / sem CI | **`ADAPTAR`** | Framing `GaiaSPP` (`0xFF 0x03`), `GaiaSPPDeframer`, opcodes read-only GAIA v3 e cliente `IOBluetooth` RFCOMM para Momentum 4 (integrado em `Momentum4Driver.swift`) |
+| [`AbhisekGanguly/AudioRouter`](https://github.com/AbhisekGanguly/AudioRouter) | `34853de500` (2026-07-12) | `MIT` | 1 / 1 (top: AbhisekGanguly 5) | 0 | 0 testes / sem CI | **`ADAPTAR`** | Padrão `OrphanedTapCleanup` para destruir aggregates vazados em crash antes de novos taps (integrado em `ProcessTapEngine.swift`) + extensão Chrome Tabs |
+| [`BySergiMM/OmniMac`](https://github.com/BySergiMM/OmniMac) | `90defc7a62` (2026-11-19) | `MIT` | 23 / 1 (top: BySergiMM 158) | 0 | 0 testes / sem CI | **`ESTUDAR COMO REFERÊNCIA`** | Notch multi-utilitário + EQ 10 bandas `Float32` RBJ + `CAtomics` + `NotchGeometry` |
+| [`niyamvora/ILoveNotch`](https://github.com/niyamvora/ILoveNotch) | `7bae99b4df` (2026-11-20) | `MIT` | 42 / 1 (top: niyamvora 297) | 2 | 0 testes / sem CI | **`ESTUDAR COMO REFERÊNCIA`** | Notch multi-tool SwiftUI com espectro e controles básicos por app |
+| [`XPro-Gamer-Rhine/R9-EQ-app`](https://github.com/XPro-Gamer-Rhine/R9-EQ-app) | `8d3b0ec2a8` (2026-09-08) | `NONE (sem LICENSE / só docs+binário)` | 0 / 1 (top: XPro-Gamer-Rhine 17) | 0 | 0 testes / sem CI | **`DESCARTAR`** | Apenas binário fechado + docs/screenshots; sem código-fonte nem licença OSS |
 | [`HEnquist/camilladsp`](https://github.com/HEnquist/camilladsp) | `05e9cfcdf4` (2026-11-12) | `GPL-3.0-only OR MPL-2.0` | 1110 / 14 (top: HEnquist 1627) | 45 | 87 arqs (v5) / 7 CI | **`ADAPTAR`** | [11b](11b_auditoria_dsp_presets.md) — v5 (v5.0.0-beta.2, 1ea8b9c551) expõe crates f64; pinar versão |
 | [`HEnquist/rubato`](https://github.com/HEnquist/rubato) | `f8711e2252` (2026-11-12) | `MIT OR Apache-2.0` | 374 / 13 (top: HEnquist 472) | 0 | benches / 2 CI | **`REUTILIZAR DIRETAMENTE`** | [11b](11b_auditoria_dsp_presets.md) — Resampler Rust f64 de alta qualidade integrado ao CamillaDSP |
 | [`jaakkopasanen/AutoEq`](https://github.com/jaakkopasanen/AutoEq) | `7ae0f56d53` (2026-11-05) | `MIT` | 16476 / 18 (top: jaakkopasanen 844) | 244 | 37 arqs / sem CI | **`REUTILIZAR DIRETAMENTE`** | [11b](11b_auditoria_dsp_presets.md) — Catálogo de perfis AutoEq e formato ParametricEQ/GraphicEQ |
