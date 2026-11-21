@@ -794,6 +794,8 @@ public final class AppState: ObservableObject {
 
     public func saveCurrentPreset() {
         activePreset.updatedAt = Date()
+        // RF-0404 / RF-0607: a saved preset belongs to the output it was tuned on (UID, never AudioObjectID).
+        if activePreset.deviceUID == nil { activePreset.deviceUID = activeOutputDevice?.uid }
         try? store?.savePreset(activePreset)
         if let idx = savedPresets.firstIndex(where: { $0.id == activePreset.id }) {
             savedPresets[idx] = activePreset

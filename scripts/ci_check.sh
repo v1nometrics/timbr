@@ -33,6 +33,17 @@ if grep -rnE "SPDX-License-Identifier:\s*(GPL|AGPL)" "$ROOT/Sources" "$ROOT/exte
 fi
 echo "  [PASS] Zero GPL/AGPL headers"
 
+echo "=== 3b. Design System Guardrail (no stock chrome on product surfaces) ==="
+if grep -nE '(^|[^T])Slider\(|[^T]Toggle\(|Picker\(|\.borderedProminent|buttonStyle\(\.bordered\)|textFieldStyle\(\.roundedBorder\)|Divider\(\)' "$ROOT"/Sources/TimbreApp/*.swift; then
+  echo "  [FAIL] Stock controls found. Use DSComponents (TFader, TSwitch, TSegmented, TButtonStyle, Hairline)."
+  exit 1
+fi
+if grep -nE '\.stroke\(|strokeBorder' "$ROOT/Sources/TimbreApp/NotchOverlay.swift"; then
+  echo "  [FAIL] The notch surface must never be stroked (absolute black, no outline)."
+  exit 1
+fi
+echo "  [PASS] No stock chrome; notch has no outline"
+
 echo "=== 4. Build Full App Bundle & Compile Modules ==="
 "$ROOT/scripts/build_app.sh"
 

@@ -74,15 +74,23 @@
   },
   "spring": {
     "snappy": {
-      "duration": 0.26,
+      "duration": 0.24,
       "bounce": 0.0
     },
     "smooth": {
-      "duration": 0.4,
+      "duration": 0.36,
       "bounce": 0.0
     },
     "morph": {
       "duration": 0.42,
+      "bounce": 0.0
+    },
+    "notchOpen": {
+      "duration": 0.44,
+      "bounce": 0.14
+    },
+    "notchClose": {
+      "duration": 0.32,
       "bounce": 0.0
     },
     "responsive": {

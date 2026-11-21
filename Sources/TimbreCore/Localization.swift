@@ -207,9 +207,9 @@ public enum TimbreStrings {
         "onboard.step.ready": [.ptBR: "Pronto", .es: "Listo", .en: "Ready"],
         "onboard.welcome.title": [.ptBR: "Som, precisamente seu.", .es: "Sonido, precisamente tuyo.", .en: "Sound, precisely yours."],
         "onboard.welcome.body": [
-            .ptBR: "Mixer por app, equalização HiFi em Float64 e um observatório honesto — tudo no notch do seu Mac, 100% local.",
-            .es: "Mezclador por app, ecualización HiFi en Float64 y un observatorio honesto — todo en el notch de tu Mac, 100% local.",
-            .en: "Per-app mixer, Float64 HiFi EQ, and an honest observatory — right in your Mac notch, 100% local."
+            .ptBR: "Volume por app, equalização em 64 bits e um observatório que mostra o caminho do som. No notch do seu Mac, 100% local.",
+            .es: "Volumen por app, ecualización en 64 bits y un observatorio que muestra la ruta del sonido. En el notch de tu Mac, 100% local.",
+            .en: "Per-app volume, 64-bit equalization and an observatory that shows the path of your sound. In your Mac notch, 100% local."
         ],
         "onboard.language": [.ptBR: "Idioma", .es: "Idioma", .en: "Language"],
         "onboard.promise.title": [.ptBR: "Privacidade sem concessões", .es: "Privacidad sin concesiones", .en: "Privacy without compromise"],
@@ -268,8 +268,12 @@ public enum TimbreStrings {
     ]
 
     public static func get(_ key: String, lang: TimbreLanguage) -> String {
-        table[key]?[lang] ?? table[key]?[.en] ?? key
+        let row = table[key] ?? uiTable[key]
+        return row?[lang] ?? row?[.en] ?? key
     }
 
-    public static var allKeys: [String] { Array(table.keys).sorted() }
+    public static var allKeys: [String] { Array(Set(table.keys).union(uiTable.keys)).sorted() }
+
+    /// Lookup helper for the full merged table (legacy + UI 2.0).
+    public static func row(_ key: String) -> [TimbreLanguage: String]? { table[key] ?? uiTable[key] }
 }

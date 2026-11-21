@@ -3,15 +3,31 @@
   "fontFamily": {
     "sans": {
       "$type": "fontFamily",
-      "$value": ["Geist", "SF Pro Text", "-apple-system", "sans-serif"]
+      "$value": [
+        "SF Pro",
+        "-apple-system",
+        "BlinkMacSystemFont",
+        "Geist",
+        "sans-serif"
+      ]
     },
     "mono": {
       "$type": "fontFamily",
-      "$value": ["Geist Mono", "SF Mono", "ui-monospace", "monospace"]
+      "$value": [
+        "SF Mono",
+        "ui-monospace",
+        "Geist Mono",
+        "monospace"
+      ]
     },
     "serif": {
       "$type": "fontFamily",
-      "$value": ["Geist Serif", "New York", "Georgia", "serif"]
+      "$value": [
+        "New York",
+        "ui-serif",
+        "Georgia",
+        "serif"
+      ]
     }
   },
   "fontWeight": {
@@ -22,6 +38,10 @@
     "medium": {
       "$type": "fontWeight",
       "$value": 500
+    },
+    "semibold": {
+      "$type": "fontWeight",
+      "$value": 600
     }
   },
   "typeStyle": {
@@ -30,36 +50,24 @@
       "$value": {
         "fontFamily": "mono",
         "fontSize": "9px",
-        "fontWeight": 400,
-        "letterSpacing": "0.72px",
-        "lineHeight": 1.2,
-        "tabularNums": true
-      },
-      "$description": "Marcas de eixo EQ (20, 1K, 20K), timestamps"
-    },
-    "kicker": {
-      "$type": "typography",
-      "$value": {
-        "fontFamily": "mono",
-        "fontSize": "10px",
         "fontWeight": 500,
-        "letterSpacing": "1.0px",
-        "lineHeight": 1.3,
-        "tabularNums": true
-      },
-      "$description": "Indices 01, 02, cabecalhos de tabela"
+        "letterSpacing": "0.6px",
+        "lineHeight": 1.2,
+        "tabularNums": true,
+        "textTransform": "uppercase"
+      }
     },
     "eyebrow": {
       "$type": "typography",
       "$value": {
         "fontFamily": "mono",
-        "fontSize": "11px",
+        "fontSize": "10px",
         "fontWeight": 500,
-        "letterSpacing": "1.21px",
-        "lineHeight": 1.4,
+        "letterSpacing": "1.1px",
+        "lineHeight": 1.3,
+        "tabularNums": true,
         "textTransform": "uppercase"
-      },
-      "$description": "Eyebrow canonico (CAIXA ALTA, ink.muted, separador middot)"
+      }
     },
     "monoValue": {
       "$type": "typography",
@@ -67,11 +75,21 @@
         "fontFamily": "mono",
         "fontSize": "11px",
         "fontWeight": 400,
-        "letterSpacing": "0.22px",
+        "letterSpacing": "0px",
         "lineHeight": 1.3,
         "tabularNums": true
-      },
-      "$description": "Unidades (DB, HZ, KHZ, LUFS, MS), selos"
+      }
+    },
+    "monoSmall": {
+      "$type": "typography",
+      "$value": {
+        "fontFamily": "mono",
+        "fontSize": "10px",
+        "fontWeight": 400,
+        "letterSpacing": "0px",
+        "lineHeight": 1.3,
+        "tabularNums": true
+      }
     },
     "caption": {
       "$type": "typography",
@@ -79,10 +97,9 @@
         "fontFamily": "sans",
         "fontSize": "11px",
         "fontWeight": 400,
-        "letterSpacing": "-0.11px",
-        "lineHeight": 1.45
-      },
-      "$description": "Rodape de card, selo de fonte de medicao"
+        "letterSpacing": "0.06px",
+        "lineHeight": 1.4
+      }
     },
     "small": {
       "$type": "typography",
@@ -90,78 +107,122 @@
         "fontFamily": "sans",
         "fontSize": "12px",
         "fontWeight": 400,
-        "letterSpacing": "-0.12px",
+        "letterSpacing": "0px",
         "lineHeight": 1.4
-      },
-      "$description": "Subtitulo de card, notas, linha secundaria de faixa"
+      }
     },
     "body": {
       "$type": "typography",
       "$value": {
         "fontFamily": "sans",
-        "fontSize": "13.5px",
+        "fontSize": "13px",
         "fontWeight": 400,
-        "letterSpacing": "-0.14px",
+        "letterSpacing": "-0.08px",
+        "lineHeight": 1.45
+      }
+    },
+    "bodyStrong": {
+      "$type": "typography",
+      "$value": {
+        "fontFamily": "sans",
+        "fontSize": "13px",
+        "fontWeight": 600,
+        "letterSpacing": "-0.1px",
         "lineHeight": 1.4
-      },
-      "$description": "Nome de app no mixer, titulo de faixa, controles"
+      }
     },
     "prose": {
       "$type": "typography",
       "$value": {
         "fontFamily": "sans",
-        "fontSize": "14.5px",
+        "fontSize": "14px",
         "fontWeight": 400,
         "letterSpacing": "-0.15px",
-        "lineHeight": 1.6
-      },
-      "$description": "Explicacoes do Guardiao, Como ler, onboarding"
+        "lineHeight": 1.55
+      }
     },
     "cardTitle": {
       "$type": "typography",
       "$value": {
         "fontFamily": "sans",
-        "fontSize": "18px",
-        "fontWeight": 500,
-        "letterSpacing": "-0.45px",
+        "fontSize": "14px",
+        "fontWeight": 600,
+        "letterSpacing": "-0.2px",
+        "lineHeight": 1.3
+      }
+    },
+    "sectionTitle": {
+      "$type": "typography",
+      "$value": {
+        "fontFamily": "sans",
+        "fontSize": "17px",
+        "fontWeight": 600,
+        "letterSpacing": "-0.35px",
         "lineHeight": 1.25
-      },
-      "$description": "Titulo de painel no Estudio / Observatorio"
+      }
+    },
+    "pageTitle": {
+      "$type": "typography",
+      "$value": {
+        "fontFamily": "sans",
+        "fontSize": "28px",
+        "fontWeight": 600,
+        "letterSpacing": "-0.9px",
+        "lineHeight": 1.1
+      }
     },
     "mediumValue": {
       "$type": "typography",
       "$value": {
         "fontFamily": "sans",
-        "fontSize": "24px",
+        "fontSize": "22px",
         "fontWeight": 500,
-        "letterSpacing": "-0.96px",
-        "lineHeight": 1.0,
+        "letterSpacing": "-0.6px",
+        "lineHeight": 1.05,
         "tabularNums": true
-      },
-      "$description": "Valor central de dial / donut / notch expandido compacto"
+      }
     },
     "displayValue": {
       "$type": "typography",
       "$value": {
         "fontFamily": "sans",
-        "fontSize": "36px",
+        "fontSize": "34px",
         "fontWeight": 500,
-        "letterSpacing": "-1.62px",
-        "lineHeight": 1.05,
+        "letterSpacing": "-1.3px",
+        "lineHeight": 1.0,
         "tabularNums": true
-      },
-      "$description": "Volume grande no HUD/Estudio, KPI principal"
+      }
     },
     "heroTitle": {
       "$type": "typography",
       "$value": {
         "fontFamily": "sans",
-        "fontSize": "45px",
+        "fontSize": "28px",
+        "fontWeight": 600,
+        "letterSpacing": "-0.9px",
+        "lineHeight": 1.1
+      }
+    },
+    "notchTitle": {
+      "$type": "typography",
+      "$value": {
+        "fontFamily": "sans",
+        "fontSize": "13px",
+        "fontWeight": 600,
+        "letterSpacing": "-0.15px",
+        "lineHeight": 1.2
+      }
+    },
+    "notchValue": {
+      "$type": "typography",
+      "$value": {
+        "fontFamily": "sans",
+        "fontSize": "22px",
         "fontWeight": 500,
-        "letterSpacing": "-2.25px",
-        "lineHeight": 1.01
-      },
-      "$description": "Apenas onboarding e pagina web/Sobre"
+        "letterSpacing": "-0.7px",
+        "lineHeight": 1.0,
+        "tabularNums": true
+      }
     },
     "lyric": {
       "$type": "typography",
@@ -169,10 +230,9 @@
         "fontFamily": "serif",
         "fontSize": "16px",
         "fontWeight": 400,
-        "letterSpacing": "-0.08px",
+        "letterSpacing": "-0.1px",
         "lineHeight": 1.45
-      },
-      "$description": "Letras sincronizadas no notch e no Estudio"
+      }
     }
   }
 }

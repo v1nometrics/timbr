@@ -118,7 +118,7 @@ struct TimbreCoreTestRunner {
         // 5. Localization parity PT-BR / ES / EN + Compact <=40pt ear token length
         for key in TimbreStrings.allKeys {
             for lang in TimbreLanguage.allCases {
-                let val = TimbreStrings.table[key]?[lang] ?? ""
+                let val = TimbreStrings.row(key)?[lang] ?? ""
                 expect(!val.isEmpty, "Missing localization \(key) for \(lang.rawValue)")
             }
         }

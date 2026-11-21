@@ -93,10 +93,10 @@ public struct AppleAccessoryCard: View {
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(telemetry.modelIdentifier ?? kind.displayName)
-                        .font(TimbreTypography.cardTitle.font)
+                        .type(TimbreTypography.cardTitle)
                         .foregroundStyle(colors.ink_primary)
                     Text(appState.t("dev.apple.family"))
-                        .font(TimbreTypography.eyebrow.font)
+                        .type(TimbreTypography.eyebrow)
                         .foregroundStyle(colors.ink_muted)
                         .tracking(1.1)
                 }
@@ -112,18 +112,18 @@ public struct AppleAccessoryCard: View {
             }
 
             Text(appState.t("dev.apple.aacp_closed"))
-                .font(TimbreTypography.caption.font)
+                .type(TimbreTypography.caption)
                 .foregroundStyle(colors.ink_muted)
                 .fixedSize(horizontal: false, vertical: true)
 
             Text(appState.t("dev.apple.continuity_hint"))
-                .font(TimbreTypography.caption.font)
+                .type(TimbreTypography.caption)
                 .foregroundStyle(colors.ink_muted)
                 .fixedSize(horizontal: false, vertical: true)
 
             if telemetry.spatialAudioMayAlterFR == true {
                 Text(appState.t("dev.apple.spatial_warn"))
-                    .font(TimbreTypography.caption.font)
+                    .type(TimbreTypography.caption)
                     .foregroundStyle(colors.semantic_warning)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -131,10 +131,10 @@ public struct AppleAccessoryCard: View {
             if let keys = telemetry.systemManagedFeatureKeys, !keys.isEmpty {
                 VStack(alignment: .leading, spacing: TimbreSpacing.s2) {
                     Text(appState.t("dev.apple.features_title"))
-                        .font(TimbreTypography.small.font)
+                        .type(TimbreTypography.small)
                         .foregroundStyle(colors.ink_secondary)
                     Text(appState.t("dev.apple.features_system"))
-                        .font(TimbreTypography.caption.font)
+                        .type(TimbreTypography.caption)
                         .foregroundStyle(colors.ink_muted)
                     FlowFeatureChips(keys: keys, t: appState.t, colors: colors)
                 }
@@ -147,7 +147,7 @@ public struct AppleAccessoryCard: View {
                     ContinuityBLEScanner.shared.requestScanBurst()
                     appState.refreshSystemState()
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(.t(.secondary))
                 .keyboardShortcut("r", modifiers: [.command])
             }
         }
@@ -180,7 +180,7 @@ public struct AppleAccessoryCard: View {
         case .muted: colors.ink_muted
         }
         return Text(text)
-            .font(TimbreTypography.micro.font)
+            .type(TimbreTypography.micro)
             .padding(.horizontal, 7)
             .padding(.vertical, 3)
             .background(tone == .muted ? colors.bg_track : color.opacity(0.12))
@@ -199,7 +199,7 @@ private struct FlowFeatureChips: View {
         LazyVGrid(columns: [GridItem(.adaptive(minimum: 120), spacing: 6)], alignment: .leading, spacing: 6) {
             ForEach(keys, id: \.self) { key in
                 Text(t("dev.apple.feature.\(key)"))
-                    .font(TimbreTypography.micro.font)
+                    .type(TimbreTypography.micro)
                     .foregroundStyle(colors.ink_secondary)
                     .padding(.horizontal, 7)
                     .padding(.vertical, 4)

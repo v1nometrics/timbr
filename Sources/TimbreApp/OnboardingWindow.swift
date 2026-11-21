@@ -26,7 +26,6 @@ public struct OnboardingWindow: View {
     public var body: some View {
         ZStack {
             colors.bg_canvas.ignoresSafeArea()
-            atmosphere
 
             VStack(alignment: .leading, spacing: 0) {
                 header
@@ -45,32 +44,20 @@ public struct OnboardingWindow: View {
         }
         .frame(width: 720, height: 520)
         .tint(colors.accent_base)
+        .surface(.dark)
+        .preferredColorScheme(.dark)
     }
 
-    private var atmosphere: some View {
-        ZStack {
-            Circle()
-                .stroke(colors.ink_primary.opacity(0.11), lineWidth: 1)
-                .frame(width: 420, height: 420)
-                .offset(x: 210, y: -120)
-            Circle()
-                .stroke(colors.ink_primary.opacity(0.07), lineWidth: 1)
-                .frame(width: 560, height: 560)
-                .offset(x: 210, y: -120)
-        }
-        .allowsHitTesting(false)
-        .accessibilityHidden(true)
-    }
 
     private var header: some View {
         VStack(alignment: .leading, spacing: TimbreSpacing.s3) {
             Text(appState.t("app.name"))
-                .font(TimbreTypography.heroTitle.font)
+                .type(TimbreTypography.heroTitle)
                 .foregroundStyle(colors.ink_primary)
                 .accessibilityAddTraits(.isHeader)
 
             Text(appState.t("onboard.kicker").uppercased())
-                .font(TimbreTypography.eyebrow.font)
+                .type(TimbreTypography.eyebrow)
                 .foregroundStyle(colors.ink_muted)
                 .tracking(1.2)
 
@@ -109,27 +96,21 @@ public struct OnboardingWindow: View {
     private var welcomeStep: some View {
         VStack(alignment: .leading, spacing: TimbreSpacing.s5) {
             Text(appState.t("onboard.welcome.title"))
-                .font(TimbreTypography.displayValue.font)
+                .type(TimbreTypography.displayValue)
                 .foregroundStyle(colors.ink_primary)
                 .fixedSize(horizontal: false, vertical: true)
 
             Text(appState.t("onboard.welcome.body"))
-                .font(TimbreTypography.prose.font)
+                .type(TimbreTypography.prose)
                 .foregroundStyle(colors.ink_secondary)
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: 480, alignment: .leading)
 
             VStack(alignment: .leading, spacing: TimbreSpacing.s2) {
                 Text(appState.t("onboard.language"))
-                    .font(TimbreTypography.caption.font)
+                    .type(TimbreTypography.caption)
                     .foregroundStyle(colors.ink_muted)
-                Picker(appState.t("onboard.language"), selection: $appState.language) {
-                    ForEach(TimbreLanguage.allCases, id: \.self) { lang in
-                        Text(lang.displayName).tag(lang)
-                    }
-                }
-                .pickerStyle(.segmented)
-                .frame(maxWidth: 360)
+                TSegmented(options: TimbreLanguage.allCases.map { ($0, $0.displayName) }, selection: $appState.language)
             }
             .padding(.top, TimbreSpacing.s2)
         }
@@ -139,7 +120,7 @@ public struct OnboardingWindow: View {
     private var promiseStep: some View {
         VStack(alignment: .leading, spacing: TimbreSpacing.s5) {
             Text(appState.t("onboard.promise.title"))
-                .font(TimbreTypography.cardTitle.font)
+                .type(TimbreTypography.cardTitle)
                 .foregroundStyle(colors.ink_primary)
 
             promiseRow(symbol: "lock.shield", text: appState.t("onboard.promise.local"))
@@ -152,11 +133,11 @@ public struct OnboardingWindow: View {
     private var permissionsStep: some View {
         VStack(alignment: .leading, spacing: TimbreSpacing.s4) {
             Text(appState.t("onboard.permissions.title"))
-                .font(TimbreTypography.cardTitle.font)
+                .type(TimbreTypography.cardTitle)
                 .foregroundStyle(colors.ink_primary)
 
             Text(appState.t("onboard.permissions.body"))
-                .font(TimbreTypography.prose.font)
+                .type(TimbreTypography.prose)
                 .foregroundStyle(colors.ink_secondary)
                 .fixedSize(horizontal: false, vertical: true)
 
@@ -183,7 +164,7 @@ public struct OnboardingWindow: View {
             )
 
             Text(appState.t("onboard.permissions.later"))
-                .font(TimbreTypography.caption.font)
+                .type(TimbreTypography.caption)
                 .foregroundStyle(colors.ink_muted)
         }
         .transition(reduceMotion ? .opacity : .asymmetric(insertion: .move(edge: .trailing).combined(with: .opacity), removal: .opacity))
@@ -192,17 +173,17 @@ public struct OnboardingWindow: View {
     private var readyStep: some View {
         VStack(alignment: .leading, spacing: TimbreSpacing.s5) {
             Text(appState.t("onboard.ready.title"))
-                .font(TimbreTypography.cardTitle.font)
+                .type(TimbreTypography.cardTitle)
                 .foregroundStyle(colors.ink_primary)
 
             Text(appState.t("onboard.ready.body"))
-                .font(TimbreTypography.prose.font)
+                .type(TimbreTypography.prose)
                 .foregroundStyle(colors.ink_secondary)
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: 520, alignment: .leading)
 
             Text(appState.t("onboard.ready.hint"))
-                .font(TimbreTypography.monoValue.font)
+                .type(TimbreTypography.monoValue)
                 .foregroundStyle(colors.ink_muted)
         }
         .transition(reduceMotion ? .opacity : .asymmetric(insertion: .move(edge: .trailing).combined(with: .opacity), removal: .opacity))
@@ -216,7 +197,7 @@ public struct OnboardingWindow: View {
                         step = OnboardingStep(rawValue: step.rawValue - 1) ?? .welcome
                     }
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(.t(.secondary))
             }
 
             Spacer()
@@ -228,7 +209,7 @@ public struct OnboardingWindow: View {
                         step = OnboardingStep(rawValue: step.rawValue + 1) ?? .ready
                     }
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.t(.primary))
                 .keyboardShortcut(.defaultAction)
 
             case .permissions:
@@ -237,24 +218,24 @@ public struct OnboardingWindow: View {
                         step = .ready
                     }
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(.t(.secondary))
                 Button(appState.t("onboard.next")) {
                     withAnimation(reduceMotion ? nil : TimbreMotion.enter) {
                         step = .ready
                     }
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.t(.primary))
                 .keyboardShortcut(.defaultAction)
 
             case .ready:
                 Button(appState.t("onboard.finish_menubar")) {
                     appState.completeOnboarding(openStudio: false)
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(.t(.secondary))
                 Button(appState.t("onboard.open_studio")) {
                     appState.completeOnboarding(openStudio: true)
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.t(.primary))
                 .keyboardShortcut(.defaultAction)
             }
         }
@@ -269,7 +250,7 @@ public struct OnboardingWindow: View {
                 .background(colors.accent_subtle)
                 .clipShape(RoundedRectangle(cornerRadius: TimbreRadius.control, style: .continuous))
             Text(text)
-                .font(TimbreTypography.prose.font)
+                .type(TimbreTypography.prose)
                 .foregroundStyle(colors.ink_secondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -280,10 +261,10 @@ public struct OnboardingWindow: View {
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: TimbreSpacing.s2) {
                     Text(title)
-                        .font(TimbreTypography.body.font)
+                        .type(TimbreTypography.body)
                         .foregroundStyle(colors.ink_primary)
                     Text(status)
-                        .font(TimbreTypography.micro.font)
+                        .type(TimbreTypography.micro)
                         .padding(.horizontal, 7)
                         .padding(.vertical, 3)
                         .background((required ? colors.semantic_warning : colors.semantic_info).opacity(0.16))
@@ -291,7 +272,7 @@ public struct OnboardingWindow: View {
                         .clipShape(RoundedRectangle(cornerRadius: TimbreRadius.badge))
                 }
                 Text(detail)
-                    .font(TimbreTypography.caption.font)
+                    .type(TimbreTypography.caption)
                     .foregroundStyle(colors.ink_muted)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -304,7 +285,7 @@ public struct OnboardingWindow: View {
                     }
                 }
             }
-            .buttonStyle(.bordered)
+            .buttonStyle(.t(.secondary))
         }
         .padding(TimbreSpacing.s3)
         .background(colors.bg_surface)

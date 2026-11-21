@@ -16,6 +16,19 @@
 
 ## Histórico Consolidado
 
+
+### 2026-11-21 · UI/UX v2.0 — redesign completo, notch preto de hardware e auditoria E2E
+
+1. **Diagnóstico com causa no código** (notch com contorno 11% e topo arredondado, controles padrão do macOS, Geist nunca empacotada, métricas sem sinal mostrando zero, polling de 50 ms): ver [auditoria-e2e-2026-11-21.md](auditoria-e2e-2026-11-21.md).
+2. **Notch reescrito** (`NotchOverlay.swift`): `NotchShape` com topo reto e ombros côncavos, preto `sRGB 0,0,0` sem contorno/sombra, morph em canvas estável, hover por `NSTrackingArea`, compacto/HUD/espiada/expandido redesenhados.
+3. **Componentes próprios** (`DSComponents.swift`) e **Estúdio** reescrito (`StudioWindow.swift`, `EQCurveCanvas.swift`), **barra de menus** desenhada (`MenuBarPanel.swift`), Introdução limpa.
+4. **Tokens v2** (paleta acromática quente + acento único de sinal; SF Pro/Mono/New York com tracking aplicado — ADR-0015).
+5. **~170 textos novos** PT/ES/EN (`LocalizationUI.swift`), paridade 308 chaves.
+6. **Preset por dispositivo** aplicado ao trocar de saída (RF-0404/0607).
+7. **CI:** nova etapa 3b reprova controles padrão e contorno no notch. `./scripts/ci_check.sh` → **ALL PASSED**.
+8. **Bíblia do design system v2.0** reescrita (`docs/05-design-system/`).
+9. **Em aberto (sem maquiagem):** roteamento por app (P0), Sparkle (P0), now playing, cenas, bancada física M4/AirPods.
+
 ### 2026-11-21 · Encerramento da Fase 0 de Planejamento, Pesquisa & Auditoria E2E (`timbr.`)
 
 1. **Pesquisa Técnica & Benchmarking (Fase 1 e Fase 2):**

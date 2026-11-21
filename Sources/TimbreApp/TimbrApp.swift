@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 import SwiftUI
 import AppKit
+import Combine
 import TimbreCore
 import TimbreEngine
 import TimbreDesignSystem
@@ -11,6 +12,8 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
     private var notchController: NotchPanelController?
     private var studioWindow: NSWindow?
     private var onboardingWindow: NSWindow?
+    private var reviewWindow: NSWindow?
+    private var cancellables: Set<AnyCancellable> = []
 
     public func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
@@ -25,6 +28,39 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         appState.start()
         notchController = NotchPanelController(appState: appState)
+        appState.$devices
+            .map { devs in devs.first(where: { $0.isDefaultOutput && $0.outputChannels > 0 })?.uid }
+            .removeDuplicates()
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in self?.appState.applyPresetForActiveDevice() }
+            .store(in: &cancellables)
+
+        // Design-review flags (screenshots of each surface without a human driving the UI):
+        //   --studio <mixer|equalizer|observatory|settings|support>   --notch <compact|peek|expanded|hud>
+        let args = ProcessInfo.processInfo.arguments
+        if let i = args.firstIndex(of: "--studio"), i + 1 < args.count, let tab = StudioTab(rawValue: args[i + 1]) {
+            appState.needsOnboarding = false
+            appState.selectedTab = tab
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak self] in self?.openStudio() }
+        }
+        if let i = args.firstIndex(of: "--notch"), i + 1 < args.count, let st = NotchState(rawValue: args[i + 1]) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in
+                if st == .hud { self?.appState.triggerHUD(title: "Output", value: 0.62, muted: false) } else { self?.appState.notchState = st }
+            }
+        }
+
+        if args.contains("--onboarding") {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak self] in self?.openOnboarding() }
+        }
+        if args.contains("--panel-preview") {
+            let win = NSWindow(contentViewController: NSHostingController(rootView: MenuBarPanel(delegate: self, appState: appState)))
+            win.styleMask = [.titled, .fullSizeContentView]
+            win.titlebarAppearsTransparent = true
+            win.titleVisibility = .hidden
+            win.setFrameTopLeftPoint(NSPoint(x: 80, y: (NSScreen.main?.frame.maxY ?? 900) - 80))
+            win.orderFrontRegardless()
+            reviewWindow = win
+        }
 
         // Headless smoke mode for automated verification: exits cleanly after initialization + tap check
         if ProcessInfo.processInfo.arguments.contains("--smoke-check") {
@@ -47,9 +83,15 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
             let view = StudioWindow(appState: appState)
             let hosting = NSHostingController(rootView: view)
             let win = NSWindow(contentViewController: hosting)
-            win.title = "timbr. Studio"
-            win.styleMask = [.titled, .closable, .miniaturizable, .resizable]
-            win.setContentSize(NSSize(width: 1020, height: 680))
+            win.title = "timbr."
+            // Full-size content: the sidebar runs under the traffic lights (no stock title bar).
+            win.styleMask = [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView]
+            win.titlebarAppearsTransparent = true
+            win.titleVisibility = .hidden
+            win.isMovableByWindowBackground = false
+            win.setContentSize(NSSize(width: 1180, height: 780))
+            win.minSize = NSSize(width: 980, height: 640)
+            win.setFrameAutosaveName("timbr.studio")
             win.center()
             win.isReleasedWhenClosed = false
             studioWindow = win
@@ -65,7 +107,9 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
             let hosting = NSHostingController(rootView: view)
             let win = NSWindow(contentViewController: hosting)
             win.title = "timbr."
-            win.styleMask = [.titled, .closable]
+            win.styleMask = [.titled, .closable, .fullSizeContentView]
+            win.titlebarAppearsTransparent = true
+            win.titleVisibility = .hidden
             win.setContentSize(NSSize(width: 720, height: 520))
             win.center()
             win.isReleasedWhenClosed = false
@@ -92,49 +136,12 @@ public struct TimbrApp: App {
     public init() {}
 
     public var body: some Scene {
-        MenuBarExtra("timbr.", systemImage: delegate.appState.isProcessingBypassed ? "waveform.slash" : "waveform.path.ecg") {
-            MenuBarContent(delegate: delegate, appState: delegate.appState)
+        MenuBarExtra {
+            MenuBarPanel(delegate: delegate, appState: delegate.appState)
+        } label: {
+            Image(systemName: delegate.appState.isProcessingBypassed ? "waveform.slash" : "waveform")
+                .accessibilityLabel("timbr.")
         }
-    }
-}
-
-private struct MenuBarContent: View {
-    let delegate: AppDelegate
-    @ObservedObject var appState: AppState
-
-    var body: some View {
-        Text("timbr. — \(appState.activeOutputDevice?.name ?? "—")")
-        if appState.needsOnboarding || appState.showOnboarding {
-            Button(appState.t("onboard.kicker") + "…") {
-                delegate.openOnboarding()
-            }
-            Divider()
-        }
-        Divider()
-        Button(appState.t("notch.open_studio") + " (⌥⌘,)") {
-            delegate.openStudio()
-        }
-        Button(appState.notchState == .expanded ? "Close Notch (⌥⌘V)" : "Expand Notch (⌥⌘V)") {
-            appState.toggleExpandedNotch()
-        }
-        Button(appState.isProcessingBypassed ? "Enable DSP (⌥⌘B)" : "Bypass (0 taps) (⌥⌘B)") {
-            appState.toggleBypass()
-        }
-        Button(appState.t("notch.ab_neutral") + " (⌥⌘A)") {
-            appState.toggleABNeutral()
-        }
-        Divider()
-        Menu(appState.t("mixer.destinations")) {
-            ForEach(appState.outputDevices) { dev in
-                Button(dev.isDefaultOutput ? "✓ \(dev.name)" : dev.name) {
-                    appState.selectDefaultOutput(dev)
-                }
-            }
-        }
-        Divider()
-        Button("Quit timbr.") {
-            NSApp.terminate(nil)
-        }
-        .keyboardShortcut("q")
+        .menuBarExtraStyle(.window)
     }
 }
