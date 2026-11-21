@@ -60,6 +60,9 @@ Gera automaticamente:
 # Apenas montar e assinar ad-hoc o bundle dist/Timbr.app:
 ./scripts/build_app.sh
 
+# Gerar o instalador distribuível dist/Timbr.dmg:
+./scripts/build_dmg.sh
+
 # Abrir o Playground interativo do Design System:
 open design-system/playground/index.html
 ```
@@ -74,4 +77,4 @@ open design-system/playground/index.html
 
 ### Licença & Apoio
 
-Software livre sob **MPL-2.0** ([`LICENSE`](LICENSE)) com DCO ([`CONTRIBUTING.md`](CONTRIBUTING.md)), 100% local e sem telemetria. Se o projeto for útil no seu dia a dia, há uma aba dedicada de apoio voluntário dentro do próprio Estúdio.
+Software livre sob **MPL-2.0** ([`LICENSE`](LICENSE), atribuições em [`NOTICE`](NOTICE)) com DCO ([`CONTRIBUTING.md`](CONTRIBUTING.md)), 100% local e sem telemetria. Se o projeto for útil no seu dia a dia, há uma aba dedicada de apoio voluntário dentro do próprio Estúdio.
