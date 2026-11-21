@@ -1,0 +1,4 @@
+module CTimbreDSP {
+    header "timbre_dsp.h"
+    export *
+}
