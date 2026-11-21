@@ -45,3 +45,33 @@ python3 design-system/scripts/generate_tokens.py
 Gera automaticamente:
 - [`design-system/generated/TimbreTokens.swift`](design-system/generated/TimbreTokens.swift) (para o app macOS nativo Swift 6 / SwiftUI)
 - [`design-system/generated/tokens.css`](design-system/generated/tokens.css) (para site, documentação e playground interativo do Design System)
+
+---
+
+## Build, Testes e Execução (macOS 14.2+ / Apple Silicon)
+
+> **Nota de ambiente (macOS 26.6 CLT sem Xcode.app):** nesta máquina, o binário `swift-package` do CommandLineTools 26.6 falha com erro de `dyld` (`BuildServerProtocol`), portanto os scripts abaixo invocam diretamente `clang++` + `swiftc` com `-sdk .../MacOSX26.sdk`. O `Package.swift` permanece sincronizado para builds via Xcode/SwiftPM completo.
+
+```bash
+# Verificar tokens, extensões, zero-GPL, compilar todos os módulos,
+# rodar testes C++20 (ASan+UBSan), Swift 6 Core/Engine, montar dist/Timbr.app e smoke check:
+./scripts/ci_check.sh
+
+# Apenas montar e assinar ad-hoc o bundle dist/Timbr.app:
+./scripts/build_app.sh
+
+# Abrir o Playground interativo do Design System:
+open design-system/playground/index.html
+```
+
+### Estrutura de Código & Extensões
+
+- [`Sources/CTimbreDSP`](Sources/CTimbreDSP): núcleo DSP `Float64` em C++20 + `Accelerate/vDSP` (biquads Vicanek/RBJ, Auto-Preamp + margem de fase, True-Peak Lookahead Limiter, BS.1770 K-weighting, crossfeed `bs2b`, TPDF dither, FFT ~60 Hz, A/B crossfade de latência equalizada, zero alocações no caminho RT).
+- [`Sources/TimbreCore`](Sources/TimbreCore): modelos, parser EqualizerAPO, i18n trilíngue `PT-BR / ES / EN`, Guardião (`G-01`–`G-07`), persistência SQLite, catálogo AutoEq, roteador de IA local com bounds rígidos, treinador Bayesiano (`PairwiseGP`), servidor IPC loopback autenticado (`127.0.0.1:48192`) e exportador sanitizado.
+- [`Sources/TimbreEngine`](Sources/TimbreEngine): HAL Core Audio + snapshot/restauração P3, `ProcessTapEngine` (`CATapDescription` + P1 `0 taps` em neutro/bypass), driver read-only Sennheiser Momentum 4 (GAIA v3 + denylist `0x0607`/`0x02xx`), adaptador AirPods Pro, detector de apps de notch concorrentes e `MediaKeyTap`.
+- [`Sources/TimbreApp`](Sources/TimbreApp): app nativo SwiftUI + AppKit (`NSPanel` não ativante em 5 estados + Pílula externa, MenuBarExtra, Estúdio com Mixer, Canvas EQ+FFT, Observatório/Guardião, Ajustes Pre-TCC e aba Apoiar/Doações).
+- [`extensions/chrome-mv3`](extensions/chrome-mv3) & [`extensions/safari-web-ext`](extensions/safari-web-ext): extensões MV3 para controle por aba via IPC autenticado por token efêmero.
+
+### Licença & Apoio
+
+Software livre sob **MPL-2.0** ([`LICENSE`](LICENSE)) com DCO ([`CONTRIBUTING.md`](CONTRIBUTING.md)), 100% local e sem telemetria. Se o projeto for útil no seu dia a dia, há uma aba dedicada de apoio voluntário dentro do próprio Estúdio.

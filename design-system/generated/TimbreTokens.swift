@@ -166,3 +166,12 @@ public enum TimbreTypography {
     public static let heroTitle = TimbreTypeSpec(family: "sans", size: 45, weight: 500, tracking: -2.25, lineHeightMultiplier: 1.01, tabularNums: false, uppercase: false)
     public static let lyric = TimbreTypeSpec(family: "serif", size: 16, weight: 400, tracking: -0.08, lineHeightMultiplier: 1.45, tabularNums: false, uppercase: false)
 }
+
+private extension Color {
+    init(hex: UInt32) {
+        let r = Double((hex >> 16) & 0xFF) / 255.0
+        let g = Double((hex >> 8) & 0xFF) / 255.0
+        let b = Double(hex & 0xFF) / 255.0
+        self.init(.sRGB, red: r, green: g, blue: b, opacity: 1.0)
+    }
+}

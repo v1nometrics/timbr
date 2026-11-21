@@ -44,3 +44,17 @@
 2. Executar **`E-01`** (Process Tap com ganho `1.0` vs saída direta em BlackHole: medir Null Test, latência e fail-safe `kill -9`) para validar `H-01`.
 3. Executar **`E-06`** (benchmark offline + Clang RTSan do núcleo `Float64` em C++20/`vDSP` vs `camilladsp` v5, incluindo shelving Vicanek 2024 e True Peak 4× vs 8×) para fechar [`ADR-0003`](../07-decisoes/ADR-0003-nucleo-dsp.md).
 4. Executar **`E-07`** (sonda HAL em saída integrada, DAC USB, Momentum 4 BT/USB/P2 e AirPods Pro) para fechar a matriz empírica de hardware.
+
+---
+
+### 2026-11-21 · Fase 2 — Implementação E2E, `CLEAN_SWEEP` e Verificação Automatizada (`vinicius/e2e-implementation`)
+
+1. **Governança Open Source & Portfolio (`ADR-0001` Aceito):**
+   - Adicionados [`LICENSE`](../../LICENSE) (**MPL-2.0**) e [`CONTRIBUTING.md`](../../CONTRIBUTING.md) (DCO + isolamento GPL/AGPL); [`ADR-0001`](../07-decisoes/ADR-0001-licenca.md) e [`README.md`](../07-decisoes/README.md) promovidos para **Aceito**.
+2. **Experimentos de Fase 0 executados no hardware local:**
+   - `E-06`, `E-07`, `E-12` e `E-01` executados com binários reais compilados e resultados documentados em `experiments/*/RESULTADO.md`; `H-06` e `ADR-0003` promovidos para **Comprovado / Aceito**.
+3. **Implementação completa dos 4 módulos + extensões + playground + bundle `.app`:**
+   - `CTimbreDSP` (C++20 + `Accelerate/vDSP` Float64 RT-safe), `TimbreDesignSystem` (tokens gerados fonte única + playground HTML/CSS/JS), `TimbreCore` (Swift 6: modelos, EqualizerAPO, i18n `PT/ES/EN`, Guardião `G-01`–`G-07`, SQLite, AutoEq, IA com bounds, `PairwiseGP`, IPC loopback Bearer+Origin, diagnósticos sanitizados), `TimbreEngine` (HAL + snapshot P3, Process Tap P1, GAIA v3 read-only + denylist, AirPods HAL, detector de notch concorrente, `MediaKeyTap`), `TimbreApp` (`timbr.` SwiftUI+AppKit com 5 estados de notch + Pílula, MenuBarExtra, Estúdio completo + aba Apoiar/Doações, atalhos globais `⌥⌘V/B/A/O/M/,`) e extensões MV3 (`chrome-mv3` / `safari-web-ext`).
+4. **Testes & `CLEAN_SWEEP`:**
+   - `./scripts/ci_check.sh` passou integralmente após os ajustes finais da auditoria: geração de tokens, validação JSON das extensões, guarda zero-GPL, build `dist/Timbr.app` assinado ad-hoc (`codesign --verify`), `CTimbreDSPTests` sob ASan+UBSan, `TimbreCoreTests`, `TimbreEngineTests` e `--smoke-check` no binário `Timbr.app`.
+   - **Pendências honestas de hardware/ambiente:** testes físicos com Momentum 4 / AirPods Pro conectados (E-08/E-09/E-10 completos), TCC interativo de janela em uso contínuo e dogfood de 14 dias / 50 testadores (Gates G2/G3) permanecem abertos fora deste ambiente headless.

@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="pt-BR" data-surface="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>timbr. — Design System Playground</title>
+  <link rel="stylesheet" href="../generated/tokens.css" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <div class="eyebrow">ADR-0012 · SINGLE TOKEN SOURCE</div>
+      <h1>timbr. Design System Playground</h1>
+    </div>
+    <div class="surface-switch" role="group" aria-label="Surface mode">
+      <button data-surface-btn="light">Light</button>
+      <button data-surface-btn="dark" class="active">Dark</button>
+      <button data-surface-btn="notch">Notch (#000)</button>
+    </div>
+  </header>
+
+  <main class="grid">
+    <section class="card">
+      <h2>5-State Notch Simulator</h2>
+      <div class="notch-stage">
+        <div id="notchPreview" class="notch-box state-compact">
+          <span class="ear left">♪ Spot</span>
+          <span class="hardware-notch">179 pt</span>
+          <span class="ear right">EQ</span>
+        </div>
+      </div>
+      <div class="pill-row">
+        <button data-notch-state="resting">Repouso</button>
+        <button data-notch-state="compact" class="active">Compacto (≤40pt)</button>
+        <button data-notch-state="hud">HUD (1.2s)</button>
+        <button data-notch-state="peek">Espiada (120ms)</button>
+        <button data-notch-state="expanded">Expandido (⌥⌘V)</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Trust Badges & Semantic Palette</h2>
+      <div class="badges">
+        <span class="badge pos">MEDIDO</span>
+        <span class="badge info">BIT-PERFECT</span>
+        <span class="badge accent">REPORTADO</span>
+        <span class="badge warn">INFERIDO</span>
+        <span class="badge neg">CLIP PREVENTED</span>
+      </div>
+      <div class="swatches" id="swatches"></div>
+    </section>
+
+    <section class="card">
+      <h2>Typography Scale (Tabular Metrology)</h2>
+      <div class="type-row"><span class="micro">MICRO 9px</span><code>0x1002 · GAIA v3</code></div>
+      <div class="type-row"><span class="kicker">KICKER 10px</span><span>SENNHEISER MOMENTUM 4</span></div>
+      <div class="type-row"><span class="mono-val">-14.2 LUFS · -0.3 dBTP</span></div>
+      <div class="type-row"><span class="medium-val">48.0 kHz · 28.9 µs</span></div>
+      <div class="type-row"><span class="card-title">Sound, precisely yours.</span></div>
+    </section>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>

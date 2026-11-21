@@ -144,6 +144,17 @@ for tname, tdata in typography["typeStyle"].items():
     )
 swift_lines.append("}")
 
+swift_lines.extend([
+    "",
+    "private extension Color {",
+    "    init(hex: UInt32) {",
+    "        let r = Double((hex >> 16) & 0xFF) / 255.0",
+    "        let g = Double((hex >> 8) & 0xFF) / 255.0",
+    "        let b = Double(hex & 0xFF) / 255.0",
+    "        self.init(.sRGB, red: r, green: g, blue: b, opacity: 1.0)",
+    "    }",
+    "}",
+])
 with open(os.path.join(OUT, "TimbreTokens.swift"), "w", encoding="utf-8") as f:
     f.write("\n".join(swift_lines) + "\n")
 

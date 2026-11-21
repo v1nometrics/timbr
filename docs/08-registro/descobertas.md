@@ -62,3 +62,14 @@
 
 15. **Diretriz visual `timbr.` × `v1torres.dev` consolidada (Comprovado — `v1dev app/frontend/DESIGN_SYSTEM.md` + captura `timbr.`).**
     - `timbr.` herda o DNA minimalista, lowercase com pontuação (`.` vs `›v1_`), superfícies neutras puras e tipografia Geist do `v1torres.dev`, mantendo raios concêntricos do notch e cor funcional apenas para telemetria/segurança sonora (ADR-0014).
+
+16. **Validação empírica da Fase 0 no host local (`E-06`, `E-07`, `E-12`, `E-01` — Comprovado em 2026-11-21).**
+    - **E-06 (`Float64` + Vicanek):** em `MacBook Air arm64, macOS 26.6`, o Null Test neutro atingiu `0.000e+00` (`-240 dBFS`); pico `12 kHz +6dB Q=1.8 @ 48 kHz` teve erro máximo `0.3019 dB` (Vicanek) vs `1.6869 dB` (RBJ); filtro `20 Hz Q=4.0 +8dB @ 192 kHz` obteve THD+N **`-43.86 dB` em Float32 vs `-149.23 dB` em Float64** (+105 dB comprovando `H-06`); CPU `28.90 µs/bloco (0.27%)` em 10 bandas @ 48 kHz.
+    - **E-07 (HAL local):** `BuiltInSpeakerDevice` (`MacBook Air Speakers`) expõe `hwVolumeOutputMainSettable=true` (elem 0) e `hwVolumeOutputCh1Settable=false` (elem 1), latência `60+48` frames; Momentum 4 e AirPods Pro constam pareados porém desconectados no host durante a execução automatizada.
+    - **E-12 (Geometria do notch):** `Built-in Retina Display` (`1470x956`, scale `2`) apresentou `safeAreaTopInset = 32 pt`, `auxiliaryTopLeftArea w=646`, `auxiliaryTopRightArea x=825 w=645` -> **`computedNotchWidthPt = 179 pt`**.
+    - **E-01 (Process Tap smoke):** `AudioHardwareCreateProcessTap` com `CATapDescription.bundleIDs` e `isProcessRestoreEnabled` retornou `status: 0, tapID: 124`, e `AudioHardwareDestroyProcessTap` retornou `status: 0`.
+
+17. **Toolchain CLT `swift-package` vs `swiftc` direto no macOS 26.6 e achados de `CLEAN_SWEEP` (Comprovado).**
+    - Sem `/Applications/Xcode.app`, `/Library/Developer/CommandLineTools/usr/bin/swift-package` aborta com `dyld: Symbol not found: _$s19BuildServerProtocol...`. Invocar `clang++` + `swiftc -sdk .../MacOSX26.sdk -swift-version 6 -wmo` resolve 100% do build e execução de testes.
+    - Apple Clang 21 do CLT não distribui runtime de `-fsanitize=realtime`; testes C++ executaram com `-fsanitize=address,undefined`, que inclusive detectou UB real ao passar `UInt32.max` como enum `timbre_eq_layer_t` (corrigido adicionando `TIMBRE_LAYER_ALL = 255` em [`timbre_dsp.h`](../../Sources/CTimbreDSP/include/timbre_dsp.h)).
+    - Durante `CLEAN_SWEEP`, a verificação do thread RT removeu captura `[weak self]` e chamada `Date()` do bloco `AudioDeviceCreateIOProcIDWithBlock` (movendo `zero_buffer_streak` para contador atômico lock-free em `CTimbreDSP`), corrigiu o alinhamento logarítmico das 128 bandas FFT no `EQCurveCanvas` e sincronizou o formato `pairKey` de silenciamento do Guardião (`rule|bundle|device`).
