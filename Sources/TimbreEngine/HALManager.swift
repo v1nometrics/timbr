@@ -12,14 +12,90 @@ public struct SystemAudioSnapshot: Codable, Sendable {
     public let capturedAt: Date
 }
 
+private struct PersistedHALSnapshot: Codable, Sendable {
+    let snapshot: SystemAudioSnapshot
+    let modifiedOutputUID: Bool
+    let modifiedInputUID: Bool
+    let modifiedOutputVolume: Bool
+}
+
 public final class HALManager: @unchecked Sendable {
     private let lock = NSLock()
     private var initialSnapshot: SystemAudioSnapshot?
     private var modifiedOutputUID = false
     private var modifiedInputUID = false
     private var modifiedOutputVolume = false
+    private let snapshotFileURL: URL
+    private let watchdogQueue = DispatchQueue(label: "dev.v1torres.timbr.hal-watchdog")
+    private var watchdogInstalled = false
+    private var devicesListenerBlock: AudioObjectPropertyListenerBlock?
+    private var defaultOutListenerBlock: AudioObjectPropertyListenerBlock?
 
-    public init() {}
+    public init(snapshotFileURL: URL? = nil) {
+        if let snapshotFileURL {
+            self.snapshotFileURL = snapshotFileURL
+        } else {
+            let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+                ?? URL(fileURLWithPath: NSTemporaryDirectory())
+            self.snapshotFileURL = appSupport.appendingPathComponent("dev.v1torres.timbr/hal-snapshot.json")
+        }
+    }
+
+    deinit {
+        stopSystemWatchdog()
+    }
+
+    public func startSystemWatchdog(onChange: @escaping @Sendable () -> Void) {
+        lock.lock()
+        guard !watchdogInstalled else { lock.unlock(); return }
+        watchdogInstalled = true
+        let devBlock: AudioObjectPropertyListenerBlock = { _, _ in onChange() }
+        let outBlock: AudioObjectPropertyListenerBlock = { _, _ in onChange() }
+        devicesListenerBlock = devBlock
+        defaultOutListenerBlock = outBlock
+        lock.unlock()
+
+        var devAddr = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyDevices,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        var outAddr = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyDefaultOutputDevice,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        AudioObjectAddPropertyListenerBlock(AudioObjectID(kAudioObjectSystemObject), &devAddr, watchdogQueue, devBlock)
+        AudioObjectAddPropertyListenerBlock(AudioObjectID(kAudioObjectSystemObject), &outAddr, watchdogQueue, outBlock)
+    }
+
+    public func stopSystemWatchdog() {
+        lock.lock()
+        guard watchdogInstalled else { lock.unlock(); return }
+        watchdogInstalled = false
+        let devBlock = devicesListenerBlock
+        let outBlock = defaultOutListenerBlock
+        devicesListenerBlock = nil
+        defaultOutListenerBlock = nil
+        lock.unlock()
+
+        var devAddr = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyDevices,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        var outAddr = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyDefaultOutputDevice,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        if let devBlock {
+            AudioObjectRemovePropertyListenerBlock(AudioObjectID(kAudioObjectSystemObject), &devAddr, watchdogQueue, devBlock)
+        }
+        if let outBlock {
+            AudioObjectRemovePropertyListenerBlock(AudioObjectID(kAudioObjectSystemObject), &outAddr, watchdogQueue, outBlock)
+        }
+    }
 
     public func enumerateDevices() -> [AudioDeviceDescriptor] {
         var addr = AudioObjectPropertyAddress(
@@ -102,6 +178,41 @@ public final class HALManager: @unchecked Sendable {
         )
     }
 
+    private func persistSnapshotUnlocked() {
+        guard let snap = initialSnapshot else { return }
+        guard modifiedOutputUID || modifiedInputUID || modifiedOutputVolume else { return }
+        let payload = PersistedHALSnapshot(
+            snapshot: snap,
+            modifiedOutputUID: modifiedOutputUID,
+            modifiedInputUID: modifiedInputUID,
+            modifiedOutputVolume: modifiedOutputVolume
+        )
+        try? FileManager.default.createDirectory(at: snapshotFileURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+        if let data = try? JSONEncoder().encode(payload) {
+            try? data.write(to: snapshotFileURL, options: .atomic)
+        }
+    }
+
+    private func removePersistedSnapshot() {
+        try? FileManager.default.removeItem(at: snapshotFileURL)
+    }
+
+    @discardableResult
+    public func recoverLeftoverSnapshotIfPresent() -> Bool {
+        guard let data = try? Data(contentsOf: snapshotFileURL),
+              let persisted = try? JSONDecoder().decode(PersistedHALSnapshot.self, from: data) else {
+            return false
+        }
+        applyRestore(
+            snapshot: persisted.snapshot,
+            restoreOut: persisted.modifiedOutputUID,
+            restoreIn: persisted.modifiedInputUID,
+            restoreVol: persisted.modifiedOutputVolume
+        )
+        removePersistedSnapshot()
+        return true
+    }
+
     public func restoreSnapshotIfModified() {
         lock.lock()
         let snap = initialSnapshot
@@ -113,7 +224,13 @@ public final class HALManager: @unchecked Sendable {
         modifiedOutputVolume = false
         lock.unlock()
 
-        guard let snap else { return }
+        if let snap {
+            applyRestore(snapshot: snap, restoreOut: restoreOut, restoreIn: restoreIn, restoreVol: restoreVol)
+        }
+        removePersistedSnapshot()
+    }
+
+    private func applyRestore(snapshot snap: SystemAudioSnapshot, restoreOut: Bool, restoreIn: Bool, restoreVol: Bool) {
         let devices = enumerateDevices()
         if restoreOut, let uid = snap.defaultOutputUID, let dev = devices.first(where: { $0.uid == uid }) {
             _ = setDefaultDevice(dev.audioObjectID, selector: kAudioHardwarePropertyDefaultOutputDevice)
@@ -122,7 +239,7 @@ public final class HALManager: @unchecked Sendable {
             _ = setDefaultDevice(dev.audioObjectID, selector: kAudioHardwarePropertyDefaultInputDevice)
         }
         if restoreVol, let uid = snap.defaultOutputUID, let dev = devices.first(where: { $0.uid == uid }) {
-            if let v = snap.outputVolumeScalar { _ = setOutputVolumeScalar(deviceID: dev.audioObjectID, value: v) }
+            if let v = snap.outputVolumeScalar { _ = setOutputVolumeScalarRaw(deviceID: dev.audioObjectID, value: v) }
             if let m = snap.outputMuted { _ = setOutputMute(deviceID: dev.audioObjectID, muted: m) }
         }
     }
@@ -133,7 +250,7 @@ public final class HALManager: @unchecked Sendable {
         guard let dev = enumerateDevices().first(where: { $0.uid == uid }) else { return false }
         let ok = setDefaultDevice(dev.audioObjectID, selector: kAudioHardwarePropertyDefaultOutputDevice)
         if ok {
-            lock.lock(); modifiedOutputUID = true; lock.unlock()
+            lock.lock(); modifiedOutputUID = true; persistSnapshotUnlocked(); lock.unlock()
         }
         return ok
     }
@@ -144,7 +261,7 @@ public final class HALManager: @unchecked Sendable {
         guard let dev = enumerateDevices().first(where: { $0.uid == uid }) else { return false }
         let ok = setDefaultDevice(dev.audioObjectID, selector: kAudioHardwarePropertyDefaultInputDevice)
         if ok {
-            lock.lock(); modifiedInputUID = true; lock.unlock()
+            lock.lock(); modifiedInputUID = true; persistSnapshotUnlocked(); lock.unlock()
         }
         return ok
     }
@@ -163,9 +280,28 @@ public final class HALManager: @unchecked Sendable {
                 let size = UInt32(MemoryLayout<Float32>.size)
                 if AudioObjectSetPropertyData(deviceID, &addr, 0, nil, size, &clamped) == noErr {
                     if elem == 0 {
-                        lock.lock(); modifiedOutputVolume = true; lock.unlock()
+                        lock.lock(); modifiedOutputVolume = true; persistSnapshotUnlocked(); lock.unlock()
                         return true
                     }
+                }
+            }
+        }
+        return false
+    }
+
+    @discardableResult
+    private func setOutputVolumeScalarRaw(deviceID: AudioObjectID, value: Float32) -> Bool {
+        var clamped = min(max(value, 0.0), 1.0)
+        for elem: AudioObjectPropertyElement in [0, 1, 2] {
+            if isSettable(deviceID, kAudioDevicePropertyVolumeScalar, kAudioObjectPropertyScopeOutput, elem) {
+                var addr = AudioObjectPropertyAddress(
+                    mSelector: kAudioDevicePropertyVolumeScalar,
+                    mScope: kAudioObjectPropertyScopeOutput,
+                    mElement: elem
+                )
+                let size = UInt32(MemoryLayout<Float32>.size)
+                if AudioObjectSetPropertyData(deviceID, &addr, 0, nil, size, &clamped) == noErr, elem == 0 {
+                    return true
                 }
             }
         }

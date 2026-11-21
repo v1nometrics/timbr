@@ -146,6 +146,9 @@ public final class AppState: ObservableObject {
     @Published public var tabUpdates: [TabAudioUpdate] = []
     @Published public var globalMicMuted: Bool = false
     @Published public var isProcessingBypassed: Bool = false
+    @Published public var autoDuckOnCall: Bool = true
+    @Published public var mirrorOutputUIDs: Set<String> = []
+    @Published public var outputDelaysMs: [String: Double] = [:]
 
     // EQ & Presets
     @Published public var activePreset: TimbrePreset
@@ -223,16 +226,29 @@ public final class AppState: ObservableObject {
 
     public var activeTapsCount: Int {
         guard !isProcessingBypassed else { return 0 }
+        let engineCount = tapEngine.activeTapCount
+        if engineCount > 0 { return engineCount }
         let eqActive = activePreset.allEffectiveBands.contains { $0.enabled && abs($0.gainDB) > 0.01 }
         let anySourceTap = sources.contains { $0.needsProcessingTap && !$0.isVoIPExcluded }
-        return (eqActive || activePreset.crossfeedEnabled || anySourceTap) ? 1 : 0
+        let anyMirror = !mirrorOutputUIDs.isEmpty
+        return (eqActive || activePreset.crossfeedEnabled || anySourceTap || anyMirror) ? 1 : 0
+    }
+
+    public var isVoIPCallActive: Bool {
+        sources.contains { $0.isVoIPExcluded && $0.isPlaying }
     }
 
     public func start() {
         guard !started else { return }
         started = true
 
+        if halManager.recoverLeftoverSnapshotIfPresent() {
+            logEvent(category: "recovery", message: "Restored leftover HAL snapshot after unexpected exit (P3)")
+        }
         halManager.captureInitialSnapshotIfNeeded()
+        halManager.startSystemWatchdog { [weak self] in
+            Task { @MainActor in self?.refreshSystemState() }
+        }
 
         if let db = try? SQLiteStore() {
             self.store = db
@@ -242,6 +258,7 @@ public final class AppState: ObservableObject {
             self.mutedGuardianPairs = db.loadMutedPairs()
             self.silentStudioMode = (db.getKV("silentStudioMode") == "1")
             self.showCompactActivity = (db.getKV("showCompactActivity") ?? "1") == "1"
+            self.autoDuckOnCall = (db.getKV("autoDuckOnCall") ?? "1") == "1"
             self.savedPresets = db.loadPresets()
             if let first = self.savedPresets.first {
                 self.activePreset = first
@@ -288,6 +305,7 @@ public final class AppState: ObservableObject {
     public func shutdown() {
         refreshTimer?.invalidate()
         telemetryTimer?.invalidate()
+        halManager.stopSystemWatchdog()
         hotKeyManager.unregisterAll()
         mediaKeyTap.stop()
         ipcServer?.stop()
@@ -433,21 +451,68 @@ public final class AppState: ObservableObject {
             activePreset.limiterCeilingDBTP = ceiling
         }
         let effectiveAB: ABCompareMode = isProcessingBypassed ? .bypassEqualLatency : abMode
-        let masterSourceGain = sources.first(where: { $0.isPlaying && !$0.isVoIPExcluded })?.volume ?? 1.0
-        tapEngine.updateDSP(preset: activePreset, outputDevice: out, abMode: effectiveAB, gain: masterSourceGain)
+        let duckFactor: Double = (autoDuckOnCall && isVoIPCallActive) ? 0.25 : 1.0
+        let mirrorTargets: [MirrorOutputTarget] = outputDevices
+            .filter { $0.uid != out?.uid && mirrorOutputUIDs.contains($0.uid) }
+            .map { MirrorOutputTarget(device: $0, delayMs: outputDelaysMs[$0.uid] ?? 0.0) }
 
         let anyNonNeutralBand = activePreset.allEffectiveBands.contains { $0.enabled && abs($0.gainDB) > 0.01 }
         let anySourceTap = sources.contains { $0.needsProcessingTap && !$0.isVoIPExcluded }
-        let shouldProcess = !isProcessingBypassed && (anyNonNeutralBand || activePreset.crossfeedEnabled || anySourceTap)
-        let excludedBundles = sources.filter { $0.isVoIPExcluded }.map { $0.bundleID }
-        let needsDestTap = anyNonNeutralBand || activePreset.crossfeedEnabled || anySourceTap
-
-        tapEngine.reconcileTap(
-            processingEnabled: shouldProcess,
-            outputDevice: out,
-            needsDestinationTap: needsDestTap,
-            excludedBundleIDs: excludedBundles
+        let shouldProcess = !isProcessingBypassed && (
+            anyNonNeutralBand || activePreset.crossfeedEnabled || anySourceTap || duckFactor < 0.999 || !mirrorTargets.isEmpty
         )
+        let excludedBundles = sources.filter { $0.isVoIPExcluded }.map { $0.bundleID }
+
+        tapEngine.updateDSP(preset: activePreset, outputDevice: out, abMode: effectiveAB, gain: duckFactor)
+        tapEngine.reconcileMultiTap(
+            processingEnabled: shouldProcess,
+            preset: activePreset,
+            abMode: effectiveAB,
+            outputDevice: out,
+            sources: sources,
+            excludedBundleIDs: excludedBundles,
+            duckFactor: duckFactor,
+            mirrorOutputs: mirrorTargets
+        )
+    }
+
+    public func toggleMirrorOutput(_ device: AudioDeviceDescriptor) {
+        if mirrorOutputUIDs.contains(device.uid) {
+            mirrorOutputUIDs.remove(device.uid)
+        } else {
+            mirrorOutputUIDs.insert(device.uid)
+        }
+        syncDSPAndTap()
+        logEvent(category: "routing", message: "Multi-output mirror \(mirrorOutputUIDs.contains(device.uid) ? "enabled" : "disabled") for \(device.name)")
+    }
+
+    public func setOutputDelay(_ device: AudioDeviceDescriptor, delayMs: Double) {
+        outputDelaysMs[device.uid] = min(max(delayMs, 0.0), 250.0)
+        syncDSPAndTap()
+    }
+
+    public func toggleAutoDuck(_ enabled: Bool) {
+        autoDuckOnCall = enabled
+        try? store?.setKV("autoDuckOnCall", value: enabled ? "1" : "0")
+        syncDSPAndTap()
+    }
+
+    public func setTabVolume(browser: String, tabID: String, volume: Double) {
+        let clamped = min(max(volume, 0.0), 2.0)
+        if let idx = tabUpdates.firstIndex(where: { $0.tabID == tabID && $0.browser == browser }) {
+            let cur = tabUpdates[idx]
+            tabUpdates[idx] = TabAudioUpdate(browser: cur.browser, tabID: cur.tabID, title: cur.title, origin: cur.origin, volume: clamped, isMuted: cur.isMuted)
+            ipcServer?.enqueueTabCommand(browser: browser, tabID: tabID, volume: clamped, isMuted: cur.isMuted)
+        }
+    }
+
+    public func toggleTabMute(browser: String, tabID: String) {
+        if let idx = tabUpdates.firstIndex(where: { $0.tabID == tabID && $0.browser == browser }) {
+            let cur = tabUpdates[idx]
+            let nextMute = !cur.isMuted
+            tabUpdates[idx] = TabAudioUpdate(browser: cur.browser, tabID: cur.tabID, title: cur.title, origin: cur.origin, volume: cur.volume, isMuted: nextMute)
+            ipcServer?.enqueueTabCommand(browser: browser, tabID: tabID, volume: cur.volume, isMuted: nextMute)
+        }
     }
 
     public func refreshHardwareTelemetryNow() {

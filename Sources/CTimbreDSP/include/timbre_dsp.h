@@ -62,6 +62,7 @@ typedef struct {
     double crossfeed_cutoff_hz;  // default 700 Hz
     double crossfeed_feed_db;    // default 4.5 dB
     uint32_t dither_bits;        // 0 = off (Float32), 16 or 24 = TPDF
+    double delay_ms;             // 0..250 ms multi-output phase/latency alignment
 } timbre_dsp_config_t;
 
 typedef struct {

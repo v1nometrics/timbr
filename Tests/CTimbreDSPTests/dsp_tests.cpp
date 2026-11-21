@@ -139,6 +139,29 @@ int main() {
         std::printf("  [PASS] Crossfeed, 24-bit TPDF dither & equal-latency A/B verified\n");
     }
 
+    // 6. Multi-output ms delay alignment (10 ms @ 48 kHz = 480 samples)
+    {
+        auto cfg = timbre_dsp_default_config(48000.0, 1024);
+        cfg.limiter_enabled = false;
+        cfg.delay_ms = 10.0;
+        auto* eng = timbre_dsp_create(cfg);
+        std::vector<float> in(1024 * 2, 0.0f), out(1024 * 2, 0.0f);
+        in[0] = 0.8f;
+        in[1] = -0.8f;
+        timbre_dsp_process_interleaved_f32(eng, in.data(), out.data(), 1024);
+        size_t peak_idx = 0;
+        float peak_val = 0.0f;
+        for (size_t i = 0; i < 1024; ++i) {
+            if (std::abs(out[2 * i]) > peak_val) {
+                peak_val = std::abs(out[2 * i]);
+                peak_idx = i;
+            }
+        }
+        assert(peak_idx == 480 && peak_val > 0.79f);
+        timbre_dsp_destroy(eng);
+        std::printf("  [PASS] Multi-output delay_ms=10.0 aligned impulse at exact sample %zu\n", peak_idx);
+    }
+
     std::printf("[CTimbreDSPTests] ALL PASSED\n");
     return 0;
 }

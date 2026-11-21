@@ -57,6 +57,9 @@ public enum TimbreStrings {
         "mixer.voip_ignored": [.ptBR: "Protegido (VoIP/DAW)", .es: "Protegido (VoIP/DAW)", .en: "Protected (VoIP/DAW)"],
         "mixer.boost_warning": [.ptBR: "pode clipar", .es: "puede saturar", .en: "may clip"],
         "mixer.no_taps": [.ptBR: "Caminho nativo sem taps", .es: "Ruta nativa sin taps", .en: "Native path (0 taps)"],
+        "mixer.multi_output": [.ptBR: "Saídas Simultâneas (Multissaída)", .es: "Salidas Simultáneas", .en: "Simultaneous Multi-Output"],
+        "mixer.delay_ms": [.ptBR: "Atraso", .es: "Retraso", .en: "Delay"],
+        "mixer.auto_duck": [.ptBR: "Atenuar mídia durante chamadas (-12 dB)", .es: "Atenuar medios en llamadas (-12 dB)", .en: "Auto-duck media during calls (-12 dB)"],
         "mixer.tabs_note": [.ptBR: "Controle por aba requer extensão", .es: "Control por pestaña requiere extensión", .en: "Per-tab control requires extension"],
 
         // EQ Layers & Controls

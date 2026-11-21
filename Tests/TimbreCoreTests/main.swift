@@ -49,7 +49,10 @@ struct TimbreCoreTestRunner {
         let body = "{\"browser\":\"chrome\",\"tabID\":\"7\",\"title\":\"YouTube\",\"origin\":\"https://youtube.com\",\"volume\":1.25,\"isMuted\":false}"
         let ok = srv.processHTTPRequest("POST /v1/tab-audio HTTP/1.1\r\nAuthorization: Bearer \(srv.sessionToken)\r\nOrigin: chrome-extension://abc\r\nContent-Length: \(body.utf8.count)\r\n\r\n\(body)")
         expect(ok.contains("200"), "Valid extension request accepted")
-        print("  [PASS] ExtensionIPCServer Bearer + Origin isolation")
+        srv.enqueueTabCommand(browser: "chrome", tabID: "7", volume: 0.45, isMuted: true)
+        let cmdResp = srv.processHTTPRequestWithResponse("GET /v1/tab-commands HTTP/1.1\r\nAuthorization: Bearer \(srv.sessionToken)\r\nOrigin: chrome-extension://abc\r\n\r\n")
+        expect(cmdResp.status.contains("200") && cmdResp.body.contains("\"tabID\":\"7\"") && cmdResp.body.contains("\"isMuted\":true"), "Bidirectional tab command delivered via authenticated GET")
+        print("  [PASS] ExtensionIPCServer Bearer + Origin isolation & bidirectional commands")
 
         // 3. AI Safety Bounds & Deterministic Fallback
         let proposals = await AIAssistantRouter.proposeVariants(prompt: "menos sibilância e mais grave", language: .ptBR)

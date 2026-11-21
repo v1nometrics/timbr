@@ -46,6 +46,21 @@ clang++ -isysroot "$SDK" -std=c++20 -O1 -g -fsanitize=address,undefined \
   -o "$BUILD/CTimbreDSPTests"
 "$BUILD/CTimbreDSPTests"
 
+LLVM_CXX="${LLVM_CLANGXX:-/opt/homebrew/opt/llvm/bin/clang++}"
+if [ -x "$LLVM_CXX" ]; then
+  echo "=== 5b. C++ DSP RealtimeSanitizer Check (LLVM RTSan) ==="
+  "$LLVM_CXX" -isysroot "$SDK" -std=c++20 -O1 -g -fsanitize=realtime \
+    -Wall -Wextra -Werror \
+    -I "$ROOT/Sources/CTimbreDSP/include" \
+    "$ROOT/Sources/CTimbreDSP/src/timbre_dsp.cpp" \
+    "$ROOT/Tests/CTimbreDSPTests/dsp_tests.cpp" \
+    -framework Accelerate \
+    -o "$BUILD/CTimbreDSPTestsRTSan"
+  "$BUILD/CTimbreDSPTestsRTSan"
+else
+  echo "=== 5b. Skipping RTSan (optional Homebrew LLVM not installed at $LLVM_CXX) ==="
+fi
+
 echo "=== 6. Swift 6 TimbreCore Tests ==="
 swiftc -sdk "$SDK" -swift-version 6 -wmo -parse-as-library \
   -I "$BUILD" -I "$ROOT/Sources/CTimbreDSP/include" \
@@ -70,5 +85,8 @@ swiftc -sdk "$SDK" -swift-version 6 -wmo -parse-as-library \
 
 echo "=== 8. Timbr.app Bundle Smoke Launch & Clean Exit ==="
 "$ROOT/dist/Timbr.app/Contents/MacOS/Timbr" --smoke-check
+
+echo "=== 9. 20x SIGKILL Fail-Safe & P3 Clean Exit Check ==="
+"$ROOT/scripts/verify_failsafe.sh"
 
 echo "=== ALL CI CHECKS PASSED ==="

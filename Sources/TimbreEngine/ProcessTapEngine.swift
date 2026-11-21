@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MPL-2.0
 import Foundation
-import AppKit
 import CoreAudio
 import AudioToolbox
+import AppKit
 import CTimbreDSP
 import TimbreCore
 
@@ -85,21 +85,68 @@ public enum OrphanedTapCleanup {
     }
 }
 
+public struct MirrorOutputTarget: Equatable, Sendable {
+    public let device: AudioDeviceDescriptor
+    public let delayMs: Double
+
+    public init(device: AudioDeviceDescriptor, delayMs: Double) {
+        self.device = device
+        self.delayMs = min(max(delayMs, 0.0), 250.0)
+    }
+}
+
 public final class ProcessTapEngine: @unchecked Sendable {
     public static let aggregateUIDPrefix = "dev.v1torres.timbr.agg."
 
+    private final class TapSlot {
+        let key: String
+        let tapID: AudioObjectID
+        let aggregateID: AudioObjectID
+        let aggregateUID: String
+        let ioProcID: AudioDeviceIOProcID
+        let enginePtr: OpaquePointer
+        let sampleRate: Double
+        let deviceUID: String
+        let processObjects: Set<AudioObjectID>
+
+        init(
+            key: String,
+            tapID: AudioObjectID,
+            aggregateID: AudioObjectID,
+            aggregateUID: String,
+            ioProcID: AudioDeviceIOProcID,
+            enginePtr: OpaquePointer,
+            sampleRate: Double,
+            deviceUID: String,
+            processObjects: Set<AudioObjectID>
+        ) {
+            self.key = key
+            self.tapID = tapID
+            self.aggregateID = aggregateID
+            self.aggregateUID = aggregateUID
+            self.ioProcID = ioProcID
+            self.enginePtr = enginePtr
+            self.sampleRate = sampleRate
+            self.deviceUID = deviceUID
+            self.processObjects = processObjects
+        }
+    }
+
     private let lock = NSLock()
-    private var dspEngine: OpaquePointer? // timbre_dsp_engine_t*
-    private var activeTapID: AudioObjectID = AudioObjectID(kAudioObjectUnknown)
-    private var activeAggregateID: AudioObjectID = AudioObjectID(kAudioObjectUnknown)
-    private var activeAggregateUID: String?
-    private var ioProcID: AudioDeviceIOProcID?
-    private var isTapRunning = false
+    private var dspEngine: OpaquePointer? // Fallback/shared curve evaluator & primary metrics
+    private var activeSlots: [String: TapSlot] = [:]
     private var lastZeroBufferRecoveryAt: Date = .distantPast
     private var consecutiveZeroBuffers: UInt64 = 0
 
     public private(set) var lastSampleRate: Double = 48000
     public private(set) var tccAudioCaptureDeniedOrZeroed: Bool = false
+
+    public var activeTapCount: Int {
+        lock.lock()
+        let count = activeSlots.count
+        lock.unlock()
+        return count
+    }
 
     public init(sampleRate: Double = 48000) {
         self.lastSampleRate = sampleRate
@@ -116,6 +163,34 @@ public final class ProcessTapEngine: @unchecked Sendable {
             dspEngine = nil
         }
         lock.unlock()
+    }
+
+    public static func translatePIDsToProcessObjects(_ pids: [pid_t]) -> [AudioObjectID] {
+        var result: [AudioObjectID] = []
+        var seen = Set<AudioObjectID>()
+        var addr = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyTranslatePIDToProcessObject,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: 0
+        )
+        for pid in pids where pid > 0 {
+            var qPid = pid
+            var procObj = AudioObjectID(kAudioObjectUnknown)
+            var size = UInt32(MemoryLayout<AudioObjectID>.size)
+            let err = AudioObjectGetPropertyData(
+                AudioObjectID(kAudioObjectSystemObject),
+                &addr,
+                UInt32(MemoryLayout<pid_t>.size),
+                &qPid,
+                &size,
+                &procObj
+            )
+            if err == noErr, procObj != AudioObjectID(kAudioObjectUnknown), !seen.contains(procObj) {
+                seen.insert(procObj)
+                result.append(procObj)
+            }
+        }
+        return result
     }
 
     public func enumerateRunningAudioSources(existing: [AudioSourceDescriptor] = []) -> [AudioSourceDescriptor] {
@@ -203,33 +278,63 @@ public final class ProcessTapEngine: @unchecked Sendable {
         return id
     }
 
-    public func updateDSP(preset: TimbrePreset, outputDevice: AudioDeviceDescriptor?, abMode: ABCompareMode, gain: Double = 1.0) {
+    public func updateDSP(preset: TimbrePreset, outputDevice: AudioDeviceDescriptor?, abMode: ABCompareMode, gain: Double = 1.0, delayMs: Double = 0.0) {
         lock.lock()
-        guard let eng = dspEngine else { lock.unlock(); return }
-        var cfg = timbre_dsp_default_config(outputDevice?.sampleRate ?? lastSampleRate, 1024)
+        let fallbackEng = dspEngine
+        let primarySlot = activeSlots["global"] ?? activeSlots.values.first
+        let sr = outputDevice?.sampleRate ?? lastSampleRate
+        lock.unlock()
+
+        if let fallbackEng {
+            applyPreset(to: fallbackEng, preset: preset, outputDevice: outputDevice, sampleRate: sr, abMode: abMode, gain: gain, delayMs: delayMs)
+        }
+        if let primarySlot {
+            applyPreset(to: primarySlot.enginePtr, preset: preset, outputDevice: outputDevice, sampleRate: primarySlot.sampleRate, abMode: abMode, gain: gain, delayMs: delayMs)
+        }
+    }
+
+    private func applyPreset(
+        to enginePtr: OpaquePointer,
+        preset: TimbrePreset,
+        outputDevice: AudioDeviceDescriptor?,
+        sampleRate: Double,
+        abMode: ABCompareMode,
+        gain: Double,
+        delayMs: Double
+    ) {
+        var cfg = timbre_dsp_default_config(sampleRate, 1024)
         cfg.limiter_ceiling_dbtp = outputDevice?.recommendedLimiterCeilingDBTP ?? preset.limiterCeilingDBTP
         cfg.limiter_enabled = true
         cfg.crossfeed_enabled = preset.crossfeedEnabled
-        timbre_dsp_update_config(eng, cfg)
+        cfg.delay_ms = delayMs
+        timbre_dsp_update_config(enginePtr, cfg)
 
         let bands = preset.allEffectiveBands.map { $0.cBand }
         bands.withUnsafeBufferPointer { buf in
-            timbre_dsp_set_bands(eng, buf.baseAddress, UInt32(buf.count))
+            timbre_dsp_set_bands(enginePtr, buf.baseAddress, UInt32(buf.count))
         }
-        timbre_dsp_set_ab_mode(eng, abMode.cType)
-        timbre_dsp_set_output_gain(eng, gain)
-        lock.unlock()
+        timbre_dsp_set_ab_mode(enginePtr, abMode.cType)
+        timbre_dsp_set_output_gain(enginePtr, gain)
     }
 
     public func readTelemetry() -> DSPTelemetrySnapshot {
         lock.lock()
-        guard let eng = dspEngine else { lock.unlock(); return .idle }
+        let eng = activeSlots["global"]?.enginePtr ?? activeSlots.values.first?.enginePtr ?? dspEngine
+        lock.unlock()
+        guard let eng else { return .idle }
+
         let m = timbre_dsp_get_metrics(eng)
+        if m.zero_buffer_streak > 250 && Date().timeIntervalSince(lastZeroBufferRecoveryAt) > 30.0 {
+            lastZeroBufferRecoveryAt = Date()
+            tccAudioCaptureDeniedOrZeroed = activeTapCount > 0
+        } else if m.zero_buffer_streak == 0 {
+            tccAudioCaptureDeniedOrZeroed = false
+        }
+
         var bins = [Float](repeating: -120, count: Int(TIMBRE_SPECTRUM_BINS))
         bins.withUnsafeMutableBufferPointer { buf in
             timbre_dsp_copy_spectrum(eng, buf.baseAddress, UInt32(buf.count))
         }
-        lock.unlock()
         return DSPTelemetrySnapshot(
             preampDB: m.preamp_db,
             truePeakL: m.true_peak_l_dbtp,
@@ -264,7 +369,7 @@ public final class ProcessTapEngine: @unchecked Sendable {
         return (mags, preamp)
     }
 
-    // Reconciles tap lifecycle: P1 invariant — 0 taps if bypass or no processing needed
+    // Legacy single-tap compatibility entry point
     @discardableResult
     public func reconcileTap(
         processingEnabled: Bool,
@@ -276,32 +381,204 @@ public final class ProcessTapEngine: @unchecked Sendable {
             stopAndDestroyTap()
             return true
         }
-
-        lock.lock()
-        let alreadyRunning = isTapRunning
-        let srChanged = abs(lastSampleRate - outputDevice.sampleRate) > 1.0
-        lock.unlock()
-
-        if alreadyRunning && !srChanged {
-            return true
-        }
-        stopAndDestroyTap()
-        return startDestinationTap(outputDevice: outputDevice, excludedBundleIDs: excludedBundleIDs)
+        let dummyPreset = TimbrePreset(name: "Active")
+        return reconcileMultiTap(
+            processingEnabled: true,
+            preset: dummyPreset,
+            abMode: .full,
+            outputDevice: outputDevice,
+            sources: [],
+            excludedBundleIDs: excludedBundleIDs,
+            duckFactor: 1.0,
+            mirrorOutputs: []
+        )
     }
 
-    private func startDestinationTap(outputDevice: AudioDeviceDescriptor, excludedBundleIDs: [String]) -> Bool {
+    /// Full multi-tap orchestrator:
+    /// - Invariant P1: 0 taps when processingEnabled == false or completely neutral.
+    /// - Per-app isolated Process Taps (`stereoMixdownOfProcesses`) for apps with custom gain or mute.
+    /// - Global exclusion tap (`stereoGlobalTapButExcludeProcesses`) excluding VoIP/DAW + per-app tapped processes.
+    /// - Simultaneous multi-output mirror taps (`muteBehavior = .unmuted`) with ms delay alignment and BT drift guard.
+    @discardableResult
+    public func reconcileMultiTap(
+        processingEnabled: Bool,
+        preset: TimbrePreset,
+        abMode: ABCompareMode,
+        outputDevice: AudioDeviceDescriptor?,
+        sources: [AudioSourceDescriptor],
+        excludedBundleIDs: [String],
+        duckFactor: Double = 1.0,
+        mirrorOutputs: [MirrorOutputTarget] = []
+    ) -> Bool {
+        guard processingEnabled, let outputDevice else {
+            stopAndDestroyTap()
+            return true
+        }
+
+        if let sr = outputDevice.sampleRate as Double?, sr > 1000 {
+            lastSampleRate = sr
+        }
+
+        // Translate protected VoIP/DAW PIDs + self PID so global taps never capture them
+        let voipPIDs = sources.filter { $0.isVoIPExcluded || excludedBundleIDs.contains($0.bundleID) }.flatMap { $0.pids }
+        let selfPID = ProcessInfo.processInfo.processIdentifier
+        let baseExcludedPIDs = voipPIDs + [selfPID]
+        let baseExcludedObjs = Self.translatePIDsToProcessObjects(baseExcludedPIDs)
+
+        // Determine per-app isolated taps for non-VoIP active sources with custom volume or mute
+        let customSources = sources.filter { src in
+            !src.isVoIPExcluded && !src.pids.isEmpty && (src.isMuted || abs(src.volume - 1.0) > 0.01)
+        }
+
+        var desiredKeys = Set<String>()
+        var allSuccess = true
+
+        // 1. Per-app isolated taps
+        var perAppObjs: [AudioObjectID] = []
+        for src in customSources {
+            let objs = Self.translatePIDsToProcessObjects(src.pids)
+            guard !objs.isEmpty else { continue }
+            perAppObjs.append(contentsOf: objs)
+            let key = "app:\(src.bundleID)"
+            desiredKeys.insert(key)
+            let targetGain = src.isMuted ? 0.0 : (src.volume * duckFactor)
+            let ok = ensureTapSlot(
+                key: key,
+                outputDevice: outputDevice,
+                mode: .includeProcesses(objs),
+                muteBehavior: .mutedWhenTapped,
+                preset: preset,
+                abMode: abMode,
+                gain: targetGain,
+                delayMs: 0.0,
+                excludedBundleIDs: excludedBundleIDs
+            )
+            if !ok { allSuccess = false }
+        }
+
+        // 2. Primary global destination tap (when EQ, crossfeed, or ducking is active for remaining apps)
+        let eqActive = preset.allEffectiveBands.contains { $0.enabled && abs($0.gainDB) > 0.01 }
+        let needsGlobal = eqActive || preset.crossfeedEnabled || duckFactor < 0.999
+        if needsGlobal {
+            let globalExcludes = Array(Set(baseExcludedObjs + perAppObjs))
+            desiredKeys.insert("global")
+            let ok = ensureTapSlot(
+                key: "global",
+                outputDevice: outputDevice,
+                mode: .excludeProcesses(globalExcludes),
+                muteBehavior: .mutedWhenTapped,
+                preset: preset,
+                abMode: abMode,
+                gain: duckFactor,
+                delayMs: 0.0,
+                excludedBundleIDs: excludedBundleIDs
+            )
+            if !ok { allSuccess = false }
+        }
+
+        // 3. Simultaneous multi-output mirror taps (E-04 / B-201)
+        for target in mirrorOutputs where target.device.uid != outputDevice.uid {
+            let key = "mirror:\(target.device.uid)"
+            desiredKeys.insert(key)
+            let ok = ensureTapSlot(
+                key: key,
+                outputDevice: target.device,
+                mode: .excludeProcesses(baseExcludedObjs),
+                muteBehavior: .unmuted,
+                preset: preset,
+                abMode: abMode,
+                gain: duckFactor,
+                delayMs: target.delayMs,
+                excludedBundleIDs: excludedBundleIDs
+            )
+            if !ok { allSuccess = false }
+        }
+
+        // Tear down any stale slots no longer in desiredKeys
+        lock.lock()
+        let staleKeys = activeSlots.keys.filter { !desiredKeys.contains($0) }
+        var toDestroy: [TapSlot] = []
+        for k in staleKeys {
+            if let slot = activeSlots.removeValue(forKey: k) {
+                toDestroy.append(slot)
+            }
+        }
+        lock.unlock()
+        for slot in toDestroy {
+            destroySlot(slot)
+        }
+
+        return allSuccess
+    }
+
+    private enum TapProcessMode {
+        case includeProcesses([AudioObjectID])
+        case excludeProcesses([AudioObjectID])
+    }
+
+    private func ensureTapSlot(
+        key: String,
+        outputDevice: AudioDeviceDescriptor,
+        mode: TapProcessMode,
+        muteBehavior: CATapMuteBehavior,
+        preset: TimbrePreset,
+        abMode: ABCompareMode,
+        gain: Double,
+        delayMs: Double,
+        excludedBundleIDs: [String]
+    ) -> Bool {
+        let objSet: Set<AudioObjectID> = {
+            switch mode {
+            case .includeProcesses(let arr): return Set(arr)
+            case .excludeProcesses(let arr): return Set(arr)
+            }
+        }()
+
+        lock.lock()
+        let existing = activeSlots[key]
+        lock.unlock()
+
+        if let existing,
+           existing.deviceUID == outputDevice.uid,
+           abs(existing.sampleRate - outputDevice.sampleRate) <= 1.0,
+           existing.processObjects == objSet {
+            applyPreset(
+                to: existing.enginePtr,
+                preset: preset,
+                outputDevice: outputDevice,
+                sampleRate: existing.sampleRate,
+                abMode: abMode,
+                gain: gain,
+                delayMs: delayMs
+            )
+            return true
+        }
+
+        if let existing {
+            lock.lock()
+            activeSlots.removeValue(forKey: key)
+            lock.unlock()
+            destroySlot(existing)
+        }
+
         if #available(macOS 14.2, *) {
             lock.lock()
-            let excluded = activeAggregateUID.map { Set([$0]) } ?? []
+            let activeUIDs = Set(activeSlots.values.map { $0.aggregateUID })
             lock.unlock()
-            _ = OrphanedTapCleanup.cleanupOrphanedAggregates(excludingUIDs: excluded)
-            // Global tap excluding self + VoIP/DAW safe ignore list (C-02)
-            let tapDesc = CATapDescription(stereoGlobalTapButExcludeProcesses: [])
-            tapDesc.name = "timbr.tap.\(outputDevice.uid)"
+            _ = OrphanedTapCleanup.cleanupOrphanedAggregates(excludingUIDs: activeUIDs)
+
+            let tapDesc: CATapDescription
+            switch mode {
+            case .includeProcesses(let objs):
+                tapDesc = CATapDescription(stereoMixdownOfProcesses: objs)
+            case .excludeProcesses(let objs):
+                tapDesc = CATapDescription(stereoGlobalTapButExcludeProcesses: objs)
+            }
+            tapDesc.name = "timbr.tap.\(key).\(outputDevice.uid)"
             tapDesc.isPrivate = true
             tapDesc.isExclusive = true
-            tapDesc.muteBehavior = .mutedWhenTapped
-            if tapDesc.responds(to: NSSelectorFromString("setBundleIDs:")) {
+            tapDesc.muteBehavior = muteBehavior
+            if case .excludeProcesses = mode, tapDesc.responds(to: NSSelectorFromString("setBundleIDs:")) {
                 var excludes = excludedBundleIDs
                 if let selfID = Bundle.main.bundleIdentifier { excludes.append(selfID) }
                 tapDesc.setValue(excludes, forKey: "bundleIDs")
@@ -313,7 +590,6 @@ public final class ProcessTapEngine: @unchecked Sendable {
                 return false
             }
 
-            // Build private aggregate device pairing outputDevice + tap
             // Drift correction explicitly disabled for Bluetooth (E-04 / RNF)
             let subDevDict: [String: Any] = [
                 kAudioSubDeviceUIDKey as String: outputDevice.uid,
@@ -341,15 +617,21 @@ public final class ProcessTapEngine: @unchecked Sendable {
                 return false
             }
 
-            lock.lock()
-            lastSampleRate = outputDevice.sampleRate
-            guard let enginePtr = dspEngine else {
-                lock.unlock()
+            let cfg = timbre_dsp_default_config(outputDevice.sampleRate, 1024)
+            guard let enginePtr = timbre_dsp_create(cfg) else {
                 AudioHardwareDestroyAggregateDevice(aggID)
                 AudioHardwareDestroyProcessTap(tapID)
                 return false
             }
-            lock.unlock()
+            applyPreset(
+                to: enginePtr,
+                preset: preset,
+                outputDevice: outputDevice,
+                sampleRate: outputDevice.sampleRate,
+                abMode: abMode,
+                gain: gain,
+                delayMs: delayMs
+            )
 
             var procID: AudioDeviceIOProcID?
             // RT Audio Thread: captures ONLY OpaquePointer (enginePtr) — zero Swift ARC retain/release, zero locks, zero heap allocs
@@ -365,6 +647,7 @@ public final class ProcessTapEngine: @unchecked Sendable {
             }
 
             guard ioErr == noErr, let procID else {
+                timbre_dsp_destroy(enginePtr)
                 AudioHardwareDestroyAggregateDevice(aggID)
                 AudioHardwareDestroyProcessTap(tapID)
                 return false
@@ -373,59 +656,49 @@ public final class ProcessTapEngine: @unchecked Sendable {
             let startErr = AudioDeviceStart(aggID, procID)
             guard startErr == noErr else {
                 AudioDeviceDestroyIOProcID(aggID, procID)
+                timbre_dsp_destroy(enginePtr)
                 AudioHardwareDestroyAggregateDevice(aggID)
                 AudioHardwareDestroyProcessTap(tapID)
                 return false
             }
 
+            let slot = TapSlot(
+                key: key,
+                tapID: tapID,
+                aggregateID: aggID,
+                aggregateUID: aggregateUID,
+                ioProcID: procID,
+                enginePtr: enginePtr,
+                sampleRate: outputDevice.sampleRate,
+                deviceUID: outputDevice.uid,
+                processObjects: objSet
+            )
             lock.lock()
-            activeTapID = tapID
-            activeAggregateID = aggID
-            activeAggregateUID = aggregateUID
-            ioProcID = procID
-            isTapRunning = true
+            activeSlots[key] = slot
             lock.unlock()
             return true
         }
         return false
     }
 
+    private func destroySlot(_ slot: TapSlot) {
+        AudioDeviceStop(slot.aggregateID, slot.ioProcID)
+        AudioDeviceDestroyIOProcID(slot.aggregateID, slot.ioProcID)
+        AudioHardwareDestroyAggregateDevice(slot.aggregateID)
+        if #available(macOS 14.2, *) {
+            AudioHardwareDestroyProcessTap(slot.tapID)
+        }
+        timbre_dsp_destroy(slot.enginePtr)
+    }
+
     public func stopAndDestroyTap() {
         lock.lock()
-        let agg = activeAggregateID
-        let tap = activeTapID
-        let proc = ioProcID
-        activeAggregateID = AudioObjectID(kAudioObjectUnknown)
-        activeAggregateUID = nil
-        activeTapID = AudioObjectID(kAudioObjectUnknown)
-        ioProcID = nil
-        isTapRunning = false
+        let slots = Array(activeSlots.values)
+        activeSlots.removeAll()
         lock.unlock()
 
-        if agg != AudioObjectID(kAudioObjectUnknown) {
-            if let proc {
-                AudioDeviceStop(agg, proc)
-                AudioDeviceDestroyIOProcID(agg, proc)
-            }
-            AudioHardwareDestroyAggregateDevice(agg)
+        for slot in slots {
+            destroySlot(slot)
         }
-        if tap != AudioObjectID(kAudioObjectUnknown) {
-            if #available(macOS 14.2, *) {
-                AudioHardwareDestroyProcessTap(tap)
-            }
-        }
-    }
-
-    private func recordPotentialZeroBuffer() {
-        consecutiveZeroBuffers += 1
-        if consecutiveZeroBuffers > 250 && Date().timeIntervalSince(lastZeroBufferRecoveryAt) > 30.0 {
-            lastZeroBufferRecoveryAt = Date()
-            tccAudioCaptureDeniedOrZeroed = true
-        }
-    }
-
-    private func resetZeroBufferCounter() {
-        consecutiveZeroBuffers = 0
-        tccAudioCaptureDeniedOrZeroed = false
     }
 }

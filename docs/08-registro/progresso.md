@@ -6,9 +6,11 @@
 
 ## Estado Atual
 
-- **Fase ativa:** **Fase 0 · Planejamento & Arquitetura concluída** → pronto para iniciar **Lote A de Experimentos (`E-01`, `E-06`, `E-07`)**.
-- **Código de produção (`macOS app`):** ainda não iniciado (por regra P5/P8, depende do fechamento dos gates da Fase 0).
-- **Tokens & Design System:** especificações normativas e geração automatizada (`design-system/scripts/generate_tokens.py` → `TimbreTokens.swift` e `tokens.css`) operacionais e validadas.
+- **Fase ativa:** **Fase 1/2 implementação E2E headless no sweetspot máximo alcançável neste ambiente** (branch `vinicius/e2e-implementation`, PR #1).
+- **Código de produção (`macOS app`):** `dist/Timbr.app` + `dist/Timbr.dmg` gerados; `./scripts/ci_check.sh` verde (tokens, zero-GPL, ASan/UBSan DSP, TimbreCore/Engine, smoke, **20× `kill -9` fail-safe P3**).
+- **Tokens & Design System:** geração automatizada operacional; playground HTML/CSS/JS validado no CI.
+- **Empacotamento B-110 (parcial):** `scripts/build_dmg.sh` com gate opcional `DEVELOPER_ID` + `NOTARY_PROFILE`; cask Homebrew em `Packaging/Homebrew/timbr.rb`. Notarização pública real exige certificado Apple (fora deste ambiente).
+- **Pendências honestas fora de CI headless:** E-08/E-09/E-10 com Momentum 4 / AirPods Pro conectados; grants TCC interativos; dogfood 14 dias (G2); 50 testadores + notarização Developer ID (G3); Sparkle 2 (B-208, Fase 2).
 
 ---
 
@@ -38,12 +40,12 @@
 
 ---
 
-## Próximo Passo Imediato (Entrada na Fase 0 · Lote A)
+## Próximo Passo Imediato (fora de CI headless)
 
-1. Criar estrutura inicial de experimentos em `experiments/` (`E-01-tap-null-test`, `E-06-dsp-float64-bench`, `E-07-hal-probe`).
-2. Executar **`E-01`** (Process Tap com ganho `1.0` vs saída direta em BlackHole: medir Null Test, latência e fail-safe `kill -9`) para validar `H-01`.
-3. Executar **`E-06`** (benchmark offline + Clang RTSan do núcleo `Float64` em C++20/`vDSP` vs `camilladsp` v5, incluindo shelving Vicanek 2024 e True Peak 4× vs 8×) para fechar [`ADR-0003`](../07-decisoes/ADR-0003-nucleo-dsp.md).
-4. Executar **`E-07`** (sonda HAL em saída integrada, DAC USB, Momentum 4 BT/USB/P2 e AirPods Pro) para fechar a matriz empírica de hardware.
+1. Conectar Momentum 4 + AirPods Pro e fechar **E-08 / E-09 / E-10** (HFP, GAIA RFCOMM live, coexistência de taps).
+2. Rodar grants TCC interativos (Audio Capture + Accessibility) com a UI aberta e repetir fail-safe `kill -9` sob captura real.
+3. Iniciar dogfood diário de 14 dias (**Gate G2**).
+4. Com certificado Developer ID: `DEVELOPER_ID=… NOTARY_PROFILE=… ./scripts/build_dmg.sh` → publicar release + atualizar `sha256` do cask Homebrew; depois Sparkle 2 (**B-208** / Gate G3).
 
 ---
 
@@ -61,3 +63,18 @@
    - Incorporados [`NOTICE`](../../NOTICE), [`OrphanedTapCleanup`](../../Sources/TimbreEngine/ProcessTapEngine.swift) (MIT `AudioRouter`) e framing/codecs GAIA v3 SPP `[0xFF, 0x03]` + cliente RFCOMM *read-only* em [`Momentum4Driver.swift`](../../Sources/TimbreEngine/Momentum4Driver.swift) (MIT `m4-companion`), mantendo a denylist de segurança bloqueada e alimentando o Guardião `G-04` (Duplo EQ).
    - Novos testes unitários de `GaiaSPPDeframer`, decodificadores Momentum 4, `G-04` e `OrphanedTapCleanup` validados em `./scripts/ci_check.sh`, além de atualização completa da matriz de mercado e inventário OSS (`docs/02-produto/mercado-e-diferenciacao.md`, `11_auditoria_repositorios_oss.md`, `inventario-e-classificacao.md`).
    - **Pendências honestas de hardware/ambiente:** testes físicos com Momentum 4 / AirPods Pro conectados (E-08/E-09/E-10 completos), TCC interativo de janela em uso contínuo e dogfood de 14 dias / 50 testadores (Gates G2/G3) permanecem abertos fora deste ambiente headless.
+
+### 2026-11-21 · Sweetspot headless — multi-tap, P3 crash recovery, fail-safe, packaging
+
+1. **Motor & roteamento:**
+   - `ProcessTapEngine.reconcileMultiTap` com `kAudioHardwarePropertyTranslatePIDToProcessObject`, slots multi-tap, `MirrorOutputTarget` (atraso 0–250 ms) e invariante P1 (`0` taps ativos com bypass/desligado).
+   - DSP C++: linha de atraso RT pré-alocada (`delay_ms`) para alinhamento multi-saída.
+   - `HALManager`: snapshot persistido + `recoverLeftoverSnapshotIfPresent()` pós-crash; watchdog de devices/default output.
+   - App: auto-duck em chamada VoIP, espelho multi-saída no Estúdio, IPC/extensões MV3 com volume por aba.
+2. **CI & higiene P3:**
+   - `scripts/verify_failsafe.sh` — 20× `SIGKILL` sem aggregates `dev.v1torres.timbr.agg.*` vazados e default output idêntico.
+   - `ci_check.sh` — RTSan opcional (Homebrew LLVM) + fail-safe como etapa 9.
+   - `build_dmg.sh` — assinatura Developer ID + `notarytool`/`stapler` quando `DEVELOPER_ID`/`NOTARY_PROFILE` estão definidos.
+   - `Packaging/Homebrew/timbr.rb` (B-110 scaffold).
+3. **Verificação local (2026-11-21):** `./scripts/ci_check.sh` **ALL PASSED**; `hdiutil verify dist/Timbr.dmg` **VALID**; SHA-256 `83f4b4e1749f82704a80a85c871e9b9d86031a5945cd3f9956693e9a614e47fd`.
+4. **O que o plano total ainda exige (não esquecido, só impossível headless):** hardware M4/AirPods (E-08/09/10), TCC real, G2 dogfood, G3 beta+notarização, Sparkle 2 (B-208). A parte pesada de engenharia/código/CI deste ambiente está fechada.

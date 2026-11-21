@@ -113,6 +113,29 @@ struct TimbreEngineTestRunner {
         _ = CompetingNotchDetector.detectRunningCompetitors()
         print("  [PASS] CompetingNotchDetector matching & scan")
 
+        // 6. HAL persistent crash snapshot recovery & Multi-tap P1 invariant
+        let snapURL = FileManager.default.temporaryDirectory.appendingPathComponent("timbr_hal_snap_\(UUID().uuidString).json")
+        defer { try? FileManager.default.removeItem(at: snapURL) }
+        let halRec = HALManager(snapshotFileURL: snapURL)
+        halRec.captureInitialSnapshotIfNeeded()
+        if let firstOut = devices.first(where: { $0.outputChannels > 0 }) {
+            // Confirm reconcileMultiTap(processingEnabled: false) yields 0 taps (P1)
+            let p1OK = engine.reconcileMultiTap(
+                processingEnabled: false,
+                preset: TimbrePreset(name: "Flat"),
+                abMode: .full,
+                outputDevice: firstOut,
+                sources: [AudioSourceDescriptor(bundleID: "com.spotify.client", name: "Spotify", pids: [ProcessInfo.processInfo.processIdentifier], volume: 0.5, isMuted: false, isPlaying: true)],
+                excludedBundleIDs: [],
+                duckFactor: 0.25,
+                mirrorOutputs: [MirrorOutputTarget(device: firstOut, delayMs: 999.0)]
+            )
+            expect(p1OK && engine.activeTapCount == 0, "Bypass/disabled reconcileMultiTap keeps 0 active taps (P1)")
+            expect(MirrorOutputTarget(device: firstOut, delayMs: 999.0).delayMs == 250.0, "MirrorOutputTarget delay clamped to 250 ms")
+        }
+        expect(!halRec.recoverLeftoverSnapshotIfPresent(), "No leftover snapshot when clean")
+        print("  [PASS] HAL crash snapshot check, MirrorOutputTarget clamp & multi-tap P1 invariant")
+
         print("[TimbreEngineTests] ALL PASSED")
     }
 }

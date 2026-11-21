@@ -169,21 +169,34 @@ public struct StudioWindow: View {
                     }
                 }
 
-                // Browser Tab Audio Updates via Extension IPC
+                // Browser Tab Audio Updates via Extension IPC (Bidirectional)
                 if !appState.tabUpdates.isEmpty {
                     Text("Browser Tabs (Extension IPC)")
                         .font(TimbreTypography.small.font)
                         .foregroundStyle(colors.ink_secondary)
                         .padding(.top, TimbreSpacing.s2)
                     ForEach(appState.tabUpdates, id: \.tabID) { tab in
-                        HStack {
+                        HStack(spacing: TimbreSpacing.s3) {
                             Text("[\(tab.browser)] \(tab.title)")
                                 .font(TimbreTypography.small.font)
                                 .foregroundStyle(colors.ink_primary)
-                            Spacer()
+                                .lineLimit(1)
+                                .frame(width: 210, alignment: .leading)
+                            Slider(
+                                value: Binding(
+                                    get: { tab.volume },
+                                    set: { appState.setTabVolume(browser: tab.browser, tabID: tab.tabID, volume: $0) }
+                                ),
+                                in: 0...2.0
+                            )
                             Text(tab.isMuted ? "MUTE" : "\(Int((tab.volume * 100).rounded()))%")
                                 .font(TimbreTypography.monoValue.font)
                                 .foregroundStyle(colors.ink_secondary)
+                                .frame(width: 52, alignment: .trailing)
+                            Button(tab.isMuted ? "Unmute" : "Mute") {
+                                appState.toggleTabMute(browser: tab.browser, tabID: tab.tabID)
+                            }
+                            .buttonStyle(.bordered)
                         }
                     }
                 } else {
@@ -242,6 +255,30 @@ public struct StudioWindow: View {
                                 .font(TimbreTypography.monoValue.font)
                                 .foregroundStyle(colors.ink_secondary)
                                 .frame(width: 44, alignment: .trailing)
+                        }
+                        if !dev.isDefaultOutput {
+                            let isMirrored = appState.mirrorOutputUIDs.contains(dev.uid)
+                            Toggle("Mirror", isOn: Binding(
+                                get: { isMirrored },
+                                set: { _ in appState.toggleMirrorOutput(dev) }
+                            ))
+                            .toggleStyle(.checkbox)
+                            if isMirrored {
+                                let dMs = appState.outputDelaysMs[dev.uid] ?? 0.0
+                                Slider(
+                                    value: Binding(
+                                        get: { dMs },
+                                        set: { appState.setOutputDelay(dev, delayMs: $0) }
+                                    ),
+                                    in: 0...250,
+                                    step: 1
+                                )
+                                .frame(width: 90)
+                                Text("\(Int(dMs.rounded())) ms")
+                                    .font(TimbreTypography.monoValue.font)
+                                    .foregroundStyle(colors.ink_muted)
+                                    .frame(width: 46, alignment: .trailing)
+                            }
                         }
                     }
                     Divider().background(colors.line_subtle)
@@ -627,6 +664,10 @@ public struct StudioWindow: View {
                     set: { appState.toggleShowCompact($0) }
                 ))
                 Toggle(appState.t("notch.menu_only_badge"), isOn: $appState.menuBarOnlyMode)
+                Toggle(appState.t("mixer.auto_duck"), isOn: Binding(
+                    get: { appState.autoDuckOnCall },
+                    set: { appState.toggleAutoDuck($0) }
+                ))
 
                 if !appState.competingNotchApps.isEmpty {
                     HStack {

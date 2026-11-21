@@ -443,6 +443,12 @@ struct timbre_dsp_engine {
     uint32_t rng_l{0x12345678u};
     uint32_t rng_r{0x87654321u};
 
+    // Pre-allocated RT delay line for multi-output ms alignment (zero RT alloc)
+    static constexpr size_t kMaxDelaySamples = 49152;
+    std::vector<double> delay_ring_l;
+    std::vector<double> delay_ring_r;
+    size_t delay_write_idx{0};
+
     // BS.1770 400ms momentary window energy accumulator
     std::vector<double> k_energy_ring;
     size_t k_energy_idx{0};
@@ -538,6 +544,7 @@ timbre_dsp_config_t timbre_dsp_default_config(double sample_rate, uint32_t max_f
     c.crossfeed_cutoff_hz = 700.0;
     c.crossfeed_feed_db = 4.5;
     c.dither_bits = 0;
+    c.delay_ms = 0.0;
     return c;
 }
 
@@ -549,6 +556,8 @@ timbre_dsp_engine_t* timbre_dsp_create(timbre_dsp_config_t config) {
     eng->limiter.prepare(config.sample_rate);
     eng->kweight.configure(config.sample_rate);
 
+    eng->delay_ring_l.assign(timbre_dsp_engine::kMaxDelaySamples, 0.0);
+    eng->delay_ring_r.assign(timbre_dsp_engine::kMaxDelaySamples, 0.0);
     const size_t k_win_samples = std::max<size_t>(1, static_cast<size_t>(config.sample_rate * 0.4));
     eng->k_energy_ring.assign(k_win_samples, 0.0);
 
@@ -660,6 +669,10 @@ void timbre_dsp_process_planar_f32(
     const double target_full = (mode == TIMBRE_AB_MODE_FULL) ? 1.0 : 0.0;
     const double target_corr = (mode == TIMBRE_AB_MODE_CORRECTION_ONLY) ? 1.0 : 0.0;
     const double ceiling_lin = db_to_lin(slot.config.limiter_ceiling_dbtp);
+    const size_t delay_samples = std::min<size_t>(
+        timbre_dsp_engine::kMaxDelaySamples - 1,
+        static_cast<size_t>(std::max(0.0, std::clamp(slot.config.delay_ms, 0.0, 250.0) * fs / 1000.0 + 0.5))
+    );
 
     double max_tp_l = 0.0, max_tp_r = 0.0, min_gr = 1.0;
     double max_in_abs = 0.0;
@@ -721,6 +734,18 @@ void timbre_dsp_process_planar_f32(
         max_tp_r = std::max(max_tp_r, tp_r);
         min_gr = std::min(min_gr, gr);
         if (clipped) { any_clip = true; ++clip_events; }
+
+        // Optional multi-output ms alignment delay line (zero RT alloc)
+        if (delay_samples > 0 && !engine->delay_ring_l.empty()) {
+            const size_t cap = engine->delay_ring_l.size();
+            const size_t w = engine->delay_write_idx;
+            engine->delay_ring_l[w] = lim_l;
+            engine->delay_ring_r[w] = lim_r;
+            const size_t r = (w + cap - delay_samples) % cap;
+            lim_l = engine->delay_ring_l[r];
+            lim_r = engine->delay_ring_r[r];
+            engine->delay_write_idx = (w + 1) % cap;
+        }
 
         // Optional TPDF Dither (Wannamaker)
         if (slot.config.dither_bits == 16 || slot.config.dither_bits == 24) {
