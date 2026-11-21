@@ -1,0 +1,22 @@
+# Build & SwiftPM
+.build/
+.swiftpm/
+Package.resolved
+dist/
+*.dSYM
+*.o
+*.a
+*.dylib
+experiments/**/build/
+experiments/**/probe
+experiments/**/bench
+experiments/**/*.bin
+
+# macOS & IDE
+.DS_Store
+*.xcuserstate
+xcuserdata/
+.vscode/
+
+# Scratch
+*.tmp

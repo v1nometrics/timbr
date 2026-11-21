@@ -1,0 +1,178 @@
+{
+  "$schema": "https://tr.designtokens.org/format/",
+  "fontFamily": {
+    "sans": {
+      "$type": "fontFamily",
+      "$value": ["Geist", "SF Pro Text", "-apple-system", "sans-serif"]
+    },
+    "mono": {
+      "$type": "fontFamily",
+      "$value": ["Geist Mono", "SF Mono", "ui-monospace", "monospace"]
+    },
+    "serif": {
+      "$type": "fontFamily",
+      "$value": ["Geist Serif", "New York", "Georgia", "serif"]
+    }
+  },
+  "fontWeight": {
+    "regular": {
+      "$type": "fontWeight",
+      "$value": 400
+    },
+    "medium": {
+      "$type": "fontWeight",
+      "$value": 500
+    }
+  },
+  "typeStyle": {
+    "micro": {
+      "$type": "typography",
+      "$value": {
+        "fontFamily": "mono",
+        "fontSize": "9px",
+        "fontWeight": 400,
+        "letterSpacing": "0.72px",
+        "lineHeight": 1.2,
+        "tabularNums": true
+      },
+      "$description": "Marcas de eixo EQ (20, 1K, 20K), timestamps"
+    },
+    "kicker": {
+      "$type": "typography",
+      "$value": {
+        "fontFamily": "mono",
+        "fontSize": "10px",
+        "fontWeight": 500,
+        "letterSpacing": "1.0px",
+        "lineHeight": 1.3,
+        "tabularNums": true
+      },
+      "$description": "Indices 01, 02, cabecalhos de tabela"
+    },
+    "eyebrow": {
+      "$type": "typography",
+      "$value": {
+        "fontFamily": "mono",
+        "fontSize": "11px",
+        "fontWeight": 500,
+        "letterSpacing": "1.21px",
+        "lineHeight": 1.4,
+        "textTransform": "uppercase"
+      },
+      "$description": "Eyebrow canonico (CAIXA ALTA, ink.muted, separador middot)"
+    },
+    "monoValue": {
+      "$type": "typography",
+      "$value": {
+        "fontFamily": "mono",
+        "fontSize": "11px",
+        "fontWeight": 400,
+        "letterSpacing": "0.22px",
+        "lineHeight": 1.3,
+        "tabularNums": true
+      },
+      "$description": "Unidades (DB, HZ, KHZ, LUFS, MS), selos"
+    },
+    "caption": {
+      "$type": "typography",
+      "$value": {
+        "fontFamily": "sans",
+        "fontSize": "11px",
+        "fontWeight": 400,
+        "letterSpacing": "-0.11px",
+        "lineHeight": 1.45
+      },
+      "$description": "Rodape de card, selo de fonte de medicao"
+    },
+    "small": {
+      "$type": "typography",
+      "$value": {
+        "fontFamily": "sans",
+        "fontSize": "12px",
+        "fontWeight": 400,
+        "letterSpacing": "-0.12px",
+        "lineHeight": 1.4
+      },
+      "$description": "Subtitulo de card, notas, linha secundaria de faixa"
+    },
+    "body": {
+      "$type": "typography",
+      "$value": {
+        "fontFamily": "sans",
+        "fontSize": "13.5px",
+        "fontWeight": 400,
+        "letterSpacing": "-0.14px",
+        "lineHeight": 1.4
+      },
+      "$description": "Nome de app no mixer, titulo de faixa, controles"
+    },
+    "prose": {
+      "$type": "typography",
+      "$value": {
+        "fontFamily": "sans",
+        "fontSize": "14.5px",
+        "fontWeight": 400,
+        "letterSpacing": "-0.15px",
+        "lineHeight": 1.6
+      },
+      "$description": "Explicacoes do Guardiao, Como ler, onboarding"
+    },
+    "cardTitle": {
+      "$type": "typography",
+      "$value": {
+        "fontFamily": "sans",
+        "fontSize": "18px",
+        "fontWeight": 500,
+        "letterSpacing": "-0.45px",
+        "lineHeight": 1.25
+      },
+      "$description": "Titulo de painel no Estudio / Observatorio"
+    },
+    "mediumValue": {
+      "$type": "typography",
+      "$value": {
+        "fontFamily": "sans",
+        "fontSize": "24px",
+        "fontWeight": 500,
+        "letterSpacing": "-0.96px",
+        "lineHeight": 1.0,
+        "tabularNums": true
+      },
+      "$description": "Valor central de dial / donut / notch expandido compacto"
+    },
+    "displayValue": {
+      "$type": "typography",
+      "$value": {
+        "fontFamily": "sans",
+        "fontSize": "36px",
+        "fontWeight": 500,
+        "letterSpacing": "-1.62px",
+        "lineHeight": 1.05,
+        "tabularNums": true
+      },
+      "$description": "Volume grande no HUD/Estudio, KPI principal"
+    },
+    "heroTitle": {
+      "$type": "typography",
+      "$value": {
+        "fontFamily": "sans",
+        "fontSize": "45px",
+        "fontWeight": 500,
+        "letterSpacing": "-2.25px",
+        "lineHeight": 1.01
+      },
+      "$description": "Apenas onboarding e pagina web/Sobre"
+    },
+    "lyric": {
+      "$type": "typography",
+      "$value": {
+        "fontFamily": "serif",
+        "fontSize": "16px",
+        "fontWeight": 400,
+        "letterSpacing": "-0.08px",
+        "lineHeight": 1.45
+      },
+      "$description": "Letras sincronizadas no notch e no Estudio"
+    }
+  }
+}

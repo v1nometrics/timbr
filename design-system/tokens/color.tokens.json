@@ -1,0 +1,321 @@
+{
+  "$schema": "https://tr.designtokens.org/format/",
+  "primitive": {
+    "neutral": {
+      "0": {
+        "$type": "color",
+        "$value": "#FFFFFF",
+        "$description": "oklch(100% 0 0)"
+      },
+      "1": {
+        "$type": "color",
+        "$value": "#FCFCFC",
+        "$description": "oklch(99% 0 0)"
+      },
+      "2": {
+        "$type": "color",
+        "$value": "#F8F8F8",
+        "$description": "oklch(97.8% 0 0)"
+      },
+      "3": {
+        "$type": "color",
+        "$value": "#F1F1F1",
+        "$description": "oklch(95.8% 0 0)"
+      },
+      "4": {
+        "$type": "color",
+        "$value": "#E3E3E3",
+        "$description": "oklch(91.5% 0 0)"
+      },
+      "5": {
+        "$type": "color",
+        "$value": "#CACACA",
+        "$description": "oklch(84% 0 0)"
+      },
+      "6": {
+        "$type": "color",
+        "$value": "#A4A4A4",
+        "$description": "oklch(72% 0 0)"
+      },
+      "7": {
+        "$type": "color",
+        "$value": "#7D7D7D",
+        "$description": "oklch(59% 0 0)"
+      },
+      "8": {
+        "$type": "color",
+        "$value": "#585858",
+        "$description": "oklch(46% 0 0)"
+      },
+      "9": {
+        "$type": "color",
+        "$value": "#383838",
+        "$description": "oklch(34% 0 0)"
+      },
+      "10": {
+        "$type": "color",
+        "$value": "#1D1D1D",
+        "$description": "oklch(23% 0 0)"
+      },
+      "11": {
+        "$type": "color",
+        "$value": "#0B0B0B",
+        "$description": "oklch(15% 0 0)"
+      }
+    }
+  },
+  "surface": {
+    "light": {
+      "bg": {
+        "canvas": {
+          "$type": "color",
+          "$value": "#FAFAFA"
+        },
+        "surface": {
+          "$type": "color",
+          "$value": "#FFFFFF"
+        },
+        "raised": {
+          "$type": "color",
+          "$value": "#FFFFFF"
+        },
+        "track": {
+          "$type": "color",
+          "$value": "#F8F8F8"
+        }
+      },
+      "ink": {
+        "primary": {
+          "$type": "color",
+          "$value": "#0B0B0B"
+        },
+        "secondary": {
+          "$type": "color",
+          "$value": "#585858"
+        },
+        "muted": {
+          "$type": "color",
+          "$value": "#7D7D7D"
+        }
+      },
+      "line": {
+        "default": {
+          "$type": "color",
+          "$value": "#E9E9E9"
+        },
+        "subtle": {
+          "$type": "color",
+          "$value": "#F3F3F3"
+        },
+        "strong": {
+          "$type": "color",
+          "$value": "#C4C4C4"
+        }
+      },
+      "accent": {
+        "base": {
+          "$type": "color",
+          "$value": "#7747FF"
+        },
+        "strong": {
+          "$type": "color",
+          "$value": "#5528CE"
+        },
+        "subtle": {
+          "$type": "color",
+          "$value": "rgba(119, 71, 255, 0.13)"
+        },
+        "controlOn": {
+          "$type": "color",
+          "$value": "#7747FF"
+        }
+      },
+      "semantic": {
+        "positive": {
+          "$type": "color",
+          "$value": "#00774D"
+        },
+        "warning": {
+          "$type": "color",
+          "$value": "#9F6202"
+        },
+        "negative": {
+          "$type": "color",
+          "$value": "#BB2C54"
+        },
+        "info": {
+          "$type": "color",
+          "$value": "#136D9E"
+        }
+      }
+    },
+    "dark": {
+      "bg": {
+        "canvas": {
+          "$type": "color",
+          "$value": "#141414"
+        },
+        "surface": {
+          "$type": "color",
+          "$value": "#191919"
+        },
+        "raised": {
+          "$type": "color",
+          "$value": "#1F1F1F"
+        },
+        "track": {
+          "$type": "color",
+          "$value": "#242424"
+        }
+      },
+      "ink": {
+        "primary": {
+          "$type": "color",
+          "$value": "#F2F2F2"
+        },
+        "secondary": {
+          "$type": "color",
+          "$value": "#B4B4B4"
+        },
+        "muted": {
+          "$type": "color",
+          "$value": "#8C8C8C"
+        }
+      },
+      "line": {
+        "default": {
+          "$type": "color",
+          "$value": "#2B2B2B"
+        },
+        "subtle": {
+          "$type": "color",
+          "$value": "#222222"
+        },
+        "strong": {
+          "$type": "color",
+          "$value": "#484848"
+        }
+      },
+      "accent": {
+        "base": {
+          "$type": "color",
+          "$value": "#A78BFF"
+        },
+        "strong": {
+          "$type": "color",
+          "$value": "#C7B7FF"
+        },
+        "subtle": {
+          "$type": "color",
+          "$value": "rgba(119, 71, 255, 0.22)"
+        },
+        "controlOn": {
+          "$type": "color",
+          "$value": "#8A66FF"
+        }
+      },
+      "semantic": {
+        "positive": {
+          "$type": "color",
+          "$value": "#55D69F"
+        },
+        "warning": {
+          "$type": "color",
+          "$value": "#F2BD68"
+        },
+        "negative": {
+          "$type": "color",
+          "$value": "#F0738F"
+        },
+        "info": {
+          "$type": "color",
+          "$value": "#7CC4F0"
+        }
+      }
+    },
+    "notch": {
+      "bg": {
+        "canvas": {
+          "$type": "color",
+          "$value": "#000000"
+        },
+        "surface": {
+          "$type": "color",
+          "$value": "#000000"
+        },
+        "raised": {
+          "$type": "color",
+          "$value": "rgba(255, 255, 255, 0.07)"
+        },
+        "track": {
+          "$type": "color",
+          "$value": "rgba(255, 255, 255, 0.12)"
+        }
+      },
+      "ink": {
+        "primary": {
+          "$type": "color",
+          "$value": "#F2F2F2"
+        },
+        "secondary": {
+          "$type": "color",
+          "$value": "#B4B4B4"
+        },
+        "muted": {
+          "$type": "color",
+          "$value": "#7A7A7A"
+        }
+      },
+      "line": {
+        "default": {
+          "$type": "color",
+          "$value": "rgba(255, 255, 255, 0.11)"
+        },
+        "subtle": {
+          "$type": "color",
+          "$value": "rgba(255, 255, 255, 0.07)"
+        },
+        "strong": {
+          "$type": "color",
+          "$value": "rgba(255, 255, 255, 0.28)"
+        }
+      },
+      "accent": {
+        "base": {
+          "$type": "color",
+          "$value": "#A78BFF"
+        },
+        "strong": {
+          "$type": "color",
+          "$value": "#C7B7FF"
+        },
+        "subtle": {
+          "$type": "color",
+          "$value": "rgba(119, 71, 255, 0.26)"
+        },
+        "controlOn": {
+          "$type": "color",
+          "$value": "#A78BFF"
+        }
+      },
+      "semantic": {
+        "positive": {
+          "$type": "color",
+          "$value": "#55D69F"
+        },
+        "warning": {
+          "$type": "color",
+          "$value": "#F2BD68"
+        },
+        "negative": {
+          "$type": "color",
+          "$value": "#F0738F"
+        },
+        "info": {
+          "$type": "color",
+          "$value": "#7CC4F0"
+        }
+      }
+    }
+  }
+}

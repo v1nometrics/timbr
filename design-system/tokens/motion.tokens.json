@@ -1,0 +1,97 @@
+{
+  "curve": {
+    "enter": {
+      "$type": "cubicBezier",
+      "$value": [
+        0.16,
+        1,
+        0.3,
+        1
+      ]
+    },
+    "standard": {
+      "$type": "cubicBezier",
+      "$value": [
+        0.22,
+        1,
+        0.36,
+        1
+      ]
+    },
+    "exit": {
+      "$type": "cubicBezier",
+      "$value": [
+        0.7,
+        0,
+        0.84,
+        0
+      ]
+    },
+    "inOut": {
+      "$type": "cubicBezier",
+      "$value": [
+        0.65,
+        0,
+        0.35,
+        1
+      ]
+    },
+    "pressOut": {
+      "$type": "cubicBezier",
+      "$value": [
+        0.23,
+        1,
+        0.32,
+        1
+      ]
+    }
+  },
+  "durationMs": {
+    "instant": {
+      "$type": "duration",
+      "$value": "0ms"
+    },
+    "press": {
+      "$type": "duration",
+      "$value": "140ms"
+    },
+    "exit": {
+      "$type": "duration",
+      "$value": "180ms"
+    },
+    "enter": {
+      "$type": "duration",
+      "$value": "240ms"
+    },
+    "barIn": {
+      "$type": "duration",
+      "$value": "700ms"
+    },
+    "reduceMotionFade": {
+      "$type": "duration",
+      "$value": "120ms"
+    }
+  },
+  "spring": {
+    "snappy": {
+      "duration": 0.26,
+      "bounce": 0.0
+    },
+    "smooth": {
+      "duration": 0.4,
+      "bounce": 0.0
+    },
+    "morph": {
+      "duration": 0.42,
+      "bounce": 0.0
+    },
+    "responsive": {
+      "stiffness": 520,
+      "damping": 44
+    }
+  },
+  "stagger": {
+    "itemSeconds": 0.035,
+    "maxTotalSeconds": 0.35
+  }
+}
