@@ -260,9 +260,15 @@ public struct NotchOverlayView: View {
 
             Spacer(minLength: geometry.hasPhysicalNotch ? geometry.notchWidth : 12)
 
-            // Right ear (<= 40 pt)
+            // Right ear (<= 40 pt) — battery micro-glyph when Apple Continuity is live
             HStack(spacing: TimbreSpacing.s1) {
-                if !appState.guardianAlerts.isEmpty {
+                if let bat = appleCompactBatteryGlyph {
+                    Text(bat)
+                        .font(TimbreTypography.micro.font)
+                        .foregroundStyle(colors.ink_secondary)
+                        .monospacedDigit()
+                        .lineLimit(1)
+                } else if !appState.guardianAlerts.isEmpty {
                     Circle()
                         .fill(colors.semantic_warning)
                         .frame(width: 6, height: 6)
@@ -433,6 +439,31 @@ public struct NotchOverlayView: View {
 
             Divider().background(colors.line_default)
 
+            if let telem = appState.driverTelemetry, telem.accessoryFamily != nil {
+                HStack(alignment: .center, spacing: TimbreSpacing.s2) {
+                    Image(systemName: (AppleAudioAccessoryKind(rawValue: telem.accessoryFamily ?? "") ?? .unknown).sfSymbolName)
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(colors.ink_primary)
+                        .symbolRenderingMode(.hierarchical)
+                        .accessibilityHidden(true)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(telem.modelIdentifier ?? appState.t("dev.apple.family"))
+                            .font(TimbreTypography.small.font)
+                            .foregroundStyle(colors.ink_primary)
+                            .lineLimit(1)
+                        AppleAccessoryBatteryStrip(
+                            telemetry: telem,
+                            t: appState.t,
+                            colors: colors,
+                            compact: true
+                        )
+                    }
+                    Spacer(minLength: 0)
+                }
+                .padding(.vertical, 2)
+                .accessibilityElement(children: .combine)
+            }
+
             // Active Sources
             Text(appState.t("mixer.title"))
                 .font(TimbreTypography.micro.font)
@@ -520,5 +551,14 @@ public struct NotchOverlayView: View {
     private var shortAppLabel: String {
         let name = appState.sources.first(where: { $0.isPlaying })?.name ?? "♪"
         return String(name.prefix(4))
+    }
+
+    /// Compact right-ear glyph: min(L,R) when Continuity is live (bible: no clutter).
+    private var appleCompactBatteryGlyph: String? {
+        guard let telem = appState.driverTelemetry, telem.accessoryFamily != nil else { return nil }
+        let pods = [telem.batteryLeftPercent, telem.batteryRightPercent].compactMap { $0 }
+        if let minPod = pods.min() { return "\(minPod)" }
+        if let bat = telem.batteryPercent { return "\(bat)" }
+        return nil
     }
 }

@@ -89,9 +89,9 @@
 
 ### 2026-11-21 · Linha Apple (AirPods → Max) — paridade documental com Momentum 4
 
-1. **Código:** [`AirPodsFamilyDriver.swift`](../../Sources/TimbreEngine/AirPodsFamilyDriver.swift) — classificador família, `ContinuityProximityParser`, scan CoreBluetooth passivo, telemetria HAL honesta (sem ANC inventado).
-2. **UI Observatório:** card com SF Symbol, L/R/Case, aviso Spatial + AACP fechado (bíblia DS + Apple Design: purpose, agency, craft).
-3. **AutoEq starter:** Pro 1/2, AirPods 3, AirPods Max.
-4. **Docs:** [`airpods-laboratorio.md`](../03-viabilidade/airpods-laboratorio.md), Nota [`12_airpods_linha_apple.md`](../00-pesquisa/notas-fase-2/12_airpods_linha_apple.md), ADR-0011, matriz, PRD RF-0805/0806, NOTICE §3.
-5. **Testes:** parser Continuity sintético + classificador no `TimbreEngineTests`.
+1. **Código:** [`AirPodsFamilyDriver.swift`](../../Sources/TimbreEngine/AirPodsFamilyDriver.swift) — classificador família, parser Continuity flip-aware (in-ear/lid), matriz `AppleModelCapabilityProfile`, scan CoreBluetooth passivo, telemetria HAL honesta (sem ANC inventado).
+2. **UI:** [`AppleAccessoryViews.swift`](../../Sources/TimbreApp/AppleAccessoryViews.swift) — card Observatório + strip Mixer + Notch (compact glyph / expanded strip); AACP fechado; chips systemManaged.
+3. **AutoEq starter:** AirPods 4 + 4 ANC (Rtings 5128), Pro 1/2, AirPods 3, Max; Pro 3 aguarda índice público.
+4. **Docs:** [`airpods-laboratorio.md`](../03-viabilidade/airpods-laboratorio.md), Nota [`12_airpods_linha_apple.md`](../00-pesquisa/notas-fase-2/12_airpods_linha_apple.md), ADR-0011, matriz, PRD RF-0808/0809, NOTICE §3.
+5. **Testes:** Pro 2 / AirPods 4 / 4 ANC / Pro 3 + flip + capabilities no `TimbreEngineTests`.
 6. **Ainda físico:** Continuity live com case aberto + E-08 HFP com AirPods conectados.

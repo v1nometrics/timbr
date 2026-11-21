@@ -1,19 +1,19 @@
 // SPDX-License-Identifier: MPL-2.0
 //
-// Apple Audio Accessory family (AirPods / AirPods Pro / AirPods Max / Beats H1–H2)
-// Strategy on macOS Developer ID (ADR-0011 + Nota 07 §4 / airpods-laboratorio):
-//   • HAL Core Audio: device match, transport, sample rate, anti-HFP (G-01) — Comprovado
-//   • Continuity BLE proximity-pairing (manufacturer 0x004C, type 0x07): passive L/R/Case
-//     battery when the lid is open — public RE (furiousMAC/continuity); MIT study refs
-//     apple-ble / mubar — reimplemented independently (zero GPL/AGPL / zero LibrePods code)
-//   • AACP over L2CAP 0x1001 (ANC / Transparency / head gestures): INVÁVEL em user-space
-//     macOS (bluetoothd + entitlements privados; LibrePods GPL-3.0 só Linux/Android)
-//   • MagicAccIRK/EncKey decryption: NÃO — exige AACP 0x30/0x31 (bloqueado)
+// Apple Audio Accessory family (AirPods → AirPods Max 2 / Beats H1–H2)
+// Strategy on macOS Developer ID (ADR-0011 + airpods-laboratorio + Nota 12):
+//   • HAL Core Audio: match, transport, anti-HFP (G-01) — Comprovado
+//   • Continuity BLE proximity (0x004C / type 0x07): L/R/Case, in-ear, lid — public RE
+//     (furiousMAC, cidermill-apple-ble, CAPod consensus); MIT study refs apple-ble / mubar
+//     — reimplemented independently (zero GPL/AGPL / zero LibrePods code)
+//   • AACP L2CAP 0x1001 (ANC, Adaptive Audio, Conversation Awareness, Hearing Aid EQ):
+//     INVÁVEL em user-space macOS — UI declara features como systemManaged (P11)
+//   • MagicAccIRK/EncKey: NÃO (exige AACP 0x30/0x31)
 import Foundation
 import CoreBluetooth
 import TimbreCore
 
-// MARK: - Family & Continuity (pure, testable)
+// MARK: - Family
 
 public enum AppleAudioAccessoryKind: String, Codable, Sendable, CaseIterable {
     case airPods
@@ -43,6 +43,98 @@ public enum AppleAudioAccessoryKind: String, Codable, Sendable, CaseIterable {
     }
 }
 
+/// Features of interest on recent AirPods firmware — all system-owned on macOS (no AACP).
+public enum AppleSystemManagedFeature: String, Codable, Sendable, CaseIterable {
+    case activeNoiseCancellation
+    case transparency
+    case adaptiveAudio
+    case conversationAwareness
+    case personalizedSpatialAudio
+    case hearingAid
+    case hearingTest
+    case hearingProtection
+    case voiceIsolation
+
+    public var localizationKey: String { "dev.apple.feature.\(rawValue)" }
+}
+
+public struct AppleModelCapabilityProfile: Sendable, Equatable {
+    public let kind: AppleAudioAccessoryKind
+    public let marketingName: String
+    public let systemManagedFeatures: Set<AppleSystemManagedFeature>
+    public let supportsContinuityBattery: Bool
+    public let autoEqCatalogHints: [String]
+
+    public static func profile(forModelID modelID: UInt16, kind: AppleAudioAccessoryKind, name: String) -> AppleModelCapabilityProfile {
+        // Feature sets mirror Apple's public compare matrix (2024–2026). None are controllable via AACP here.
+        let ancFamily: Set<AppleSystemManagedFeature> = [
+            .activeNoiseCancellation, .transparency, .adaptiveAudio,
+            .conversationAwareness, .personalizedSpatialAudio, .voiceIsolation
+        ]
+        let hearingPro: Set<AppleSystemManagedFeature> = ancFamily.union([
+            .hearingAid, .hearingTest, .hearingProtection
+        ])
+        switch modelID {
+        case 0x1920: // AirPods 4
+            return AppleModelCapabilityProfile(
+                kind: .airPods, marketingName: name,
+                systemManagedFeatures: [.personalizedSpatialAudio, .voiceIsolation],
+                supportsContinuityBattery: true,
+                autoEqCatalogHints: ["airpods", "4"]
+            )
+        case 0x1B20: // AirPods 4 ANC
+            return AppleModelCapabilityProfile(
+                kind: .airPods, marketingName: name,
+                systemManagedFeatures: ancFamily,
+                supportsContinuityBattery: true,
+                autoEqCatalogHints: ["airpods", "4"]
+            )
+        case 0x0E20: // Pro 1
+            return AppleModelCapabilityProfile(
+                kind: .airPodsPro, marketingName: name,
+                systemManagedFeatures: [
+                    .activeNoiseCancellation, .transparency,
+                    .personalizedSpatialAudio, .voiceIsolation
+                ],
+                supportsContinuityBattery: true,
+                autoEqCatalogHints: ["airpods pro"]
+            )
+        case 0x1420, 0x2420: // Pro 2 Lightning / USB-C
+            return AppleModelCapabilityProfile(
+                kind: .airPodsPro, marketingName: name,
+                systemManagedFeatures: hearingPro,
+                supportsContinuityBattery: true,
+                autoEqCatalogHints: ["airpods pro", "2"]
+            )
+        case 0x2720: // Pro 3
+            return AppleModelCapabilityProfile(
+                kind: .airPodsPro, marketingName: name,
+                systemManagedFeatures: hearingPro,
+                supportsContinuityBattery: true,
+                autoEqCatalogHints: ["airpods pro", "3"]
+            )
+        case 0x0A20, 0x1F20: // Max / Max USB-C (Max 2 shares Continuity family)
+            return AppleModelCapabilityProfile(
+                kind: .airPodsMax, marketingName: name,
+                systemManagedFeatures: ancFamily.union([.hearingProtection]),
+                supportsContinuityBattery: true,
+                autoEqCatalogHints: ["airpods max"]
+            )
+        default:
+            var features: Set<AppleSystemManagedFeature> = [.personalizedSpatialAudio]
+            if kind == .airPodsPro || kind == .airPodsMax {
+                features.formUnion([.activeNoiseCancellation, .transparency])
+            }
+            return AppleModelCapabilityProfile(
+                kind: kind, marketingName: name,
+                systemManagedFeatures: features,
+                supportsContinuityBattery: kind != .unknown,
+                autoEqCatalogHints: [kind.displayName.lowercased()]
+            )
+        }
+    }
+}
+
 public struct ContinuityProximitySnapshot: Equatable, Sendable {
     public let modelID: UInt16
     public let kind: AppleAudioAccessoryKind
@@ -53,8 +145,12 @@ public struct ContinuityProximitySnapshot: Equatable, Sendable {
     public let leftCharging: Bool
     public let rightCharging: Bool
     public let caseCharging: Bool
+    public let leftInEar: Bool?
+    public let rightInEar: Bool?
+    public let lidOpen: Bool?
     public let statusByte: UInt8
     public let colorByte: UInt8
+    public let capabilityProfile: AppleModelCapabilityProfile
 
     public var combinedBatteryPercent: Int? {
         let pods = [leftBatteryPercent, rightBatteryPercent].compactMap { $0 }
@@ -63,16 +159,13 @@ public struct ContinuityProximitySnapshot: Equatable, Sendable {
     }
 }
 
-/// Independent reimplementation of Apple Continuity proximity-pairing (type `0x07`)
-/// manufacturer payload layout documented by furiousMAC/continuity (public RE).
-/// Does **not** decrypt the trailing AES blob (requires MagicAccEncKey via AACP).
+/// Clean-room Continuity proximity-pairing (type `0x07`) parser.
+/// Layout consensus: furiousMAC + cidermill-apple-ble + CAPod / PodBridge research notes.
 public enum ContinuityProximityParser {
     public static let appleCompanyID: UInt16 = 0x004C
     public static let proximityPairingType: UInt8 = 0x07
 
     public static func parseManufacturerPayload(_ data: Data) -> ContinuityProximitySnapshot? {
-        // Expected: [type=0x07][len][0x01][modelHi][modelLo][status][batt][chg|case][lid][color][0x00][+enc16?]
-        // Some stacks strip type/len and pass only the inner body starting at 0x01.
         guard data.count >= 8 else { return nil }
 
         let body: Data
@@ -85,56 +178,85 @@ public enum ContinuityProximityParser {
         } else {
             return nil
         }
-        // Minimum: prefix + model(2) + status + batt + chg/case + lid + color
         guard body.count >= 8, body[0] == 0x01 else { return nil }
 
+        // Model bytes appear on-air as 0xNN20 (BE when read as UInt16 big-endian)
         let modelID = (UInt16(body[1]) << 8) | UInt16(body[2])
         let status = body[3]
         let battByte = body[4]
         let chgCase = body[5]
+        let lidByte = body.count > 6 ? body[6] : 0
         let color = body.count > 7 ? body[7] : 0
 
-        // Nibbles are 0...10 → 0...100% in 10% steps; 0xF = unknown / not present
+        // Primary/secondary flip: status bit5 == 1 → primary is left
+        let primaryIsLeft = (status & 0x20) != 0
+
         func nibblePercent(_ nibble: UInt8) -> Int? {
             let v = Int(nibble & 0x0F)
-            if v >= 0x0F { return nil }
+            if v == 0x0F { return nil }
+            if v == 0x0A { return 100 }
+            if v > 0x0A { return nil }
             return min(100, v * 10)
         }
 
-        // Convention used across public Continuity dumps: high nibble = right, low = left
-        let right = nibblePercent(battByte >> 4)
-        let left = nibblePercent(battByte)
+        let primaryBatt = nibblePercent(battByte)
+        let secondaryBatt = nibblePercent(battByte >> 4)
+        let leftBatt = primaryIsLeft ? primaryBatt : secondaryBatt
+        let rightBatt = primaryIsLeft ? secondaryBatt : primaryBatt
+
         let caseBatt = nibblePercent(chgCase)
-        let rightCharging = (chgCase & 0x20) != 0
-        let leftCharging = (chgCase & 0x10) != 0
+        let primaryCharging = (chgCase & 0x10) != 0
+        let secondaryCharging = (chgCase & 0x20) != 0
         let caseCharging = (chgCase & 0x40) != 0
+        let leftCharging = primaryIsLeft ? primaryCharging : secondaryCharging
+        let rightCharging = primaryIsLeft ? secondaryCharging : primaryCharging
+
+        // In-ear: bit1 primary, bit3 secondary (with flip)
+        let primaryInEar = (status & 0x02) != 0
+        let secondaryInEar = (status & 0x08) != 0
+        let leftInEar = primaryIsLeft ? primaryInEar : secondaryInEar
+        let rightInEar = primaryIsLeft ? secondaryInEar : primaryInEar
+
+        // Lid: bit3 of lid byte == 1 → closed (only trustworthy for in-case ads)
+        let inCaseBroadcast = (status & 0x44) != 0
+        let lidOpen: Bool? = inCaseBroadcast ? ((lidByte & 0x08) == 0) : nil
 
         let (kind, name) = modelLookup(modelID)
+        let profile = AppleModelCapabilityProfile.profile(forModelID: modelID, kind: kind, name: name)
+
         return ContinuityProximitySnapshot(
             modelID: modelID,
             kind: kind,
             modelName: name,
-            leftBatteryPercent: left,
-            rightBatteryPercent: right,
+            leftBatteryPercent: leftBatt,
+            rightBatteryPercent: rightBatt,
             caseBatteryPercent: caseBatt,
             leftCharging: leftCharging,
             rightCharging: rightCharging,
             caseCharging: caseCharging,
+            leftInEar: leftInEar,
+            rightInEar: rightInEar,
+            lidOpen: lidOpen,
             statusByte: status,
-            colorByte: color
+            colorByte: color,
+            capabilityProfile: profile
         )
     }
 
     public static func modelLookup(_ modelID: UInt16) -> (AppleAudioAccessoryKind, String) {
+        // Table: cidermill-apple-ble / CAPod / LibrePods public model maps (facts only).
         switch modelID {
         case 0x0220: return (.airPods, "AirPods (1st generation)")
         case 0x0F20: return (.airPods, "AirPods (2nd generation)")
         case 0x1320: return (.airPods, "AirPods (3rd generation)")
-        case 0x1920: return (.airPods, "AirPods (4th generation)")
+        case 0x1920: return (.airPods, "AirPods 4")
+        case 0x1B20: return (.airPods, "AirPods 4 (ANC)")
         case 0x0E20: return (.airPodsPro, "AirPods Pro (1st generation)")
-        case 0x1420, 0x2420: return (.airPodsPro, "AirPods Pro (2nd generation)")
-        case 0x2720: return (.airPodsPro, "AirPods Pro (2nd generation, USB-C)")
-        case 0x0A20, 0x1F20: return (.airPodsMax, "AirPods Max")
+        case 0x1420: return (.airPodsPro, "AirPods Pro 2")
+        case 0x2420: return (.airPodsPro, "AirPods Pro 2 (USB-C)")
+        case 0x2720: return (.airPodsPro, "AirPods Pro 3")
+        case 0x0A20: return (.airPodsMax, "AirPods Max")
+        case 0x1F20: return (.airPodsMax, "AirPods Max (USB-C)")
         case 0x2002, 0x200F, 0x2012, 0x2013, 0x2014:
             return (.beats, "Beats (H1/H2 Continuity)")
         default:
@@ -143,7 +265,7 @@ public enum ContinuityProximityParser {
     }
 }
 
-// MARK: - CoreBluetooth passive scanner (thread-safe cache)
+// MARK: - CoreBluetooth passive scanner
 
 public final class ContinuityBLEScanner: NSObject, CBCentralManagerDelegate, @unchecked Sendable {
     public static let shared = ContinuityBLEScanner()
@@ -172,11 +294,14 @@ public final class ContinuityBLEScanner: NSObject, CBCentralManagerDelegate, @un
         lock.lock()
         let values = Array(latestByModel.values)
         lock.unlock()
+        let filtered: [ContinuityProximitySnapshot]
         if let kind {
-            return values.first(where: { $0.kind == kind })
-                ?? values.sorted(by: { ($0.combinedBatteryPercent ?? -1) > ($1.combinedBatteryPercent ?? -1) }).first
+            let exact = values.filter { $0.kind == kind }
+            filtered = exact.isEmpty ? values : exact
+        } else {
+            filtered = values
         }
-        return values.sorted(by: { ($0.combinedBatteryPercent ?? -1) > ($1.combinedBatteryPercent ?? -1) }).first
+        return filtered.sorted(by: { ($0.combinedBatteryPercent ?? -1) > ($1.combinedBatteryPercent ?? -1) }).first
     }
 
     public func ingestForTesting(_ snap: ContinuityProximitySnapshot) {
@@ -275,6 +400,9 @@ public final class AirPodsProAdapter: HeadphoneDeviceDriver, @unchecked Sendable
         let combined = continuity?.combinedBatteryPercent
             ?? [left, right].compactMap { $0 }.min()
 
+        let profile = continuity?.capabilityProfile
+            ?? AppleModelCapabilityProfile.profile(forModelID: 0, kind: kind, name: kind.displayName)
+
         return HardwareDriverTelemetry(
             driverName: "\(kind.displayName) (HAL + Continuity)",
             batteryPercent: combined,
@@ -293,6 +421,7 @@ public final class AirPodsProAdapter: HeadphoneDeviceDriver, @unchecked Sendable
             accessoryFamily: kind.rawValue,
             modelIdentifier: continuity?.modelName ?? kind.displayName,
             spatialAudioMayAlterFR: spatialWarning,
+            systemManagedFeatureKeys: profile.systemManagedFeatures.map(\.rawValue).sorted(),
             trustBadge: trust,
             connectionStatus: status
         )

@@ -510,6 +510,7 @@ public struct HardwareDriverTelemetry: Codable, Hashable, Sendable {
     public var accessoryFamily: String?
     public var modelIdentifier: String?
     public var spatialAudioMayAlterFR: Bool?
+    public var systemManagedFeatureKeys: [String]?
     public var trustBadge: SignalTrustBadge?
     public var updatedAt: Date
     public var connectionStatus: String
@@ -532,6 +533,7 @@ public struct HardwareDriverTelemetry: Codable, Hashable, Sendable {
         accessoryFamily: String? = nil,
         modelIdentifier: String? = nil,
         spatialAudioMayAlterFR: Bool? = nil,
+        systemManagedFeatureKeys: [String]? = nil,
         trustBadge: SignalTrustBadge? = nil,
         updatedAt: Date = Date(),
         connectionStatus: String = "unavailable"
@@ -553,6 +555,7 @@ public struct HardwareDriverTelemetry: Codable, Hashable, Sendable {
         self.accessoryFamily = accessoryFamily
         self.modelIdentifier = modelIdentifier
         self.spatialAudioMayAlterFR = spatialAudioMayAlterFR
+        self.systemManagedFeatureKeys = systemManagedFeatureKeys
         self.trustBadge = trustBadge
         self.updatedAt = updatedAt
         self.connectionStatus = connectionStatus

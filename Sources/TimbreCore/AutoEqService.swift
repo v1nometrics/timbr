@@ -108,6 +108,48 @@ public enum AutoEqService {
             """
         ),
         AutoEqEntry(
+            id: "apple-airpods-4-rtings-5128",
+            headphoneName: "Apple AirPods 4",
+            source: "Rtings (AutoEq)",
+            rig: "Bruel & Kjaer 5128",
+            target: "Harman in-ear 2019",
+            relativePath: "results/Rtings/Bruel%20%26%20Kjaer%205128%20earbud/Apple%20AirPods%204/Apple%20AirPods%204%20ParametricEQ.txt",
+            bundledAPO: """
+            Preamp: -6.4 dB
+            Filter 1: ON LSC Fc 105 Hz Gain 11.4 dB Q 0.70
+            Filter 2: ON PK Fc 4622 Hz Gain 6.0 dB Q 1.39
+            Filter 3: ON PK Fc 49 Hz Gain -11.7 dB Q 0.39
+            Filter 4: ON PK Fc 1277 Hz Gain -2.6 dB Q 0.86
+            Filter 5: ON PK Fc 3036 Hz Gain 4.1 dB Q 2.43
+            Filter 6: ON HSC Fc 10000 Hz Gain -1.9 dB Q 0.70
+            Filter 7: ON PK Fc 354 Hz Gain -1.4 dB Q 1.50
+            Filter 8: ON PK Fc 176 Hz Gain 1.5 dB Q 2.04
+            Filter 9: ON PK Fc 618 Hz Gain 1.0 dB Q 2.35
+            Filter 10: ON PK Fc 106 Hz Gain -0.9 dB Q 2.47
+            """
+        ),
+        AutoEqEntry(
+            id: "apple-airpods-4-anc-rtings-5128",
+            headphoneName: "Apple AirPods 4 (ANC on)",
+            source: "Rtings (AutoEq)",
+            rig: "Bruel & Kjaer 5128",
+            target: "Harman in-ear 2019",
+            relativePath: "results/Rtings/Bruel%20%26%20Kjaer%205128%20earbud/Apple%20AirPods%204%20(ANC%20on)/Apple%20AirPods%204%20(ANC%20on)%20ParametricEQ.txt",
+            bundledAPO: """
+            Preamp: -6.2 dB
+            Filter 1: ON LSC Fc 105 Hz Gain 12.7 dB Q 0.70
+            Filter 2: ON PK Fc 49 Hz Gain -13.2 dB Q 0.44
+            Filter 3: ON PK Fc 3573 Hz Gain 6.0 dB Q 1.40
+            Filter 4: ON PK Fc 1318 Hz Gain -2.8 dB Q 1.16
+            Filter 5: ON PK Fc 5138 Hz Gain 3.2 dB Q 2.82
+            Filter 6: ON HSC Fc 10000 Hz Gain -2.0 dB Q 0.70
+            Filter 7: ON PK Fc 166 Hz Gain 1.2 dB Q 3.49
+            Filter 8: ON PK Fc 100 Hz Gain -0.7 dB Q 2.50
+            Filter 9: ON PK Fc 438 Hz Gain -0.8 dB Q 2.38
+            Filter 10: ON PK Fc 654 Hz Gain 0.6 dB Q 2.93
+            """
+        ),
+        AutoEqEntry(
             id: "apple-airpods-max-oratory",
             headphoneName: "Apple AirPods Max",
             source: "oratory1990 (AutoEq)",
@@ -135,8 +177,14 @@ public enum AutoEqService {
             for t in tokens where targetNorm.contains(t) { score += t.count * 2 }
             if targetNorm.contains("momentum 4") && norm.contains("momentum") { score += 40 }
             if targetNorm.contains("airpods max") && norm.contains("airpods max") { score += 50 }
+            if targetNorm.contains("airpods 4") && (norm.contains("airpods 4") || (norm.contains("airpods") && norm.contains(" 4"))) {
+                score += 55
+                if targetNorm.contains("anc") && (norm.contains("anc") || norm.contains("noise")) { score += 15 }
+            }
             if targetNorm.contains("airpods pro") && norm.contains("airpods pro") { score += 50 }
-            else if targetNorm.contains("airpods") && norm.contains("airpods") { score += 30 }
+            else if targetNorm.contains("airpods") && norm.contains("airpods") && !norm.contains("pro") && !norm.contains("max") {
+                score += 30
+            }
             return (entry, score)
         }
         let matches = scored.filter { $0.1 > 0 }.sorted { $0.1 > $1.1 }.map(\.0)

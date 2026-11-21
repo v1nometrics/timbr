@@ -239,6 +239,7 @@ public struct StudioWindow: View {
                                     .font(TimbreTypography.micro.font)
                                 }
                             }
+                            appleDestinationStrip(for: dev)
                         }
                         Spacer()
                         if dev.isHWVolumeMasterSettable || dev.isHWVolumeChannelSettable {
@@ -562,49 +563,18 @@ public struct StudioWindow: View {
 
             // Driver Telemetry Card (Momentum 4 GAIA · Apple Continuity / HAL)
             if let drv = appState.driverTelemetry {
-                let isApple = (drv.accessoryFamily != nil)
-                card(title: drv.driverName) {
-                    VStack(alignment: .leading, spacing: TimbreSpacing.s3) {
-                        HStack(alignment: .center, spacing: TimbreSpacing.s3) {
-                            if isApple, let fam = drv.accessoryFamily,
-                               let kind = AppleAudioAccessoryKind(rawValue: fam) {
-                                Image(systemName: kind.sfSymbolName)
-                                    .font(.system(size: 22, weight: .medium))
-                                    .foregroundStyle(colors.ink_primary)
-                                    .symbolRenderingMode(.hierarchical)
-                                    .accessibilityHidden(true)
-                            }
-                            VStack(alignment: .leading, spacing: 2) {
-                                if let model = drv.modelIdentifier {
-                                    Text(model)
-                                        .font(TimbreTypography.body.font)
-                                        .foregroundStyle(colors.ink_primary)
-                                }
-                                Text(drv.connectionStatus)
-                                    .font(TimbreTypography.monoValue.font)
-                                    .foregroundStyle(colors.ink_muted)
-                            }
-                            Spacer()
-                            if let trust = drv.trustBadge {
-                                badge(appState.t(trust == .reported ? "obs.badge.reported" : (trust == .measured ? "obs.badge.measured" : "obs.badge.inferred")), color: colors.semantic_info)
-                            }
-                            badge(appState.t("dev.m4.read_only"), color: colors.ink_muted)
-                        }
-
-                        HStack(spacing: TimbreSpacing.s2) {
+                if drv.accessoryFamily != nil {
+                    card(title: drv.driverName) {
+                        AppleAccessoryCard(appState: appState, telemetry: drv, colors: colors)
+                    }
+                } else {
+                    card(title: drv.driverName) {
+                        HStack(spacing: TimbreSpacing.s3) {
+                            Text("Status: \(drv.connectionStatus)").font(TimbreTypography.small.font)
                             if let codec = drv.reportedCodec {
                                 badge(codec, color: colors.semantic_info)
                             }
-                            if let left = drv.batteryLeftPercent {
-                                badge("\(appState.t("dev.apple.battery_l")) \(left)%", color: left < 20 ? colors.semantic_warning : colors.semantic_positive)
-                            }
-                            if let right = drv.batteryRightPercent {
-                                badge("\(appState.t("dev.apple.battery_r")) \(right)%", color: right < 20 ? colors.semantic_warning : colors.semantic_positive)
-                            }
-                            if let cse = drv.batteryCasePercent {
-                                badge("\(appState.t("dev.apple.battery_case")) \(cse)%", color: cse < 20 ? colors.semantic_warning : colors.semantic_positive)
-                            }
-                            if drv.batteryLeftPercent == nil, drv.batteryRightPercent == nil, let bat = drv.batteryPercent {
+                            if let bat = drv.batteryPercent {
                                 badge("\(appState.t("dev.m4.battery")): \(bat)%", color: bat < 20 ? colors.semantic_warning : colors.semantic_positive)
                             }
                             if let anc = drv.ancEnabled {
@@ -616,26 +586,7 @@ public struct StudioWindow: View {
                             if drv.internalEQNonFlat == true {
                                 badge(appState.t("dev.m4.eq_non_flat"), color: colors.semantic_warning)
                             }
-                        }
-
-                        if isApple {
-                            Text(appState.t("dev.apple.aacp_closed"))
-                                .font(TimbreTypography.caption.font)
-                                .foregroundStyle(colors.ink_muted)
-                                .fixedSize(horizontal: false, vertical: true)
-                            Text(appState.t("dev.apple.continuity_hint"))
-                                .font(TimbreTypography.caption.font)
-                                .foregroundStyle(colors.ink_muted)
-                                .fixedSize(horizontal: false, vertical: true)
-                            if drv.spatialAudioMayAlterFR == true {
-                                Text(appState.t("dev.apple.spatial_warn"))
-                                    .font(TimbreTypography.caption.font)
-                                    .foregroundStyle(colors.semantic_warning)
-                                    .fixedSize(horizontal: false, vertical: true)
-                            }
-                        }
-
-                        HStack {
+                            badge(appState.t("dev.m4.read_only"), color: colors.ink_muted)
                             Spacer()
                             if drv.driverName.contains("Momentum 4") {
                                 Button(appState.t("dev.m4.refresh")) {
@@ -643,17 +594,9 @@ public struct StudioWindow: View {
                                 }
                                 .buttonStyle(.bordered)
                             }
-                            if isApple {
-                                Button(appState.t("dev.apple.refresh_scan")) {
-                                    ContinuityBLEScanner.shared.ensureStarted()
-                                    appState.refreshSystemState()
-                                }
-                                .buttonStyle(.bordered)
-                            }
                         }
                     }
                 }
-                .animation(TimbreMotion.snappy, value: drv.batteryPercent)
             }
 
             // Guardian Alerts
@@ -799,6 +742,32 @@ public struct StudioWindow: View {
     }
 
     // MARK: - Helpers
+
+    @ViewBuilder
+    private func appleDestinationStrip(for dev: AudioDeviceDescriptor) -> some View {
+        let isAppleNamed = AirPodsProAdapter.classify(deviceName: dev.name) != .unknown
+        let telem = appState.driverTelemetry
+        let telemMatches = telem?.accessoryFamily != nil
+            && (dev.isDefaultOutput || appState.activeOutputDevice?.uid == dev.uid)
+        if isAppleNamed || telemMatches, let telem, telem.accessoryFamily != nil {
+            VStack(alignment: .leading, spacing: TimbreSpacing.s1) {
+                AppleAccessoryBatteryStrip(
+                    telemetry: telem,
+                    t: appState.t,
+                    colors: colors,
+                    compact: true
+                )
+                Text(appState.t("dev.apple.mixer_hint"))
+                    .font(TimbreTypography.micro.font)
+                    .foregroundStyle(colors.ink_muted)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(.top, 2)
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel(appState.t("dev.apple.family"))
+        }
+    }
+
     private func card<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: TimbreSpacing.s3) {
             Text(title)

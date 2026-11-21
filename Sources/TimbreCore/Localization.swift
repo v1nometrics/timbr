@@ -127,6 +127,27 @@ public enum TimbreStrings {
             .en: "L/R/Case battery via Continuity BLE when the lid is open (passive, no AACP)."
         ],
         "dev.apple.refresh_scan": [.ptBR: "Atualizar Continuity", .es: "Actualizar Continuity", .en: "Refresh Continuity"],
+        "dev.apple.features_title": [.ptBR: "Recursos do sistema (somente leitura)", .es: "Funciones del sistema (solo lectura)", .en: "System features (read-only)"],
+        "dev.apple.features_system": [
+            .ptBR: "Gerenciados pelo macOS. O timbr. não controla ANC, Adaptive Audio nem Hearing Aid (AACP fechado).",
+            .es: "Gestionados por macOS. timbr. no controla ANC, Adaptive Audio ni Hearing Aid (AACP cerrado).",
+            .en: "Managed by macOS. timbr. does not control ANC, Adaptive Audio, or Hearing Aid (AACP closed)."
+        ],
+        "dev.apple.feature.activeNoiseCancellation": [.ptBR: "ANC", .es: "ANC", .en: "ANC"],
+        "dev.apple.feature.transparency": [.ptBR: "Transparência", .es: "Transparencia", .en: "Transparency"],
+        "dev.apple.feature.adaptiveAudio": [.ptBR: "Adaptive Audio", .es: "Adaptive Audio", .en: "Adaptive Audio"],
+        "dev.apple.feature.conversationAwareness": [.ptBR: "Conversation Awareness", .es: "Conversation Awareness", .en: "Conversation Awareness"],
+        "dev.apple.feature.personalizedSpatialAudio": [.ptBR: "Áudio Espacial", .es: "Audio Espacial", .en: "Spatial Audio"],
+        "dev.apple.feature.hearingAid": [.ptBR: "Hearing Aid", .es: "Hearing Aid", .en: "Hearing Aid"],
+        "dev.apple.feature.hearingTest": [.ptBR: "Hearing Test", .es: "Hearing Test", .en: "Hearing Test"],
+        "dev.apple.feature.hearingProtection": [.ptBR: "Hearing Protection", .es: "Hearing Protection", .en: "Hearing Protection"],
+        "dev.apple.feature.voiceIsolation": [.ptBR: "Voice Isolation", .es: "Voice Isolation", .en: "Voice Isolation"],
+        "dev.apple.mixer_hint": [
+            .ptBR: "Destino Apple ativo — bateria via Continuity; EQ no Mac (AutoEq).",
+            .es: "Salida Apple activa — batería vía Continuity; EQ en el Mac (AutoEq).",
+            .en: "Apple output active — Continuity battery; EQ on Mac (AutoEq)."
+        ],
+        "notch.compact.bat": [.ptBR: "BAT", .es: "BAT", .en: "BAT"],
         "dev.hw_volume": [.ptBR: "Volume de Hardware", .es: "Volumen de Hardware", .en: "Hardware Volume"],
         "dev.sw_volume": [.ptBR: "Volume em Software", .es: "Volumen por Software", .en: "Software Volume"],
 

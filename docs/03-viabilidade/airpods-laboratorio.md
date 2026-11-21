@@ -13,7 +13,7 @@ O que um app **Developer ID** (sem SIP off, sem entitlements privados) consegue 
 | Camada | Veredito | Evidência |
 |---|---|---|
 | HAL Core Audio (volume, mute, default device, sample rate, HFP detect) | **Comprovado** | APIs públicas; Guardião G-01 |
-| Continuity BLE proximity-pairing `0x004C` / type `0x07` (bateria L/R/Case, modelo) | **Provável → implementado (parser + scan)**; validação física pendente com case aberto | furiousMAC/continuity (público); MIT `apple-ble`, `mubar` (estudo); reimplementação própria |
+| Continuity BLE proximity-pairing `0x004C` / type `0x07` (bateria L/R/Case, in-ear, lid, modelo) | **Implementado** (parser flip-aware + scan + matriz de capacidades); validação física pendente com case aberto | furiousMAC/continuity (público); MIT `apple-ble`, `mubar` (estudo); reimplementação própria |
 | AACP L2CAP `0x1001` (ANC, Transparency, head gestures, Conversational Awareness, Hearing Aid EQ) | **Inviável** em user-space macOS | LibrePods (GPL-3.0, Linux/Android only); BeatsBar / NoiseBuddy |
 | Decrypt MagicAccIRK / MagicAccEncKey (`0x30`/`0x31`) | **Inviável** (depende de AACP) | LibrePods DeepWiki; apple-ble docs |
 | AutoEq / correção Float64 por modelo | **Comprovado** (presets offline) | Catálogo starter + fetch AutoEq |
@@ -26,15 +26,17 @@ Código: [`Sources/TimbreEngine/AirPodsFamilyDriver.swift`](../../Sources/Timbre
 
 1. **Classificação por nome HAL** → `AppleAudioAccessoryKind` (`airPods` / `airPodsPro` / `airPodsMax` / `beats`).
 2. **Telemetria HAL** → codec inferido (`AAC (A2DP)` vs `HFP/SCO (degraded)`), status `hal-observed · aacp-closed`.
-3. **Scan Continuity passivo** (`CBCentralManager`, sem conexão) → quando o case está aberto e o Mac vê o advert, preenche L/R/Case + charging flags (`trustBadge = reported`).
-4. **Nunca inventa ANC/Transparency** (`ancEnabled = nil`) — P11.
-5. **Aviso Spatial Audio** (`spatialAudioMayAlterFR`) quando saída é A2DP — Observatório / card.
+3. **Scan Continuity passivo** (`CBCentralManager`, sem conexão) → quando o case está aberto e o Mac vê o advert, preenche L/R/Case + charging + in-ear/lid (`trustBadge = reported`).
+4. **Matriz de capacidades** por Model ID (`AppleModelCapabilityProfile`) — chips somente leitura (ANC, Adaptive Audio, Hearing Aid…); nunca toggles falsos.
+5. **Nunca inventa ANC/Transparency** (`ancEnabled = nil`) — P11.
+6. **Aviso Spatial Audio** (`spatialAudioMayAlterFR`) quando saída é A2DP — Observatório / card.
 
 ### O que a UI mostra (bíblia + Apple Design)
 
-- Card no Observatório com SF Symbol tipado (`airpods` / `airpods.pro` / `airpodsmax`), hierarquia tipográfica Geist, badges L/R/Case, selo `REPORTADO`/`INFERIDO`, copy trilíngue explicando AACP fechado.
-- Motion: `TimbreMotion.snappy` em mudanças de bateria; `Reduce Motion` já respeitado nas superfícies de onboarding; sem bounce em cards estáticos (princípio Apple: bounce só com momentum do gesto).
-- Feedback contínuo e previsível: botão “Atualizar Continuity” só reativa o scan + refresh HAL — sem modal bloqueante.
+- [`AppleAccessoryCard`](../../Sources/TimbreApp/AppleAccessoryViews.swift) no Observatório; strip L/R/Case no Mixer (destino ativo) e no Notch expanded; micro-glyph de bateria no Notch compact.
+- SF Symbol tipado (`airpods` / `airpods.pro` / `airpodsmax`), tipografia Timbre, badges `REPORTADO`/`INFERIDO`, copy trilíngue AACP fechado.
+- Motion: `TimbreMotion.snappy` / `enter`; `accessibilityReduceMotion` no card; sem bounce em superfícies estáticas (WWDC: bounce só com momentum do gesto).
+- Feedback contínuo: “Atualizar Continuity” reativa scan + refresh HAL — sem modal bloqueante.
 
 ---
 
@@ -46,10 +48,10 @@ Manufacturer ID Apple `0x004C`. Mensagem proximity-pairing type `0x07` (público
 |---|---|---|
 | 0 | `0x01` prefix | |
 | 1–2 | Model ID BE | Ver tabela abaixo |
-| 3 | Status | ear/case bits |
-| 4 | Battery nibbles | hi = R, lo = L; `0…10` → %×10; `0xF` = ausente |
-| 5 | Case nibble + charge flags | bits charge L/R/Case |
-| 6 | Lid open counter | |
+| 3 | Status | bit5 = primary-is-left (flip); bit1/bit3 = in-ear primary/secondary; bit2/6 = in-case broadcast |
+| 4 | Battery nibbles | lo = primary, hi = secondary; após flip → L/R; `0…10` → %×10; `0xA`=100; `0xF` = ausente |
+| 5 | Case nibble + charge flags | bits charge primary/secondary/case |
+| 6 | Lid | bit3=1 → closed **somente** se in-case broadcast |
 | 7 | Color | |
 | 8 | `0x00` | |
 | 9… | Encrypted 16 B | **não decifrado** (precisa MagicAccEncKey) |
@@ -58,10 +60,12 @@ Manufacturer ID Apple `0x004C`. Mensagem proximity-pairing type `0x07` (público
 
 | ID | Produto |
 |---|---|
-| `0x0220` / `0x0F20` / `0x1320` / `0x1920` | AirPods 1 / 2 / 3 / 4 |
+| `0x0220` / `0x0F20` / `0x1320` | AirPods 1 / 2 / 3 |
+| `0x1920` / `0x1B20` | AirPods 4 / AirPods 4 (ANC) |
 | `0x0E20` | AirPods Pro 1 |
-| `0x1420` / `0x2420` / `0x2720` | AirPods Pro 2 (+ USB-C) |
-| `0x0A20` / `0x1F20` | AirPods Max |
+| `0x1420` / `0x2420` | AirPods Pro 2 / Pro 2 (USB-C) |
+| `0x2720` | **AirPods Pro 3** |
+| `0x0A20` / `0x1F20` | AirPods Max / Max (USB-C) |
 | `0x2002`… | Beats H1/H2 Continuity |
 
 ---
@@ -70,10 +74,14 @@ Manufacturer ID Apple `0x004C`. Mensagem proximity-pairing type `0x07` (público
 
 | ID | Modelo |
 |---|---|
+| `apple-airpods-4-rtings-5128` | AirPods 4 (Rtings B&K 5128) |
+| `apple-airpods-4-anc-rtings-5128` | AirPods 4 ANC on |
 | `apple-airpods-pro-2-crinacle` | AirPods Pro 2 |
 | `apple-airpods-pro-1-crinacle` | AirPods Pro 1 |
 | `apple-airpods-3-crinacle` | AirPods 3 |
 | `apple-airpods-max-oratory` | AirPods Max |
+
+> Pro 3: ainda **sem** medição dedicada no índice AutoEq público — matcher prioriza Pro 2 até publicar; UI mantém aviso Spatial.
 
 Aviso obrigatório na UI: Áudio Espacial / Head Tracking **invalida parcialmente** a curva AutoEq.
 

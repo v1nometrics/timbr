@@ -137,28 +137,72 @@ struct TimbreEngineTestRunner {
         print("  [PASS] HAL crash snapshot check, MirrorOutputTarget clamp & multi-tap P1 invariant")
 
         // 7. Apple Continuity proximity parser + family classifier (AirPods / Max)
-        // Synthetic Continuity type 0x07 (furiousMAC layout): Pro 2 model 0x1420, L=80% R=90%, case=70%
+        // Synthetic Continuity type 0x07: Pro 2 0x1420, status bit5=1 → primary is Left.
+        // batt 0x98 → primary(lo)=8→80%, secondary(hi)=9→90% → L=80 R=90; case=70%.
         let prox: [UInt8] = [
             0x07, 0x09, // type + length (9 bytes follow)
             0x01,       // prefix
             0x14, 0x20, // model AirPods Pro 2
-            0x55,       // status
-            0x98,       // batt nibbles R=9 (90%), L=8 (80%)
-            0x57,       // case nibble 7 (70%) + flags
-            0x01,       // lid counter
+            0x2A,       // status: bit5 primary=left, bit1+bit3 both in-ear
+            0x98,       // batt nibbles secondary=9 primary=8
+            0x57,       // case nibble 7 (70%) + charge flags
+            0x00,       // lid byte
             0x00,       // color
             0x00        // suffix
         ]
         let snap = ContinuityProximityParser.parseManufacturerPayload(Data(prox))
         expect(snap != nil, "Continuity proximity payload parses")
         expect(snap?.kind == .airPodsPro, "Model 0x1420 → AirPods Pro")
-        expect(snap?.leftBatteryPercent == 80, "Left battery 80%")
-        expect(snap?.rightBatteryPercent == 90, "Right battery 90%")
+        expect(snap?.modelID == 0x1420, "Model ID preserved")
+        expect(snap?.leftBatteryPercent == 80, "Left battery 80% (flip-aware)")
+        expect(snap?.rightBatteryPercent == 90, "Right battery 90% (flip-aware)")
         expect(snap?.caseBatteryPercent == 70, "Case battery 70%")
+        expect(snap?.leftInEar == true, "Left in-ear from status bit1")
+        expect(snap?.rightInEar == true, "Right in-ear from status bit3")
+        expect(snap?.capabilityProfile.systemManagedFeatures.contains(.hearingAid) == true, "Pro 2 capability: Hearing Aid")
         expect(AirPodsProAdapter.classify(deviceName: "Vinicius’s AirPods Pro") == .airPodsPro, "Classify AirPods Pro")
         expect(AirPodsProAdapter.classify(deviceName: "AirPods Max") == .airPodsMax, "Classify AirPods Max")
         expect(AirPodsProAdapter.classify(deviceName: "AirPods") == .airPods, "Classify AirPods")
+        expect(AirPodsProAdapter.classify(deviceName: "AirPods 4") == .airPods, "Classify AirPods 4")
         expect(AirPodsProAdapter.classify(deviceName: "MacBook Speakers") == .unknown, "Reject non-Apple")
+
+        // AirPods 4 model map + flip invert (bit5=0 → primary is Right)
+        let air4: [UInt8] = [
+            0x07, 0x09,
+            0x01,
+            0x19, 0x20, // AirPods 4
+            0x06,       // status bit5=0 → primary=Right; bit1 primary in-ear; bit2 in-case
+            0x68,       // lo=8 (primary/R=80), hi=6 (secondary/L=60)
+            0x4A,       // case 100% + case charging bit6
+            0x08,       // lid closed (bit3) when in-case
+            0x00,
+            0x00
+        ]
+        let snap4 = ContinuityProximityParser.parseManufacturerPayload(Data(air4))
+        expect(snap4?.kind == .airPods, "Model 0x1920 → AirPods")
+        expect(snap4?.modelName.contains("AirPods 4") == true, "AirPods 4 marketing name")
+        expect(snap4?.leftBatteryPercent == 60, "AirPods 4 L after flip")
+        expect(snap4?.rightBatteryPercent == 80, "AirPods 4 R after flip")
+        expect(snap4?.caseBatteryPercent == 100, "AirPods 4 case 100%")
+        expect(snap4?.caseCharging == true, "Case charging flag")
+        expect(snap4?.rightInEar == true, "Primary (Right) in-ear")
+        expect(snap4?.leftInEar == false, "Secondary (Left) not in-ear")
+        expect(snap4?.lidOpen == false, "Lid closed when in-case + lid bit3")
+        expect(snap4?.capabilityProfile.systemManagedFeatures.contains(.activeNoiseCancellation) == false, "AirPods 4 base has no ANC in matrix")
+
+        let air4anc = ContinuityProximityParser.parseManufacturerPayload(Data([
+            0x07, 0x09, 0x01, 0x1B, 0x20, 0x20, 0x88, 0x55, 0x00, 0x00, 0x00
+        ]))
+        expect(air4anc?.modelName.contains("ANC") == true, "0x1B20 → AirPods 4 ANC")
+        expect(air4anc?.capabilityProfile.systemManagedFeatures.contains(.adaptiveAudio) == true, "AirPods 4 ANC: Adaptive Audio")
+
+        let pro3 = ContinuityProximityParser.parseManufacturerPayload(Data([
+            0x07, 0x09, 0x01, 0x27, 0x20, 0x20, 0x99, 0x55, 0x00, 0x00, 0x00
+        ]))
+        expect(pro3?.kind == .airPodsPro, "0x2720 → AirPods Pro family")
+        expect(pro3?.modelName == "AirPods Pro 3", "0x2720 marketing = Pro 3 (not Pro 2 USB-C)")
+        expect(pro3?.capabilityProfile.systemManagedFeatures.contains(.hearingTest) == true, "Pro 3 Hearing Test capability")
+
         if let snap {
             ContinuityBLEScanner.shared.ingestForTesting(snap)
             let telem = AirPodsProAdapter().readTelemetry(for: AudioDeviceDescriptor(
@@ -171,6 +215,8 @@ struct TimbreEngineTestRunner {
             expect(telem.ancEnabled == nil, "Never invent ANC without AACP (P11)")
             expect(telem.spatialAudioMayAlterFR == true, "Spatial FR warning on A2DP")
             expect(telem.batteryLeftPercent == 80, "Continuity L battery surfaces in telemetry")
+            expect(telem.systemManagedFeatureKeys?.contains("hearingAid") == true, "System-managed feature keys exposed")
+            expect(telem.leftCharging != nil, "Charging flags surfaced")
         }
         print("  [PASS] Continuity proximity parser, Apple family classifier & honest AACP boundary")
 
