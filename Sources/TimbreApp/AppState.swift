@@ -646,6 +646,42 @@ public final class AppState: ObservableObject {
         syncDSPAndTap()
     }
 
+    /// Unity / flat: all controllable app volumes → 1.0, unmuted. VoIP/DAW rows stay untouched.
+    public func resetAllSourceVolumesToFlat() {
+        var changed = false
+        for idx in sources.indices where !sources[idx].isVoIPExcluded {
+            if sources[idx].volume != 1.0 || sources[idx].isMuted {
+                sources[idx].volume = 1.0
+                sources[idx].isMuted = false
+                changed = true
+            }
+        }
+        for idx in tabUpdates.indices {
+            let cur = tabUpdates[idx]
+            if cur.volume != 1.0 || cur.isMuted {
+                tabUpdates[idx] = TabAudioUpdate(
+                    browser: cur.browser,
+                    tabID: cur.tabID,
+                    title: cur.title,
+                    origin: cur.origin,
+                    volume: 1.0,
+                    isMuted: false
+                )
+                ipcServer?.enqueueTabCommand(browser: cur.browser, tabID: cur.tabID, volume: 1.0, isMuted: false)
+                changed = true
+            }
+        }
+        guard changed else { return }
+        syncDSPAndTap()
+        logEvent(category: "mixer", message: "Reset all source volumes to flat (1.0)")
+        statusBanner = t("mixer.reset_flat_done")
+    }
+
+    public var hasNonFlatSourceVolumes: Bool {
+        sources.contains { !$0.isVoIPExcluded && ($0.volume != 1.0 || $0.isMuted) }
+            || tabUpdates.contains { $0.volume != 1.0 || $0.isMuted }
+    }
+
     public func toggleGlobalMicMute() {
         globalMicMuted.toggle()
         if let inp = activeInputDevice {

@@ -61,6 +61,17 @@ public enum TimbreStrings {
         "mixer.delay_ms": [.ptBR: "Atraso", .es: "Retraso", .en: "Delay"],
         "mixer.auto_duck": [.ptBR: "Atenuar mídia durante chamadas (-12 dB)", .es: "Atenuar medios en llamadas (-12 dB)", .en: "Auto-duck media during calls (-12 dB)"],
         "mixer.tabs_note": [.ptBR: "Controle por aba requer extensão", .es: "Control por pestaña requiere extensión", .en: "Per-tab control requires extension"],
+        "mixer.reset_flat": [.ptBR: "Resetar flat", .es: "Restablecer flat", .en: "Reset flat"],
+        "mixer.reset_flat_done": [
+            .ptBR: "Volumes das fontes em flat (100%).",
+            .es: "Volúmenes de fuentes en flat (100%).",
+            .en: "Source volumes reset to flat (100%)."
+        ],
+        "mixer.reset_flat_help": [
+            .ptBR: "Volta todos os apps (e abas) para 100% e desmuta. VoIP/DAW permanecem protegidos.",
+            .es: "Vuelve todas las apps (y pestañas) a 100% y quita el mute. VoIP/DAW siguen protegidos.",
+            .en: "Sets every app (and tab) to 100% and unmutes. VoIP/DAW rows stay protected."
+        ],
 
         // EQ Layers & Controls
         "eq.layer.correction": [.ptBR: "Correção", .es: "Corrección", .en: "Correction"],

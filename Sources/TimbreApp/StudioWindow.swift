@@ -120,6 +120,19 @@ public struct StudioWindow: View {
 
             // Sources Card
             card(title: appState.t("mixer.title")) {
+                HStack {
+                    Spacer(minLength: 0)
+                    Button {
+                        appState.resetAllSourceVolumesToFlat()
+                    } label: {
+                        Label(appState.t("mixer.reset_flat"), systemImage: "arrow.counterclockwise")
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(!appState.hasNonFlatSourceVolumes)
+                    .help(appState.t("mixer.reset_flat_help"))
+                    .accessibilityHint(appState.t("mixer.reset_flat_help"))
+                }
+
                 if appState.sources.isEmpty {
                     Text(appState.t("mixer.no_taps"))
                         .font(TimbreTypography.body.font)
