@@ -18,6 +18,19 @@
 
 
 
+### 2026-11-22 · Teclas de volume e brilho no notch
+
+- **Relato:** o controle de volume e brilho não funcionava mais no notch; aparecia a animação padrão do Mac.
+- **Causa (Comprovado):** a permissão de Acessibilidade no TCC estava presa ao `cdhash` do build de 21/11 (`31c867…`). Cada build ad-hoc tem outro `cdhash` (o atual era `28d541…`). `AXIsProcessTrusted()` passou a devolver falso, o interceptador de teclas nunca ligava, e nada avisava.
+- **Brilho:** nunca tinha sido implementado; o interceptador só tratava volume.
+- **Feito:**
+  - `scripts/setup_dev_signing.sh` cria a identidade "timbr Local Signing" num keychain próprio, com senha aleatória fora do repositório. O `build_app.sh` assina com ela, e o requisito designado passa a ser `identifier "com.timbr.app" and certificate leaf = H"e426…"`, estável entre builds.
+  - Brilho da tela embutida via DisplayServices, com IOKit de reserva. Se não der para ler o brilho, a tecla continua com o macOS.
+  - HUD do notch com ícone de sol; ⌥⇧ dá um quarto de passo; o key-up também é consumido.
+  - O interceptador liga sozinho quando a permissão é concedida com o app aberto. Se a permissão sumir, o app registra o evento e pede de novo.
+- **Verificado:** requisito estável conferido com `codesign -d -r-`; leitura e escrita de brilho testadas (0,5625 → 0,5625); evento "permission no longer applies" registrado e prompt exibido; CI passando.
+- **Pendente do dono:** reativar o timbr. em Ajustes › Privacidade e Segurança › Acessibilidade, uma vez. A permissão antiga foi removida com `tccutil reset`.
+
 ### 2026-11-22 · Fontes do macOS com nome e ícone
 
 - **Relato:** apareceu "systemsoundser…" com a letra "S" como ícone.

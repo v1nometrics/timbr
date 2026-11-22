@@ -803,7 +803,9 @@ public struct NotchOverlayView: View {
         let tint = appState.hudMuted ? c.semantic_warning : c.ink_primary
         return VStack(spacing: 0) {
             wingRow(wing: wing) {
-                Image(systemName: appState.hudMuted ? "speaker.slash.fill" : (v < 0.01 ? "speaker.fill" : (v < 0.34 ? "speaker.wave.1.fill" : (v < 0.67 ? "speaker.wave.2.fill" : "speaker.wave.3.fill"))))
+                Image(systemName: appState.hudKind == .brightness
+                      ? (v < 0.5 ? "sun.min.fill" : "sun.max.fill")
+                      : (appState.hudMuted ? "speaker.slash.fill" : (v < 0.01 ? "speaker.fill" : (v < 0.34 ? "speaker.wave.1.fill" : (v < 0.67 ? "speaker.wave.2.fill" : "speaker.wave.3.fill")))))
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(tint)
                     .contentTransition(.symbolEffect(.replace))

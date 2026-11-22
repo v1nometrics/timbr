@@ -41,18 +41,24 @@ public enum CompetingNotchDetector {
     }
 }
 
-public enum MediaKeyAction: Sendable {
-    case volumeUp
-    case volumeDown
+public enum MediaKeyAction: Sendable, Equatable {
+    case volumeUp(fine: Bool)
+    case volumeDown(fine: Bool)
     case muteToggle
+    case brightnessUp(fine: Bool)
+    case brightnessDown(fine: Bool)
 }
 
 public final class MediaKeyTap: @unchecked Sendable {
     private var eventTap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
     private var handler: ((MediaKeyAction) -> Void)?
+    /// Whether brightness keys are ours to handle (only if we can actually change brightness).
+    private var ownsBrightness = false
 
     public init() {}
+
+    public var isRunning: Bool { eventTap != nil }
 
     public static var isAccessibilityGranted: Bool {
         AXIsProcessTrusted()
@@ -63,6 +69,7 @@ public final class MediaKeyTap: @unchecked Sendable {
         guard Self.isAccessibilityGranted else { return false }
         stop()
         self.handler = onAction
+        self.ownsBrightness = DisplayBrightness.get() != nil
         let mask = CGEventMask(1 << 14) // NX_SYSDEFINED
         let selfPtr = Unmanaged.passUnretained(self).toOpaque()
         guard let tap = CGEvent.tapCreate(
@@ -74,7 +81,7 @@ public final class MediaKeyTap: @unchecked Sendable {
                 guard type == .tapDisabledByTimeout || type == .tapDisabledByUserInput || type.rawValue == 14,
                       let userInfo else { return Unmanaged.passRetained(event) }
                 let me = Unmanaged<MediaKeyTap>.fromOpaque(userInfo).takeUnretainedValue()
-                if type == .tapDisabledByTimeout, let tap = me.eventTap {
+                if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput, let tap = me.eventTap {
                     CGEvent.tapEnable(tap: tap, enable: true)
                     return Unmanaged.passRetained(event)
                 }
@@ -82,14 +89,20 @@ public final class MediaKeyTap: @unchecked Sendable {
                     let data1 = nsEvent.data1
                     let keyCode = (data1 & 0xFFFF0000) >> 16
                     let keyFlags = data1 & 0x0000FFFF
-                    let keyPressed = ((keyFlags & 0xFF00) >> 8) == 0xA
-                    if keyPressed {
-                        switch keyCode {
-                        case 0: me.handler?(.volumeUp); return nil
-                        case 1: me.handler?(.volumeDown); return nil
-                        case 7: me.handler?(.muteToggle); return nil
-                        default: break
-                        }
+                    let state = (keyFlags & 0xFF00) >> 8
+                    let keyDown = state == 0xA
+                    let keyUp = state == 0xB
+                    // ⌥⇧ + key = quarter step, like macOS.
+                    let fine = nsEvent.modifierFlags.contains(.option) && nsEvent.modifierFlags.contains(.shift)
+                    // NX_KEYTYPE_SOUND_UP 0, SOUND_DOWN 1, BRIGHTNESS_UP 2, BRIGHTNESS_DOWN 3, MUTE 7.
+                    // Key-up of a key we own is swallowed too, or macOS shows its own HUD on release.
+                    switch keyCode {
+                    case 0: if keyDown { me.handler?(.volumeUp(fine: fine)) }; if keyDown || keyUp { return nil }
+                    case 1: if keyDown { me.handler?(.volumeDown(fine: fine)) }; if keyDown || keyUp { return nil }
+                    case 7: if keyDown { me.handler?(.muteToggle) }; if keyDown || keyUp { return nil }
+                    case 2 where me.ownsBrightness: if keyDown { me.handler?(.brightnessUp(fine: fine)) }; if keyDown || keyUp { return nil }
+                    case 3 where me.ownsBrightness: if keyDown { me.handler?(.brightnessDown(fine: fine)) }; if keyDown || keyUp { return nil }
+                    default: break
                     }
                 }
                 return Unmanaged.passRetained(event)

@@ -104,7 +104,17 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
 </plist>
 PLIST
 
-echo "==> Ad-hoc signing $APP"
-codesign --force --deep --sign - "$APP"
+# Stable local identity when available (scripts/setup_dev_signing.sh): TCC grants such as
+# Accessibility survive rebuilds. Otherwise ad-hoc (grants must be re-approved after each build).
+DEV_KC="$HOME/Library/Keychains/timbr-dev.keychain-db"
+DEV_ID="timbr Local Signing"
+if [ -f "$DEV_KC" ] && [ -f "$HOME/.timbr-dev/keychain-pass" ] && security find-certificate -c "$DEV_ID" "$DEV_KC" >/dev/null 2>&1; then
+  security unlock-keychain -p "$(cat "$HOME/.timbr-dev/keychain-pass")" "$DEV_KC"
+  echo "==> Signing $APP with stable local identity ($DEV_ID)"
+  codesign --force --deep --keychain "$DEV_KC" --sign "$DEV_ID" "$APP"
+else
+  echo "==> Ad-hoc signing $APP (run scripts/setup_dev_signing.sh to keep permissions across builds)"
+  codesign --force --deep --sign - "$APP"
+fi
 codesign --verify --verbose=2 "$APP"
 echo "Built & verified: $APP"

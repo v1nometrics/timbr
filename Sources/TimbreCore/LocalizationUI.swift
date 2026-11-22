@@ -46,6 +46,7 @@ extension TimbreStrings {
         "src.other_system": [.ptBR: "Outros sons do macOS", .es: "Otros sonidos de macOS", .en: "Other macOS audio"],
         "ui.status.played": [.ptBR: "Tocou %@", .es: "Sonó %@", .en: "Played %@"],
         "ui.status.just_now": [.ptBR: "agora há pouco", .es: "hace un momento", .en: "just now"],
+        "ui.hud.brightness": [.ptBR: "Brilho", .es: "Brillo", .en: "Brightness"],
         "ui.notch.open_app": [.ptBR: "Abrir %@", .es: "Abrir %@", .en: "Open %@"],
         "ui.notch.expand": [.ptBR: "Expandir", .es: "Expandir", .en: "Expand"],
         "ui.notch.empty_hint": [.ptBR: "Toque algo e o controle aparece aqui.", .es: "Reproduce algo y el control aparece aquí.", .en: "Play something and its control appears here."],

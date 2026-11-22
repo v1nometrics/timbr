@@ -92,6 +92,8 @@ public final class GlobalHotKeyManager {
     }
 }
 
+public enum HUDKind: String, Sendable { case volume, brightness }
+
 public enum NotchState: String, Sendable {
     case resting
     case compact
@@ -139,6 +141,8 @@ public final class AppState: ObservableObject {
     @Published public var hudTitle: String = ""
     @Published public var hudValue: Double = 0.0
     @Published public var hudMuted: Bool = false
+    /// What the HUD is showing (volume or display brightness).
+    @Published public var hudKind: HUDKind = .volume
 
     // Audio Devices & Sources
     @Published public var devices: [AudioDeviceDescriptor] = []
@@ -184,6 +188,7 @@ public final class AppState: ObservableObject {
 
     // Permissions status
     @Published public var accessibilityGranted: Bool = false
+    private var accessibilityPromptedThisLaunch = false
     @Published public var ipcPortActive: Bool = false
 
     // First-run onboarding (RF-1401)
@@ -373,26 +378,50 @@ public final class AppState: ObservableObject {
     public func setupMediaKeysIfGranted() {
         accessibilityGranted = MediaKeyTap.isAccessibilityGranted
         if accessibilityGranted {
-            _ = mediaKeyTap.start { [weak self] action in
-                Task { @MainActor in self?.handleMediaKey(action) }
+            try? store?.setKV("accessibilityWasGranted", value: "1")
+            if !mediaKeyTap.isRunning {
+                let ok = mediaKeyTap.start { [weak self] action in
+                    Task { @MainActor in self?.handleMediaKey(action) }
+                }
+                logEvent(category: "system", message: ok ? "Volume and brightness keys handled by the notch" : "Could not install the media key tap")
             }
+        } else if store?.getKV("accessibilityWasGranted") == "1", !accessibilityPromptedThisLaunch {
+            // The grant existed but no longer applies (typically: the app's signature changed after an
+            // update). Say so, and ask again, instead of silently falling back to the system HUD.
+            accessibilityPromptedThisLaunch = true
+            logEvent(category: "system", message: "Accessibility permission no longer applies to this build; volume and brightness keys fall back to macOS")
+            let opts = ["AXTrustedCheckOptionPrompt": true] as CFDictionary   // kAXTrustedCheckOptionPrompt
+            _ = AXIsProcessTrustedWithOptions(opts)
         }
     }
 
     private func handleMediaKey(_ action: MediaKeyAction) {
+        switch action {
+        case .brightnessUp(let fine), .brightnessDown(let fine):
+            let step = fine ? 1.0 / 64.0 : 1.0 / 16.0
+            let up: Bool = { if case .brightnessUp = action { return true }; return false }()
+            let cur = DisplayBrightness.get() ?? 0.5
+            // Snap to the 1/16 grid like macOS so repeated presses land on the same notches.
+            let next = min(1, max(0, ((cur + (up ? step : -step)) / step).rounded() * step))
+            DisplayBrightness.set(next)
+            triggerHUD(title: t("ui.hud.brightness"), value: next, muted: false, kind: .brightness)
+            return
+        default:
+            break
+        }
         guard let out = activeOutputDevice else { return }
         let currentVol = Double(halManager.readOutputVolumeScalar(deviceID: out.audioObjectID) ?? 0.5)
         let currentMute = halManager.readOutputMute(deviceID: out.audioObjectID) ?? false
 
         switch action {
-        case .volumeUp:
-            let next = min(1.0, currentVol + 0.0625)
+        case .volumeUp(let fine):
+            let next = min(1.0, currentVol + (fine ? 0.015625 : 0.0625))
             _ = halManager.setOutputVolumeScalar(deviceID: out.audioObjectID, value: Float32(next))
             _ = halManager.setOutputMute(deviceID: out.audioObjectID, muted: false)
             activeOutputVolume = next
             triggerHUD(title: out.name, value: next, muted: false)
-        case .volumeDown:
-            let next = max(0.0, currentVol - 0.0625)
+        case .volumeDown(let fine):
+            let next = max(0.0, currentVol - (fine ? 0.015625 : 0.0625))
             _ = halManager.setOutputVolumeScalar(deviceID: out.audioObjectID, value: Float32(next))
             activeOutputVolume = next
             triggerHUD(title: out.name, value: next, muted: next <= 0.001)
@@ -400,10 +429,13 @@ public final class AppState: ObservableObject {
             let nextMute = !currentMute
             _ = halManager.setOutputMute(deviceID: out.audioObjectID, muted: nextMute)
             triggerHUD(title: out.name, value: currentVol, muted: nextMute)
+        case .brightnessUp, .brightnessDown:
+            break   // handled above
         }
     }
 
-    public func triggerHUD(title: String, value: Double, muted: Bool) {
+    public func triggerHUD(title: String, value: Double, muted: Bool, kind: HUDKind = .volume) {
+        hudKind = kind
         hudTitle = title
         hudValue = value
         hudMuted = muted
@@ -473,7 +505,10 @@ public final class AppState: ObservableObject {
                 return s
             }
         self.competingNotchApps = CompetingNotchDetector.detectRunningCompetitors()
-        self.accessibilityGranted = MediaKeyTap.isAccessibilityGranted
+        // Permission granted (or regained) while running → take the keys over without a restart.
+        if MediaKeyTap.isAccessibilityGranted != accessibilityGranted || (accessibilityGranted && !mediaKeyTap.isRunning) {
+            setupMediaKeysIfGranted()
+        }
 
         if let out = activeOutputDevice {
             if m4Driver.matches(device: out) {

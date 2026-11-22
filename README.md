@@ -57,8 +57,16 @@ Gera automaticamente:
 # rodar testes C++20 (ASan+UBSan), Swift 6 Core/Engine, montar dist/Timbr.app e smoke check:
 ./scripts/ci_check.sh
 
-# Apenas montar e assinar ad-hoc o bundle dist/Timbr.app:
+# Uma vez por máquina: identidade de assinatura local estável. Sem ela, cada build tem uma
+# assinatura ad-hoc diferente e o macOS deixa de aplicar a permissão de Acessibilidade
+# (as teclas de volume e brilho voltam para o HUD do sistema).
+./scripts/setup_dev_signing.sh
+
+# Montar e assinar o bundle dist/Timbr.app (identidade local se existir, senão ad-hoc):
 ./scripts/build_app.sh
+
+# Medir o volume por app de ponta a ponta no app instalado (toca bipes por ~30 s):
+./scripts/selftest_audio.sh
 
 # Gerar o instalador distribuível dist/Timbr.dmg:
 ./scripts/build_dmg.sh
