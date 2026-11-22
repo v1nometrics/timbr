@@ -4,6 +4,18 @@
 
 ---
 
+## 0. O que roda hoje (2026-11-23)
+
+| Camada | Como rodar | O que cobre |
+|---|---|---|
+| CI local e GitHub | `./scripts/ci_check.sh` (GitHub: `macos-15`, **Swift 6.1**) | Tokens e playground; extensões; zero GPL; trava de design (controles padrão, contorno no notch, nenhuma cor de marca); build completo; DSP C++ com **ASan + UBSan** (incluindo corrida do buffer triplo e render com stride ou mono); TimbreCore (parsers, i18n com 3 idiomas, Guardião, ordem de fontes, catálogo do macOS…); TimbreEngine (HAL, taps, invariante P1, drivers); smoke do bundle; **20× `kill -9`** sem agregado órfão |
+| E2E de áudio | `./scripts/selftest_audio.sh` (no app instalado, com a permissão de gravação do sistema) | Toca um tom de 1 kHz com `afplay`, aciona o `ProcessTapEngine` real e mede com dois taps independentes (fonte e saída do timbr.): 50/25/200/150 %, mudo e limiter |
+| Revisão visual | Flags `--studio`, `--notch`, `--review-empty`, `--demo`, `--panel-preview` + `screencapture` | Cada superfície num estado conhecido; `--demo` grava a coreografia do notch para análise quadro a quadro |
+
+**Ainda não existe:** RTSan, null test bit-exact com tap real, vetores EBU Tech 3341, fuzzing contínuo, snapshot tests de UI, loopback com BlackHole, soak de 24 h e ABX. As seções abaixo continuam sendo o alvo.
+
+---
+
 ## 1. Pirâmide de Testes do `timbr.`
 
 ```

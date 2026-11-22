@@ -23,7 +23,7 @@ Enquanto `ADR-0001` permanecer como **Proposto** aguardando aprovação final do
 2. **Proibição de empacotamento indevido de dados:**
    - Banco de medições `AutoEq`: baixado sob demanda em runtime com cache local e atribuição obrigatória ao autor e equipamento de medição (ver `descobertas.md` §8 — dados `oratory1990` têm direitos de terceiros).
    - Letras sincronizadas (`LRCLIB`): apenas consulta em runtime, sem redistribuição de banco local em releases.
-   - Fontes (`Geist`, `Geist Mono`, `Geist Serif`): embarcadas com arquivo `OFL.txt` preservado no bundle.
+   - Fontes: o app usa as fontes do sistema (SF Pro, SF Mono, New York, ADR-0015) e não embarca nenhuma. `Geist` (OFL) aparece só na web (docs, site, playground), com o `OFL.txt` preservado onde for distribuída.
 3. **Nomes e marcas registradas:** respeitar marcas de terceiros (`Sennheiser`, `Momentum`, `Apple`, `AirPods`, `AutoEq`, `FabFilter`) utilizando-as exclusivamente de forma descritiva/nominativa na documentação de compatibilidade.
 
 ---

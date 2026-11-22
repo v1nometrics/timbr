@@ -5,6 +5,14 @@
 
 ---
 
+## 0. Estado implementado (2026-11-23)
+
+- Observatório no Estúdio com caminho do sinal, KPIs com marca de origem, espectro real (vazio sem sinal), cartão do driver do fone, Guardião e linha do tempo persistida em SQLite (`observatory_events`).
+- **A linha do tempo também registra falhas do motor** (categoria `routing`, com o código `OSStatus` de `AudioHardwareCreateProcessTap`, `CreateAggregateDevice`, IOProc ou `AudioDeviceStart`) e eventos de sistema: permissão de Acessibilidade que deixou de valer, teclas de mídia assumidas pelo notch. Antes, essas falhas eram descartadas em silêncio.
+- Guardião G-01…G-07 implementado em `GuardianAnalyzer` com testes. Execução física de G-01 (HFP) **não feita** (E-08).
+
+---
+
 ## 1. Regra Cardinal de Honestidade Epistêmica (P4)
 
 Nenhuma métrica inferida ou heurística pode ser apresentada com a mesma linguagem visual de uma grandeza medida em buffer ou reportada diretamente por API do Core Audio. Todo nó do Observatório carrega obrigatoriamente um `SourceOriginBadge` com uma das três origens:

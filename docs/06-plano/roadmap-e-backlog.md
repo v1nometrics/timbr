@@ -4,6 +4,26 @@
 
 ---
 
+## Situação em 2026-11-23
+
+O código da Fase 1 existe e está em uso diário (dogfood), mas o Gate G2 (14 dias como único mixer e EQ) **ainda não foi contado**. Estado de cada item, com a evidência:
+
+| Item | Situação | Evidência / o que falta |
+|---|---|---|
+| B-101 Motor + snapshot + fail-safe | Feito (no processo do app) | 20× `kill -9` no CI; helper XPC não feito (E-16); soak de 24 h **não executado** |
+| B-102 Mixer por app | Feito | Autoteste E2E (ganho exato); fontes simultâneas, helpers e serviços do macOS agrupados |
+| B-103 EQ `Float64` | Feito | Testes C++ (ASan/UBSan); golden tests EBU **pendentes** |
+| B-104 Limiter + bypass + A/B | Feito | Limiter −0,30 dBFS medido; A/B neutro com crossfade |
+| B-105 APO + AutoEq | Feito (AutoEq offline embutido) | Testes de parser e ida e volta |
+| B-106 HAL + teclas de mídia | Feito, incluindo brilho e volume geral no notch | Capturas do HUD; Acessibilidade estável com a assinatura local |
+| B-107 Observatório v1 | Feito | Capturas; falhas do motor na linha do tempo |
+| B-108 Guardião G-01 | Código e testes feitos | Bancada HFP (E-08) **não executada** |
+| B-109 Superfícies | Feito | Capturas; ícone de barra de menus condicional (ADR-0013, revisão) |
+| B-110 Developer ID + notarização + cask | **Parcial** | Scripts e cask prontos; falta conta Apple Developer. Builds locais usam identidade autoassinada |
+| RF-0201 Rotear app para outra saída | **Não feito** | Maior lacuna funcional do mixer |
+
+---
+
 ## Visão Geral das Fases e Gates
 
 ```
@@ -46,7 +66,7 @@
 | **B-106** | EP-06 | Sonda HAL + seleção de entradas/saídas + volume/mute HW ou SW sinalizado + tecla de mídia (`CGEventTap`) | P0 | Nenhuma UI exibe controle não gravável |
 | **B-107** | EP-07 | Observatório v1: cadeia de estágios com selos `MEDIDO` / `REPORTADO` / `INFERIDO` e selo `BIT-PERFECT` honesto | P0 | `BIT-PERFECT` só acende sem taps ativos |
 | **B-108** | EP-08 | Guardião Bluetooth G-01 (política "Output Only" anti-HFP + aviso de chamada) | P0 | Zero falso negativo nos testes E-08 |
-| **B-109** | EP-13 | Notch (5 estados) + Pílula (monitor externo) + MenuBarExtra + Estúdio v1 (`TimbreTokens`) | P0 | 100% no checklist do Design System (§5) |
+| **B-109** | EP-13 | Notch (5 estados) + Pílula (monitor externo) + ícone de barra de menus condicional + Estúdio v1 (`TimbreTokens`) | P0 | 100% no checklist do Design System (§5) |
 | **B-110** | EP-14 | Pipeline de assinatura Developer ID, notarização e cask Homebrew inicial | P1 | Instalação limpa sem aviso de Gatekeeper |
 
 ---
@@ -64,7 +84,7 @@
 | **B-204b** | EP-08 | Driver linha Apple (AirPods/Pro/Max/Beats): HAL + Continuity BLE flip-aware + matriz de capacidades + AutoEq 4/Pro/Max + UI Observatório/Mixer/Notch (sem AACP) | E-08 | [`airpods-laboratorio.md`](../03-viabilidade/airpods-laboratorio.md) — UI compartilhada feita; live Continuity pendente |
 | **B-205** | EP-07 | Guardião completo (G-02 reamostragem, G-03 clipping, G-04 EQ duplicado, G-06 troca de device, G-07 conflito de tap) + medidores EBU R128/PPM | B-107 | Linha do tempo exportável em relatório de diagnóstico |
 | **B-206** | EP-10 | Cenas e automações por contexto (device conectado, app de reunião aberto, USB vs BT) + ducking | B-201 | Transições com rampa suave |
-| **B-207** | EP-11 | Now Playing multi-sessão (`mediaremote-adapter` + AppleScript/HTTP fallback) + espectro FFT ao vivo + letras LRCLIB (`Geist Serif`) | E-15 | Espectro só com permissão e opt-in |
+| **B-207** | EP-11 | Now Playing multi-sessão (`mediaremote-adapter` + AppleScript/HTTP fallback) + espectro FFT ao vivo + letras LRCLIB (New York, ADR-0015) | E-15 | Espectro só com permissão e opt-in |
 | **B-208** | EP-14 | Sparkle 2 (canais stable/beta) + ferramenta de diagnóstico/export de logs sem dados sensíveis | B-110 | — |
 
 ---

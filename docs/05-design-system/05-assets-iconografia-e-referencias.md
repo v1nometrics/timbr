@@ -10,7 +10,7 @@
 | Equalizador | `point.bottomleft.forward.to.point.topright.scurvepath` |
 | Observatório | `waveform.path.ecg.rectangle` |
 | Ajustes / Sobre | `gearshape` / `info.circle` |
-| Barra de menus | `waveform` (ativo) · `waveform.slash` (desligado) |
+| Barra de menus (só quando o notch não é a entrada) | `waveform` (ativo) · `waveform.slash` (desligado) |
 | Volume (HUD) | `speaker.fill` · `speaker.wave.1/2/3.fill` · `speaker.slash.fill` |
 | Mudo em linha | `speaker.wave.2` → `speaker.slash.fill` (âmbar) |
 | Processamento | `power` |
@@ -23,7 +23,7 @@
 
 ## 2. Marca
 
-- Wordmark **timbr.**: SF Pro Semibold, tracking negativo proporcional; o ponto em `accent.signal`. Tamanhos usados: 13 (notch), 15 (barra de menus), 19 (barra lateral), 56 (Sobre).
+- Wordmark **timbr.**: SF Pro Semibold, tracking negativo proporcional; o ponto na mesma tinta da palavra (identidade acromática, ADR-0016). Tamanhos usados: 13 (notch), 15 (barra de menus), 19 (barra lateral), 56 (Sobre).
 - Ícone do app: `Resources/Timbr.icns`, gerado por `scripts/generate_icns.py`.
 - Proibido: contorno na marca, gradiente, sombra, mudar a cor do ponto fora do acento.
 

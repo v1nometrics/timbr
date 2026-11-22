@@ -5,6 +5,22 @@
 
 ---
 
+## 0. Estado implementado (2026-11-23)
+
+> Classe: **Comprovado** (código + autoteste E2E + capturas), salvo indicação.
+
+- **Slots de captura** (`ProcessTapEngine.reconcileMultiTap`):
+  - um tap `stereoMixdownOfProcesses` por app com volume ≠ 100 % ou mudo, com `.mutedWhenTapped` e ganho próprio;
+  - um tap global `stereoGlobalTapButExcludeProcesses` quando há EQ, crossfeed ou ducking. Ele exclui os apps com slot próprio, os de VoIP e o próprio timbr., e só existe enquanto há áudio tocando (desmontado 10 s depois do silêncio);
+  - um tap sem mudo por saída espelhada, que exclui os apps no mudo. Limite conhecido: o volume por app não é replicado nos espelhos.
+- **Ganho medido:** 50/25/200/150 % = −6,02/−12,04/+6,02/+3,52 dB; mudo em silêncio. Acima de 100 %, o limiter segura −0,3 dBTP, e música já masterizada perto de 0 dBFS quase não fica mais alta. O Mixer mostra "No limite".
+- **Atribuição (`AudioProcessAttribution`):** processo responsável (`responsibility_get_pid_responsible_for_pid`, buscado em runtime) → pacote `.app` mais externo do executável → cadeia de pais → bundle ID reportado. Apps de barra de menus (accessory) contam como donos. Resultado: o áudio WebKit do Raycast é "Raycast" (antes era "Safari"), e o helper do Chrome é "Google Chrome".
+- **Chrome/Chromium:** todas as abas e PWAs tocam pelo mesmo processo de áudio (`Google Chrome Helper`). O controle por aba depende da extensão (§4). Vídeo mudo no player não gera áudio nenhum para o macOS e não aparece como fonte (verificado com o player do YouTube).
+- **Fontes do macOS:** `SystemAudioClient` agrupa daemons sem app, como Sons do sistema (systemsoundserverd, PowerChime, NotificationCenter…), Siri e Ditado, Chamadas (protegidas como VoIP) e Leitura em voz alta.
+- **Não implementado:** rotear um app para outra saída (RF-0201; `targetDestinationUIDs` não é usado pelo motor), extensões ligadas ao Mixer na UI de abas, e o ducking por cena além do ducking em chamada.
+
+---
+
 ## 1. Topologia do Motor: Um Aggregate por Saída Física
 
 Em vez de criar um aggregate por par `(app, dispositivo)` (modelo Atoll, que multiplica domínios de relógio e soma múltiplas streams antes do limiter), o Timbre adota a topologia **um motor por dispositivo de saída físico ativo**:

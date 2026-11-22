@@ -17,3 +17,7 @@
 ## Consequências
 
 Exige conta Apple Developer paga (US$ 99/ano) antes do primeiro release público. Até lá, builds de desenvolvimento são assinados localmente; taps exigem identidade de assinatura estável para o prompt de permissão aparecer.
+
+## Nota 2026-11-22 · Assinatura em desenvolvimento
+
+Até existir Developer ID, os builds locais são assinados por `scripts/setup_dev_signing.sh` + `build_app.sh`, com uma identidade autoassinada ("timbr Local Signing") num keychain próprio. Motivo (Comprovado): o TCC prende Acessibilidade ao requisito designado do app. Com ad-hoc, esse requisito é o `cdhash`, que muda a cada build, e a permissão deixava de valer em silêncio. Com a identidade local, o requisito passa a `identifier "com.timbr.app" and certificate leaf = H"…"` e se mantém entre builds. Isso não substitui a notarização: só vale nesta máquina.

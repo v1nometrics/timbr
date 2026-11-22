@@ -29,6 +29,13 @@ Toda afirmação técnica relevante recebe uma das classes abaixo:
 - Toda decisão de arquitetura relevante vira ADR (`docs/07-decisoes/ADR-XXXX-*.md`) com contexto, alternativas, trade-offs, evidência e status.
 - Ao terminar uma sessão, atualize `docs/08-registro/progresso.md` (data, o que mudou, próximo passo).
 - Ao descobrir algo novo (bug do macOS, limitação, projeto útil), registre em `docs/08-registro/descobertas.md`.
-- Não copie código de projetos GPL/AGPL enquanto o ADR-0001 (licença) não estiver aceito. Estudar é permitido; copiar não.
+- Nunca copie código de projetos GPL/AGPL (o projeto é MPL-2.0, ADR-0001). Estudar comportamento e parâmetros é permitido; copiar código, não. Registre na descrição do PR o que foi estudado.
 - Não execute comandos que escrevam em dispositivos Bluetooth (firmware, pareamento, configurações persistentes) fora dos experimentos aprovados em `docs/06-plano/plano-de-experimentos.md`.
 - Idioma da documentação: português do Brasil. Identificadores técnicos, nomes de API e de repositórios ficam no original.
+
+## Verificação (antes de dizer que algo funciona)
+
+- `./scripts/ci_check.sh` precisa passar localmente. O CI do GitHub usa **Swift 6.1** (Xcode 16.4), mais rígido que o 6.3 local: só mescle com o check do PR verde.
+- Mudou o caminho de áudio (taps, DSP, render)? Rode `./scripts/selftest_audio.sh`: mede o ganho real dentro do app instalado. Não confie só em teste unitário.
+- Mudou interface? Gere capturas com as flags de revisão (`--studio`, `--notch`, `--review-empty`, `--demo`, `--panel-preview`) e olhe a imagem antes de afirmar.
+- Para trabalhar com o app instalado, assine com a identidade local (`./scripts/setup_dev_signing.sh`). Builds ad-hoc perdem a permissão de Acessibilidade a cada compilação.

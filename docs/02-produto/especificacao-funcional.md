@@ -1,6 +1,6 @@
 # Especificação funcional
 
-> Status: v1.1 · 2026-11-21 · Produto: **`timbr.`** ([ADR-0014](../07-decisoes/ADR-0014-nome-identidade-e-i18n.md)) · Localização v1: **`PT / ES / EN`**. Descreve **comportamento**. A aparência está no design system (`05-design-system/`). Os IDs RF-xxxx vêm do PRD.
+> Status: v1.2 · 2026-11-23 (§3 reescrita com o comportamento implementado; §4, §10 e §11 atualizadas) · Produto: **`timbr.`** ([ADR-0014](../07-decisoes/ADR-0014-nome-identidade-e-i18n.md)) · Localização v1: **`PT / ES / EN`**. Descreve **comportamento**. A aparência está no design system (`05-design-system/`). Os IDs RF-xxxx vêm do PRD.
 
 ## 1. Modelo de domínio
 
@@ -40,25 +40,33 @@ Identidade: dispositivos por **UID** (nunca por `AudioObjectID`, que muda); apps
 
 ## 3. Notch: estados e transições
 
+> Comportamento implementado e verificado em 2026-11-23. Geometria, motion e regra das asas em [`05-design-system/03`](../05-design-system/03-superficies-e-anatomia.md) e [`02`](../05-design-system/02-motion-e-fisica.md).
+
 | Estado | Gatilho de entrada | Conteúdo | Saída |
 |---|---|---|---|
-| **Repouso** | Padrão | Nada além do hardware (preto contínuo) | Hover, atalho, evento |
-| **Compacto** | Áudio ativo + preferência "mostrar atividade" | Asas laterais estreitas: à esquerda o ícone da fonte em foco; à direita indicador de destino + selo de estado (EQ ativo, alerta) | 3 s sem mudança → repouso (configurável) |
-| **HUD** | Tecla de volume/mute, troca de dispositivo, alerta | Valor e nome do destino; barra de volume em tempo real | 1,2 s após o último evento |
-| **Espiada** | Hover no notch por 120 ms | Fonte em foco com slider de volume, destino atual, chip do EQ | Mouse sai por 300 ms |
-| **Expandido** | Clique, atalho global (padrão ⌥⌘V) ou gesto | Mixer de fontes, destinos, chip de EQ/Correção/Gosto, cena atual, alerta do Guardião | Clique fora, Esc, atalho |
-| **Painel do Estúdio** | "Abrir Estúdio" no expandido | Janela separada | — |
+| **Repouso** | Padrão | Nada além do hardware (o desenho fica invisível) | Hover, clique, atalho, evento |
+| **Compacto** | Áudio tocando + preferência "mostrar atividade" | Orelhas só no espaço **medido como livre** da barra de menus: ícone da fonte em foco (com o segundo app atrás, se houver) e medidor. Sem espaço livre: queixo de 20 pt abaixo do notch | 3 s depois que o áudio para |
+| **HUD** | Teclas de volume, mudo ou **brilho** (com permissão de Acessibilidade) | Ícone (alto-falante ou sol) e valor nas asas; barra de nível abaixo | 1,2 s após o último evento |
+| **Espiada** | Hover: "pop" imediato, abre após 150 ms de permanência | Fonte em foco nas asas (ícone, nome, volume, mudo) e fader; cada outro app tocando ganha uma linha com fader; se a saída está muda ou em 0 %, aviso "Saída sem som" com **Ativar som**. Sem nada tocando: a espiada controla a **saída** (dispositivo, volume de hardware, mudo) | O ponteiro se afasta (o fechamento segue o ponteiro) |
+| **Expandido** | Clique no notch, clique na espiada fora de um controle, atalho ⌥⌘V | Asas: app em foco (clicável: traz o app para a frente) e ícone do dispositivo de saída (menu de saídas). Abaixo: "Tocando em <dispositivo>", volume grande, fader, outras fontes, faixa **Geral** (volume e mudo da saída), alerta do Guardião, rodapé (processamento, A/B neutro, Estúdio) | Ponteiro se afasta, clique fora, Esc, atalho |
+| **Estúdio** | "Estúdio" no rodapé, menu de contexto, reabrir o app | Janela separada | — |
 
 Regras:
-- O notch **nunca rouba foco** do app do usuário (painel não ativante). Teclado só é capturado no estado Expandido, após clique ou atalho.
-- Tela cheia: aparece sobre apps em tela cheia apenas em HUD e Expandido.
-- Vários monitores: o notch vive na tela com notch; telas sem notch mostram a pílula se a preferência permitir.
-- Dois apps de notch competindo: detectar outro overlay conhecido no topo central e oferecer o modo "só barra de menus".
-- Hover tem histerese: o painel é maior que o desenho; cliques fora do desenho atravessam para a barra de menus.
+- O notch **nunca rouba foco** do app do usuário (painel não ativante); aceita o primeiro clique sem "clique de foco". Teclado só é capturado no Expandido.
+- **Clique direito** no notch (fechado ou aberto): Abrir Estúdio, Ajustes…, Mostrar ícone na barra de menus, Sair do timbr.
+- **Barra de menus:** o estado persistente (compacto) nunca cobre menus de outros apps. Os estados abertos são transitórios, abertos por intenção, e cobrem a barra enquanto abertos. Se o ponteiro vai para a faixa da barra, o fechamento acontece em 30 pt.
+- **Ícone na barra de menus:** só existe quando o notch não é a entrada do app: sem tela com notch, notch desligado, modo "só barra de menus" ou opção ligada em Ajustes.
+- **Volume geral:** aumentar um app, tirar um app do mudo ou subir o fader geral tira a saída do mudo, como o macOS faz com as teclas.
+- Tela cheia: o painel acompanha os espaços (`fullScreenAuxiliary`).
+- Vários monitores: o notch vive na tela com notch; sem tela com notch, a forma vira uma pílula flutuante e o ícone da barra de menus aparece.
+- Dois apps de notch competindo: o timbr. detecta apps conhecidos e oferece o modo "só barra de menus".
 
 ## 4. Mixer (Expandido e Estúdio)
 
-- Ordem das fontes: tocando agora (por início mais recente) → silenciadas manualmente → tocaram nos últimos 10 min. Fontes inativas há mais de 10 min saem da lista do notch (continuam no Estúdio).
+- Ordem das fontes: tocando agora (a que começou por último primeiro, ordem estável enquanto ambas tocam) → silenciadas manualmente → tocaram nos últimos 10 min ("Tocou há N minutos"). Fontes inativas há mais de 10 min saem da lista.
+- **O que é uma fonte:** o app que o usuário reconhece, não o processo. Processos auxiliares (Chromium/Electron, WebKit GPU, serviços XPC) são atribuídos ao app responsável. Serviços do macOS sem app viram grupos com nome e ícone: Sons do sistema, Siri e Ditado, Chamadas (protegidas como VoIP), Leitura em voz alta, Visualização Rápida, Outros sons do macOS.
+- **Apps de ditado** (superwhisper, Wispr Flow, MacWhisper) mantêm o motor de saída ligado em silêncio e nunca contam como "tocando".
+- **Detecção:** por evento do Core Audio (lista de processos, `IsRunning`, `IsRunningOutput`); sons curtos, como um alerta de 0,3 s, também aparecem. Varredura de reserva a cada 2 s.
 - Cada linha: ícone, nome, medidor (se habilitado), slider de volume, mute, seletor de destino (chip com o nome curto do dispositivo). Arrastar a linha para um chip de destino roteia.
 - Slider: arrastar 1:1; `⌥` + arrastar = ajuste fino (1/10); duplo clique = 100%; rolagem do trackpad sobre a linha ajusta; acima de 100% a trilha muda de cor e aparece "+x dB · pode clipar".
 - Mudanças de volume no motor usam rampa de 10 ms (sem clique).
@@ -118,7 +126,7 @@ Por destino, um diagrama horizontal: **Fontes** (ícones e níveis) → **Mixer*
 | Permissão | Quando é pedida | Para quê | Sem ela |
 |---|---|---|---|
 | System Audio Recording Only | Primeiro uso de volume por app ou EQ | Taps | Só controle de dispositivos |
-| Acessibilidade | Ao ativar "teclas de volume controlam o Timbre" | `CGEventTap` | Teclas seguem o macOS |
+| Acessibilidade | Na Introdução ou em Ajustes | `CGEventTap` (teclas de volume e brilho com HUD no notch) e leitura dos menus do app em primeiro plano (orelhas medidas) | Teclas seguem o HUD do macOS; a orelha esquerda é tratada como ocupada |
 | Automation (por app) | Ao ativar controles de Music/Spotify | AppleScript | Só now playing genérico |
 | Bluetooth | Ao ativar um driver de fabricante | Protocolos do fone | Fone funciona como dispositivo genérico |
 | Microfone | Ao usar reconhecimento pelo microfone ou medição | ShazamKit / medição | Reconhecimento só do som do sistema |
@@ -135,5 +143,6 @@ Nunca pedir permissão no primeiro start sem contexto. Toda tela de permissão d
 | Próxima saída | ⌥⌘O |
 | Mute do microfone global | ⌥⌘M |
 | Abrir Estúdio | ⌥⌘, |
+| Ajustes do Estúdio (com o Estúdio em foco) | ⌘, |
 
 Ações por teclado nunca animam (design system §motion).

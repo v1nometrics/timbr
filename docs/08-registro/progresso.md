@@ -6,17 +6,48 @@
 
 ## Estado Atual
 
-- **Fase ativa:** **Fase 1/2 implementação E2E headless no sweetspot máximo alcançável neste ambiente** (branch `vinicius/e2e-implementation`, PR #1).
-- **Código de produção (`macOS app`):** `dist/Timbr.app` + `dist/Timbr.dmg` gerados; `./scripts/ci_check.sh` verde (tokens, zero-GPL, ASan/UBSan DSP, TimbreCore/Engine, smoke, **20× `kill -9` fail-safe P3**).
-- **Tokens & Design System:** geração automatizada operacional; playground HTML/CSS/JS validado no CI.
-- **Empacotamento B-110 (parcial):** `scripts/build_dmg.sh` com gate opcional `DEVELOPER_ID` + `NOTARY_PROFILE`; cask Homebrew em `Packaging/Homebrew/timbr.rb`. Notarização pública real exige certificado Apple (fora deste ambiente).
-- **Pendências honestas fora de CI headless:** E-08/E-09/E-10 com Momentum 4 / AirPods conectados (Continuity live);  grants TCC interativos; dogfood 14 dias (G2); 50 testadores + notarização Developer ID (G3); Sparkle 2 (B-208, Fase 2).
+- **Atualizado em:** 2026-11-23. **Fase:** MVP (Fase 1) em uso diário pelo autor; Gate G2 (14 dias como único mixer e EQ) ainda não contado. Todo o trabalho está no `main` (PR #1 mesclado em 2026-11-22, commit `5c33e74`).
+- **Funciona e foi verificado:**
+  - volume e mudo por app (autoteste E2E com ganho exato);
+  - fontes simultâneas com atribuição correta e serviços do macOS nomeados;
+  - EQ `Float64` com limiter true-peak;
+  - notch nos cinco estados, com volume geral, menu de contexto e teclas de volume e brilho;
+  - Estúdio; ícone de barra de menus condicional; identidade acromática.
+  
+  Estado por item em [roadmap · Situação](../06-plano/roadmap-e-backlog.md).
+- **CI:** `./scripts/ci_check.sh` verde localmente (Swift 6.3) e no GitHub (`macos-15`, Swift 6.1). E2E de áudio: `./scripts/selftest_audio.sh`.
+- **Desenvolvimento:** builds locais assinados com identidade estável (`./scripts/setup_dev_signing.sh`), para a permissão de Acessibilidade sobreviver aos builds.
+- **Pendências honestas:**
+  - RF-0201 (rotear app para outra saída), a maior lacuna do mixer;
+  - Sparkle e notarização, que exigem conta Apple Developer;
+  - now playing, letras, reconhecimento e cenas;
+  - bancada E-08/E-09/E-10 com Momentum 4 e AirPods;
+  - consumo em repouso e latência por tap (não medidos);
+  - MacBook Pro OLED com Dynamic Island (desconhecido);
+  - helper XPC (E-16).
+- **Próximo passo sugerido:** RF-0201, depois a sessão de bancada com os fones.
 
 ---
 
 ## Histórico Consolidado
 
 
+
+### 2026-11-23 · Revisão E2E da documentação
+
+- **Pedido:** garantir que todas as docs estejam atualizadas de ponta a ponta e o GitHub em dia.
+- **Feito:**
+  - **Raiz:** README (estado atual com evidências, estrutura de código, Swift 6.1 × 6.3, flags e scripts), CONTRIBUTING (preparação da máquina, fluxo de branch e PR, autoteste) e AGENTS/CLAUDE (regra de GPL e seção de verificação).
+  - **Produto:** especificação funcional (§3 do notch reescrita com o comportamento real; fontes, permissões e atalhos) e PRD (RF-0606, RF-1303).
+  - **ADRs:** 0004 (lições: `isExclusive`, topologia real, `IsRunningInput`), 0007 (assinatura local), 0013 (barra de menus condicional), 0014 (fonte substituída pela 0015).
+  - **Engenharia:** arquitetura, roteamento, motor DSP, observatório, segurança, RNF e IA ganharam a seção "Estado implementado", separando o que existe do alvo.
+  - **Plano:** situação item a item no roadmap; "o que roda hoje" nos testes; nota nos critérios.
+  - **Registros:** hipóteses H-18…H-20, descobertas 19…30, riscos R-19…R-22, nota de atualização na auditoria de 21/11.
+  - **Design system:** painel da barra de menus em `NSStatusItem`, componentes novos do notch, ponto da marca em tinta, flags `--demo` e `--review-empty`.
+  - **Open source e mercado:** fontes do sistema no app, Geist só na web.
+  - **Viabilidade:** linha das teclas de brilho.
+- **Verificado:** todos os links relativos das docs resolvem (script de checagem); CI.
+- **Notas de pesquisa (`00-pesquisa/`):** mantidas como registro histórico; as decisões posteriores estão nos ADRs.
 
 ### 2026-11-23 · Volume geral (master) no notch
 

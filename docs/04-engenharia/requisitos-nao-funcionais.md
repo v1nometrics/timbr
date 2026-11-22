@@ -5,6 +5,18 @@
 
 ---
 
+## 0. Estado medido (2026-11-23)
+
+| Requisito | Situação |
+|---|---|
+| Notch em repouso sem polling de ponteiro | **Comprovado** (código): hover por `NSTrackingArea`; o acompanhamento do ponteiro só existe com o notch aberto |
+| Detecção de fontes | Por evento do Core Audio; varredura de reserva a cada 2 s (dispositivos + processos). **CPU em repouso não medida** com Instruments |
+| Nenhum tap sem processamento (P1) | **Comprovado**: sem volume ≠ 100 %, EQ, crossfeed, ducking ou espelho, não há tap; o tap global some 10 s depois do silêncio |
+| Fail-safe (P3) | **Comprovado**: 20× `kill -9` sem agregado órfão e com a saída padrão restaurada (CI) |
+| Latência adicional por tap | **Não medida** com loopback (alvo e literatura: ~10–13 ms) |
+
+---
+
 ## 1. Metas Quantitativas de Desempenho, Áudio e Confiabilidade
 
 | Categoria | ID | Métrica | Meta (Target) | Condição de Medição / Ferramenta |

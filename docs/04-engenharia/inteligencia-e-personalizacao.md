@@ -4,6 +4,13 @@
 
 ---
 
+## 0. Estado implementado (2026-11-23)
+
+- **"Descreva o som"** (`AIAssistantRouter`, TimbreCore) tenta, nesta ordem: Apple Foundation Models no aparelho (macOS 26+, se disponível) → Ollama local, só com opt-in → variantes determinísticas por palavras-chave. A saída é sempre um delta tipado (`EQDeltaProposal`), validado com limites rígidos (±6 dB, Q 0,3–6, até 3 operações) antes de chegar ao DSP (ADR-0008). Classe: **Comprovado** (código e teste de limites no CI); a qualidade das sugestões **não foi avaliada** (E-13).
+- **Treinador de gosto** (`PairwiseGPTrainer`): rodadas A/B registradas na linha do tempo; convergência testada em dados sintéticos no CI. Estabilidade teste-reteste com pessoas **não medida** (E-14).
+
+---
+
 ## 1. Arquitetura em Três Componentes
 
 ```

@@ -52,6 +52,7 @@ Legenda de veredito: ✅ Possível · 🟡 Parcial (com restrições relevantes)
 | Taxa de amostragem, formato físico (bit depth), fonte de dados, clock | ✅ (se o driver expõe) | HAL | Nenhuma | Mudança pode ser revertida pelo sistema | LosslessSwitcher | Comprovado (SDK) | E-07 |
 | Volume em software para DAC sem volume de hardware | ✅ | Nosso pipeline (tap global) ou proxy HAL | System Audio Recording | Perde bit-perfect; precisa sinalizar | SoundSource "Force software volume", Proxy Audio Device | Provável | E-07 |
 | Teclas de volume/mídia controlando o Timbre + HUD próprio no notch | ✅ | `CGEventTap` ativo | Acessibilidade | Inviabiliza Mac App Store; HUD nativo instável no Tahoe | boring.notch, MonitorControl (funcional) | Provável | backlog |
+| Teclas de brilho com HUD próprio no notch | ✅ | `CGEventTap` + `DisplayServices` (privado, em runtime) com IOKit de reserva | Acessibilidade | API privada pode mudar; tecla volta ao macOS se o brilho não puder ser lido | timbr. (Comprovado em MacBook Air, 2026-11-22) | Comprovado | — |
 | Uso do microfone por app (quem está ouvindo) | ✅ | `kAudioProcessPropertyIsRunningInput` | Nenhuma | Versão mínima não confirmada (14?) | — | Provável | E-07 |
 | Modo do microfone (Isolamento de Voz) | 🟡 | Leitura possível; mudança só abrindo o seletor do sistema | — | — | — | Provável | — |
 | Codec Bluetooth em uso (AAC/SBC) | ❔ | Sem API pública; `system_profiler`/logs a verificar | — | Pode exigir parsing frágil | — | Desconhecido | E-08 |

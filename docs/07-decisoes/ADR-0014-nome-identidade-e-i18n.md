@@ -30,7 +30,7 @@ Adotamos **parentesco filosófico e tipográfico direto com `v1torres.dev`, mant
 | Eixo | `v1torres.dev` (`v1dev app`) | Decisão para o `timbr.` | Justificativa |
 |---|---|---|---|
 | **Wordmark & Caixa** | `›v1_` lowercase com pontuação de terminal | **`timbr.` lowercase com ponto final `.`** | Cria assinatura inequívoca do mesmo autor sem parecer port de site CLI. |
-| **Família Tipográfica** | `Geist Mono` integral | **`Geist` (UI/wordmark) + `Geist Mono` (unidades, Hz, dB, eyebrows) + `Geist Serif` (letras)** | Preserva o DNA Geist do autor, mas dá conforto de leitura no Estúdio e Notch. |
+| **Família Tipográfica** | `Geist Mono` integral | ~~`Geist` (UI/wordmark) + `Geist Mono` (unidades, Hz, dB, eyebrows) + `Geist Serif` (letras)~~ **Substituído pela ADR-0015: SF Pro / SF Mono / New York no app; Geist só na web** | Preserva o DNA Geist do autor, mas dá conforto de leitura no Estúdio e Notch. |
 | **Superfícies Neutras** | `#09090b` / `#18181b` / `#fafafa` monocromático sem azul | **Neutros OKLCH croma 0 (`#0D0D0D`, `#141414`, `#191919`, `#000000` no notch)** | Paridade total com o `DESIGN_SYSTEM.md` de `v1torres.dev` e com a captura da wordmark `timbr.`. |
 | **Uso de Cor** | Proibido qualquer acento colorido | ~~Monocromático estrutural + 1 acento violeta (`#7747FF`) + semântica de sinal~~ **Substituído pela ADR-0016: acromático, sem cor de marca, só semântica de sinal** | Áudio de precisão exige alerta inequívoco de clipping (`> 0 dBTP`), HFP (âmbar) e bit-perfect (verde). |
 | **Geometria & Bordas** | `border-radius: 0` + `border-dotted` | **Raios concêntricos Apple HIG** no Notch/janelas; **hairlines e linhas pontilhadas sutis** no Observatório/Estúdio | `radius: 0` entraria em conflito físico com o notch arredondado e o macOS 26/27. |
@@ -38,7 +38,7 @@ Adotamos **parentesco filosófico e tipográfico direto com `v1torres.dev`, mant
 
 ### 3. Internacionalização Trilíngue Obrigatória na v1 (`PT`, `ES`, `EN`)
 - Todo texto visível ao usuário (Notch, Pílula, MenuBar, Estúdio, Observatório, Guardião, Onboarding, avisos pré-TCC e CLI/ajuda) usa Apple **String Catalog (`Localizable.xcstrings`)** com tradução completa e revisada para **`pt-BR`**, **`es`** e **`en`** desde o MVP.
-- Unidades técnicas universais (`Hz`, `kHz`, `dB`, `dBFS`, `dBTP`, `LUFS`, `ms`) permanecem invariantes em `Geist Mono`; separadores decimais respeitam o locale ou configuração explícita do Estúdio (padrão técnico tabular consistente).
+- Unidades técnicas universais (`Hz`, `kHz`, `dB`, `dBFS`, `dBTP`, `LUFS`, `ms`) permanecem invariantes em fonte mono (SF Mono no app, ADR-0015); separadores decimais respeitam o locale ou configuração explícita do Estúdio (padrão técnico tabular consistente).
 
 ---
 
