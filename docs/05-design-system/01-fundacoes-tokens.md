@@ -4,7 +4,7 @@
 
 ## 1. Cor
 
-O sistema é **acromático** (herança do Órbita: nenhum cinza azulado, nenhum gradiente decorativo) com **um acento violeta reservado ao sinal de áudio**. Três superfícies: `light` (Estúdio claro, papel quente da ronda), `dark` (Estúdio escuro, grafite) e `notch` (preto do hardware).
+O sistema é **acromático** (estrutura herdada do Órbita: nenhum cinza azulado, nenhum gradiente decorativo) e **não tem cor de marca** (ADR-0016): a ênfase é feita por tinta, peso e espessura; matizes só com significado semântico. Três superfícies: `light` (Estúdio claro, papel quente da ronda), `dark` (Estúdio escuro, grafite) e `notch` (preto do hardware).
 
 ### 1.1 Fundos
 
@@ -40,19 +40,21 @@ O sistema é **acromático** (herança do Órbita: nenhum cinza azulado, nenhum 
 
 Linhas internas são **hairlines de 0,5 pt** (um pixel em Retina). Bordas de cartão: 1 pt em `line.default`. **O notch não tem linha alguma.**
 
-### 1.4 Acento e semântica
+### 1.4 Ênfase (tinta) e semântica
 
 | Token | Claro | Escuro | Notch | Regra |
 |---|---|---|---|---|
-| `accent.signal` / `accent.base` | `#6B46FF` | `#A08BFF` | `#A592FF` | Só sinal processado: curva resultado, espectro, "processando", índice de banda ativa |
-| `accent.fill` | `rgba(107,70,255,.07)` | `rgba(160,139,255,.10)` | `rgba(165,146,255,.10)` | Área sob a curva de resultado |
+| `accent.signal` / `accent.base` | `#111111` | `#F3F3F1` | `#FFFFFF` | Ênfase em tinta: curva de resultado (2 pt), espectro, "processando", índice de banda ativa, ponto da marca |
+| `accent.strong` | `#000000` | `#FFFFFF` | `#FFFFFF` | Ênfase máxima |
+| `accent.subtle` | `rgba(17,17,17,.08)` | `rgba(255,255,255,.10)` | `rgba(255,255,255,.12)` | Fundo de destaque |
+| `accent.fill` | `rgba(17,17,17,.05)` | `rgba(255,255,255,.06)` | `rgba(255,255,255,.07)` | Área sob a curva de resultado |
 | `accent.controlOn` | `#111111` | `#F3F3F1` | `#FFFFFF` | Switch ligado, segmento ativo, botão primário |
 | `semantic.positive` | `#1E8A5A` | `#4CC38A` | `#4CC38A` | Caminho nativo, concedido, bit-perfect |
 | `semantic.warning` | `#B06A00` | `#E9A23B` | `#F0AA45` | Boost acima de 100%, alerta do Guardião, volume em software |
 | `semantic.negative` | `#C2334D` | `#F2637E` | `#F2637E` | Ação destrutiva, crítico |
 | `semantic.info` | `#2D6CB0` | `#6AB0E8` | `#6AB0E8` | Alerta informativo |
 
-**Por que o violeta não marca controles:** no Órbita o acento marca o sujeito dos dados ("citam Tereza"). Aqui o sujeito é o som processado. Se botões também fossem violeta, o usuário não saberia mais o que é sinal e o que é interface.
+**Por que não há cor de marca:** decisão do dono (ADR-0016). Do Órbita fica a estrutura: papel quente, tinta, eyebrows em mono, números grandes. O violeta dele não vem junto. Os tokens `accent.*` continuam como papéis de ênfase, mas apontam para a tinta da superfície. O sinal processado se distingue por forma (linha sólida de 2 pt contra tracejado e linhas finas), não por matiz.
 
 ### 1.5 Contraste (texto sobre fundo, WCAG 2.2)
 

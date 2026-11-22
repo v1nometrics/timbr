@@ -8,10 +8,6 @@
     "white": {
       "$type": "color",
       "$value": "#FFFFFF"
-    },
-    "brandViolet": {
-      "$type": "color",
-      "$value": "#6B46FF"
     }
   },
   "surface": {
@@ -93,19 +89,19 @@
       "accent": {
         "base": {
           "$type": "color",
-          "$value": "#6B46FF"
+          "$value": "#111111"
         },
         "strong": {
           "$type": "color",
-          "$value": "#4F27E8"
+          "$value": "#000000"
         },
         "subtle": {
           "$type": "color",
-          "$value": "rgba(107, 70, 255, 0.10)"
+          "$value": "rgba(17, 17, 17, 0.08)"
         },
         "fill": {
           "$type": "color",
-          "$value": "rgba(107, 70, 255, 0.07)"
+          "$value": "rgba(17, 17, 17, 0.05)"
         },
         "controlOn": {
           "$type": "color",
@@ -113,7 +109,7 @@
         },
         "signal": {
           "$type": "color",
-          "$value": "#6B46FF"
+          "$value": "#111111"
         }
       },
       "semantic": {
@@ -213,19 +209,19 @@
       "accent": {
         "base": {
           "$type": "color",
-          "$value": "#A08BFF"
+          "$value": "#F3F3F1"
         },
         "strong": {
           "$type": "color",
-          "$value": "#C0B2FF"
+          "$value": "#FFFFFF"
         },
         "subtle": {
           "$type": "color",
-          "$value": "rgba(160, 139, 255, 0.14)"
+          "$value": "rgba(255, 255, 255, 0.10)"
         },
         "fill": {
           "$type": "color",
-          "$value": "rgba(160, 139, 255, 0.10)"
+          "$value": "rgba(255, 255, 255, 0.06)"
         },
         "controlOn": {
           "$type": "color",
@@ -233,7 +229,7 @@
         },
         "signal": {
           "$type": "color",
-          "$value": "#A08BFF"
+          "$value": "#F3F3F1"
         }
       },
       "semantic": {
@@ -333,19 +329,19 @@
       "accent": {
         "base": {
           "$type": "color",
-          "$value": "#A592FF"
+          "$value": "#FFFFFF"
         },
         "strong": {
           "$type": "color",
-          "$value": "#C6BAFF"
+          "$value": "#FFFFFF"
         },
         "subtle": {
           "$type": "color",
-          "$value": "rgba(165, 146, 255, 0.16)"
+          "$value": "rgba(255, 255, 255, 0.12)"
         },
         "fill": {
           "$type": "color",
-          "$value": "rgba(165, 146, 255, 0.10)"
+          "$value": "rgba(255, 255, 255, 0.07)"
         },
         "controlOn": {
           "$type": "color",
@@ -353,7 +349,7 @@
         },
         "signal": {
           "$type": "color",
-          "$value": "#A592FF"
+          "$value": "#FFFFFF"
         }
       },
       "semantic": {

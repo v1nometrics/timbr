@@ -27,7 +27,7 @@ def write_png(path: Path, size: int) -> None:
     cy = (size - 1) / 2.0
     rad = size * 0.45
     corner = size * 0.22
-    # Rounded square icon on #141414 dark canvas with #A78BFF waveform arc & dot
+    # Rounded square icon on #141414 dark canvas with an achromatic waveform and the wordmark's full stop
     for y in range(size):
         raw.append(0)
         ny = (y - cy) / rad
@@ -59,7 +59,7 @@ def write_png(path: Path, size: int) -> None:
             if in_wave:
                 r, g, b = 0xF2, 0xF2, 0xF2
             elif dot_dist < 0.08:
-                r, g, b = 0xA7, 0x8B, 0xFF
+                r, g, b = 0xF2, 0xF2, 0xF2
             raw.extend((r, g, b, alpha))
 
     def chunk(tag: bytes, data: bytes) -> bytes:

@@ -101,7 +101,7 @@ public struct EQCurveCanvas: View {
                         ctx.stroke(curve(corr), with: .color(c.ink_secondary), style: StrokeStyle(lineWidth: 1, dash: [3, 3]))
                         ctx.stroke(curve(taste), with: .color(c.ink_muted), style: StrokeStyle(lineWidth: 1))
                     }
-                    ctx.stroke(curve(result), with: .color(c.accent_signal), style: StrokeStyle(lineWidth: 1.75, lineCap: .round, lineJoin: .round))
+                    ctx.stroke(curve(result), with: .color(c.accent_signal), style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
                 }
                 .frame(width: w, height: h)
 

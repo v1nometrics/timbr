@@ -50,7 +50,7 @@ Linha `accent.signal` 1,25 pt com degradê de 22% a 2% por baixo, piso de −96 
 
 ### 2.4 Caminho do sinal
 
-Sete nós em linha (Fontes → Mixer → Correção → Gosto → Proteção → Dispositivo → Fone), ligados por traços de 14 pt (violeta quando o próximo nó está ativo). Cada nó: eyebrow, valor `cardTitle`, detalhe `monoSmall`, `OriginMark`. Nó ativo em `bg.surface` com borda forte; inativo em `bg.inset`. Legenda das marcas de origem no cabeçalho da seção.
+Sete nós em linha (Fontes → Mixer → Correção → Gosto → Proteção → Dispositivo → Fone), ligados por traços de 14 pt (tinta primária quando o próximo nó está ativo, linha forte quando não). Cada nó: eyebrow, valor `cardTitle`, detalhe `monoSmall`, `OriginMark`. Nó ativo em `bg.surface` com borda forte; inativo em `bg.inset`. Legenda das marcas de origem no cabeçalho da seção.
 
 ### 2.5 Medidores (padrões a seguir quando existirem)
 

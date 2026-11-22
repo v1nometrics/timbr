@@ -1,7 +1,7 @@
 # Bíblia do design system · timbr.
 
-> **Status:** v2.2 · 2026-11-22 · **Lei, não sugestão.** Substitui a v1, que descrevia uma tipografia (Geist) que nunca chegou a renderizar no app nativo e permitia controles padrão do macOS nas superfícies do produto.
-> **Direção de arte:** `apple-design` (fluidez, molas, materiais, tipografia de sistema) + `emil-design-eng` (detalhes invisíveis, curvas fortes, nada de animação em ação de teclado) sobre o DNA do **Órbita / ronda diária** (acromático, editorial, eyebrows em mono, números grandes, um acento só).
+> **Status:** v2.3 · 2026-11-22 · **Lei, não sugestão.** Substitui a v1, que descrevia uma tipografia (Geist) que nunca chegou a renderizar no app nativo e permitia controles padrão do macOS nas superfícies do produto.
+> **Direção de arte:** `apple-design` (fluidez, molas, materiais, tipografia de sistema) + `emil-design-eng` (detalhes invisíveis, curvas fortes, nada de animação em ação de teclado) sobre o DNA do **Órbita / ronda diária** (acromático, editorial, eyebrows em mono, números grandes; **sem cor de marca**, ADR-0016).
 > **Fonte executável:** `design-system/tokens/*.tokens.json` → `design-system/generated/TimbreTokens.swift` e `tokens.css` (ADR-0012). Componentes: `Sources/TimbreApp/DSComponents.swift`.
 
 ## 1. O que o timbr. tem que parecer
@@ -19,7 +19,7 @@ Três frases-teste. Se uma tela falha em uma delas, ela está errada:
 |---|---|---|
 | L1 | **O notch é preto absoluto.** `sRGB 0,0,0`, sem contorno, sem blur, sem alpha. Topo reto, colado na moldura; ombros côncavos como o hardware. Única sombra permitida: preta e suave, só enquanto aberto (profundidade, como nos apps de referência). | CI reprova `stroke`/`strokeBorder` em `NotchOverlay.swift`. Foto em sala escura. |
 | L2 | **Nenhum controle padrão nas superfícies do produto.** Sem `Slider`, `Toggle`, `Picker`, `.bordered`, `Divider` do sistema. Use `TFader`, `TSwitch`, `TSegmented`, `TButtonStyle`, `Hairline`. | CI (etapa 3b) reprova. |
-| L3 | **Um acento, só para o sinal.** Violeta (`accent.signal`) marca áudio que está sendo processado: curva de resultado, espectro, estado "processando". Controles ligados usam tinta (`accent.controlOn` = preto/branco). | Revisão: nenhum botão violeta. |
+| L3 | **Sem matiz de marca: ênfase por tinta, peso e espessura.** O sistema é só preto, branco e cinzas quentes (ADR-0016). O sinal processado se distingue por linha sólida de 2 pt em tinta primária, contra tracejado e linhas finas. A cor aparece só com significado semântico (verde nativo, âmbar aviso, vermelho destrutivo, azul info), nunca em repouso nem como marca. | Revisão: nenhuma matiz fora de `semantic.*`; `grep` sem valores violeta nos tokens. |
 | L4 | **Tipografia de sistema com tracking por tamanho.** SF Pro (texto e números), SF Mono (eyebrows, valores técnicos), New York (letras de música). Tracking negativo no grande, positivo no eyebrow. Sempre via `.type(token)`. | Nenhum `.font(.system(...))` solto fora de ícones e da marca. |
 | L5 | **Números tabulares e unidades separadas.** O número em `mediumValue`/`notchValue`, a unidade em mono menor e esmaecida (`72` `%`, `−4.5` `dB`). Sinal de menos tipográfico (`−`). | `Fmt.db`, `Fmt.signed`, `Fmt.percent`. |
 | L6 | **Honestidade visual (P4).** `OriginMark` em todo valor do Observatório; sem sinal na cadeia, métricas medidas mostram "—" e o espectro mostra o estado vazio. Nunca visualizador aleatório. | `hasLiveSignal`. |
@@ -54,7 +54,7 @@ Três frases-teste. Se uma tela falha em uma delas, ela está errada:
 | Superfície | Está usando `.surface(...)` e lendo cores do `@Environment(\.palette)`? |
 | Controles | Algum controle do sistema escapou (L2)? |
 | Tipografia | Todo texto usa `.type(...)`? Números tabulares? Unidade separada? |
-| Acento | O violeta aparece só onde há sinal processado (L3)? |
+| Cor | Alguma matiz aparece sem significado semântico (L3)? A ênfase está em tinta, peso e espessura? |
 | Honestidade | Algum número aparece sem origem ou sem sinal real (L6)? |
 | Motion | A animação tem propósito? Abre com mola, fecha mais rápido? Teclado sem animação? |
 | Estados | Vazio, carregando, erro, desabilitado, foco, hover e pressionado desenhados? |
@@ -82,6 +82,7 @@ Fotografe com `screencapture -x` e revise com o checklist acima. As capturas da 
 
 | Versão | Data | Mudança |
 |---|---|---|
+| v2.3 | 2026-11-22 | Identidade acromática (ADR-0016): o violeta saiu dos tokens, do ícone e da marca; `accent.*` passa a ser tinta; ênfase por peso e espessura; cor só semântica. |
 | v2.2 | 2026-11-22 | Modelo dos apps de referência (DynamicNotchKit, NotchDrop, boring.notch): forma única que abre para os lados e para baixo, conteúdo nas "asas" ao lado da câmera, ícone viajando só na horizontal, pop imediato no hover + abertura após 150 ms, mola de abrir com bounce 0,2, revelação com blur/escala a partir do topo, sombra preta só aberto, liberação rápida da barra. O pescoço da v2.1 foi abandonado. |
 | v2.1 | 2026-11-21 | Notch em pescoço + corpo (nunca cobre menus), orelhas medidas na barra (CGWindowList + Acessibilidade) com queixo quando não há espaço, canvas fixo, ícone único viajante, fechamento contínuo seguindo o ponteiro, molas mais rápidas (0,38/0,30 s), flag `--demo` para inspeção quadro a quadro. |
 | v2.0 | 2026-11-21 | Reescrita completa: notch com forma de hardware e preto sem contorno; tipografia SF (ADR-0015) com tracking efetivamente aplicado; paleta acromática quente (ronda/Órbita) com acento único de sinal; biblioteca de componentes própria; trava de CI contra controles padrão; honestidade de métricas sem sinal. |

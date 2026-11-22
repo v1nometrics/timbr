@@ -31,7 +31,7 @@
 
 | Referência | O que tomamos | O que **não** tomamos |
 |---|---|---|
-| **Órbita / ronda diária (SIP)** — nota `09_dna_visual_orbita_e_ronda.md` | Sistema acromático; um acento violeta com significado; eyebrows em mono maiúsculo com tracking; números grandes tabulares; seções numeradas `01…07`; cartões brancos com borda sutil sobre papel quente; notas "como ler" | Geist como fonte do app (fica para a web); gradiente de marca |
+| **Órbita / ronda diária (SIP)** — nota `09_dna_visual_orbita_e_ronda.md` | Sistema acromático (o violeta do Órbita **não** foi herdado, ADR-0016); eyebrows em mono maiúsculo com tracking; números grandes tabulares; seções numeradas `01…07`; cartões brancos com borda sutil sobre papel quente; notas "como ler" | Geist como fonte do app (fica para a web); gradiente de marca |
 | **Apple HIG + WWDC (skill `apple-design`)** | Molas interrompíveis; tipografia de sistema com tracking por tamanho; squircles; materiais por tom; Dynamic Island como linguagem do notch | Liquid Glass sobre o notch (o notch precisa ser preto opaco) |
 | **Emil Kowalski (skill `emil-design-eng`)** | Curvas fortes, pressionar 0,97, blur para unir estados, não animar teclado, assimetria abrir/fechar | Bounce em contexto profissional |
 | **FabFilter Pro-Q** | Curva com espectro por trás, alças numeradas, valores arrastáveis | Coloração intensa por banda |

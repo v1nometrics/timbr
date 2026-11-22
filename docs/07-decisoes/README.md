@@ -21,3 +21,4 @@ Uma decisão "Proposta" só vira "Aceita" quando (a) o dono aprova, quando é de
 | [0013](ADR-0013-superficies.md) | Notch como superfície primária + barra de menus + janela Estúdio + Live Activity quando disponível | Aceito | E-12 |
 | [ADR-0014](ADR-0014-nome-identidade-e-i18n.md) | Nome oficial `timbr.`, alinhamento `v1torres.dev` e i18n PT/ES/EN na v1 | **Aceito** |
 | [ADR-0015](ADR-0015-tipografia-de-sistema.md) | Tipografia de sistema SF Pro / SF Mono / New York no app; Geist só na web | **Aceito** |
+| [ADR-0016](ADR-0016-identidade-acromatica.md) | Identidade acromática: sem cor de marca; ênfase por tinta; cor só semântica (substitui a cor da ADR-0014) | **Aceito** |

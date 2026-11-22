@@ -80,7 +80,7 @@ A janela tem **tamanho fixo** (cabe o maior estado) e nunca é redimensionada. S
 
 ### 1.6 Personalização permitida
 
-O notch é **sempre preto absoluto**: não há tema de notch claro nem degradê. Personalizações seguras: mostrar ou não a atividade nas orelhas; usar só a barra de menus. Propostas futuras (acento monocromático branco no lugar do violeta) exigem ADR e teste em sala escura.
+O notch é **sempre preto absoluto**: não há tema de notch claro nem degradê. Personalizações seguras: mostrar ou não a atividade nas orelhas; usar só a barra de menus. Desde a ADR-0016 o conteúdo do notch é só branco e cinzas sobre preto; matiz só em avisos semânticos (âmbar, verde).
 
 ## 2. Barra de menus
 

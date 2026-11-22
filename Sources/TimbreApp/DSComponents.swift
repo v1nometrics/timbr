@@ -243,7 +243,7 @@ struct TButtonStyle: ButtonStyle {
         let stroke: Color
         switch kind {
         case .primary: fg = c.ink_inverse; bg = c.ink_primary; stroke = .clear
-        case .accent: fg = .white; bg = c.accent_base; stroke = .clear
+        case .accent: fg = c.ink_inverse; bg = c.accent_base; stroke = .clear
         case .secondary: fg = c.ink_primary; bg = c.bg_surface; stroke = c.line_strong
         case .ghost: fg = c.ink_secondary; bg = configuration.isPressed ? c.bg_selected : .clear; stroke = .clear
         case .destructive: fg = c.semantic_negative; bg = c.bg_surface; stroke = c.line_strong

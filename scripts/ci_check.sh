@@ -43,6 +43,40 @@ if grep -nE '\.stroke\(|strokeBorder' "$ROOT/Sources/TimbreApp/NotchOverlay.swif
   exit 1
 fi
 echo "  [PASS] No stock chrome; notch has no outline"
+# ADR-0016: no brand hue. Emphasis tokens must be achromatic; hues live only in semantic.*.
+python3 - "$ROOT/design-system/tokens/color.tokens.json" <<'PY' || exit 1
+import json, re, sys
+c = json.load(open(sys.argv[1]))
+bad = []
+def rgb(v):
+    v = v.strip()
+    if v.startswith("#"):
+        h = v[1:7]
+        return tuple(int(h[i:i+2], 16) for i in (0, 2, 4))
+    m = re.match(r"rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)", v)
+    return tuple(int(x) for x in m.groups()) if m else None
+for s, groups in c["surface"].items():
+    for g, toks in groups.items():
+        if g == "semantic":
+            continue
+        for k, t in toks.items():
+            r = rgb(t["$value"])
+            if r and max(r) - min(r) > 12:
+                bad.append(f"surface.{s}.{g}.{k} = {t['$value']}")
+for k, t in c.get("primitive", {}).items():
+    r = rgb(t["$value"])
+    if r and max(r) - min(r) > 12:
+        bad.append(f"primitive.{k} = {t['$value']}")
+if bad:
+    print("  [FAIL] Brand hue found outside semantic.* (ADR-0016):")
+    print("\n".join("    " + b for b in bad))
+    sys.exit(1)
+print("  [PASS] Achromatic identity: no hue outside semantic.* (ADR-0016)")
+PY
+if grep -nE '\.(purple|indigo|pink|blue|teal|cyan|mint|orange|yellow)\b' "$ROOT"/Sources/TimbreApp/*.swift; then
+  echo "  [FAIL] Hard-coded hue in the app. Use palette ink or semantic.* tokens (ADR-0016)."
+  exit 1
+fi
 
 echo "=== 4. Build Full App Bundle & Compile Modules ==="
 "$ROOT/scripts/build_app.sh"

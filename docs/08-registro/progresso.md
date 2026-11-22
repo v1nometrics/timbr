@@ -18,6 +18,22 @@
 
 
 
+### 2026-11-22 · Identidade acromática (ADR-0016)
+
+- **Pedido do dono:** tirar a obrigação com o roxo; o Órbita continua como referência, sem o violeta dele.
+- **Feito:**
+  - Os tokens `accent.*` (claro, escuro, notch) passaram a apontar para a tinta da superfície, e a primitiva `brandViolet` foi removida.
+  - O ponto do ícone do app ficou branco.
+  - A curva de resultado do EQ passou a 2 pt para manter a hierarquia sem cor.
+  - O botão `.accent` usa `ink.inverse`, para não ficar branco sobre branco no escuro.
+  - Bíblia v2.3 (L3 e checklist), docs 01, 03, 04 e 05 reescritos.
+  - A ADR-0016 substitui a linha de cor da ADR-0014.
+  - O CI ganhou uma trava: nenhuma matiz fora de `semantic.*` nos tokens e nenhuma cor nomeada no app.
+- **Verificado:**
+  - Capturas do Mixer, do Equalizador, do painel da barra de menus e do ícone, todos acromáticos.
+  - A trava do CI foi testada com tokens violeta e reprovou como esperado.
+  - CI inteiro passando.
+
 ### 2026-11-22 · Clique no notch
 
 - **Relato:** clicar no notch não fazia nada. A espiada abria no hover e o clique caía numa área sem ação.
