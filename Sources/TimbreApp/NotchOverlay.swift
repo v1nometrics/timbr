@@ -833,12 +833,69 @@ public struct NotchOverlayView: View {
 
     // Peek — who is playing and how loud, flanking the camera; one fader below.
     private func peek(wing: CGFloat) -> some View {
+        Group {
+            if focus == nil { outputPeek(wing: wing) } else { sourcePeek(wing: wing) }
+        }
+        // Click anywhere that is not a control → grow into the full mixer (Dynamic Island tap).
+        .contentShape(Rectangle())
+        .onTapGesture { expandFromPeek() }
+        .accessibilityAction(named: appState.t("ui.notch.expand")) { expandFromPeek() }
+    }
+
+    /// Nothing playing: the notch is your output — device, its volume, one fader.
+    private func outputPeek(wing: CGFloat) -> some View {
+        let dev = appState.activeOutputDevice
+        return VStack(spacing: 0) {
+            wingRow(wing: wing) {
+                Image(systemName: dev?.glyph ?? "speaker.wave.2")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(c.ink_secondary)
+                    .frame(width: 18)
+                Text(appState.t("ui.notch.output")).type(TimbreTypography.notchTitle).foregroundStyle(c.ink_primary).lineLimit(1)
+                Spacer(minLength: 0)
+            } right: {
+                if let v = appState.activeOutputVolume {
+                    Spacer(minLength: 0)
+                    HStack(alignment: .firstTextBaseline, spacing: 1) {
+                        Text(Fmt.percent(v)).type(TimbreTypography.monoValue).fontWeight(.medium)
+                            .foregroundStyle(c.ink_primary)
+                            .contentTransition(.numericText(value: v))
+                        Text("%").type(TimbreTypography.monoSmall).foregroundStyle(c.ink_muted)
+                    }
+                }
+            }
+            HStack(spacing: 12) {
+                // The full device name lives here, where it fits — never squeezed into a wing.
+                Text(dev?.name ?? "—").type(TimbreTypography.caption).foregroundStyle(c.ink_secondary)
+                    .lineLimit(1).fixedSize()
+                outputControl
+            }
+            .padding(.horizontal, 18)
+            .frame(height: 30)
+            Spacer(minLength: 0)
+        }
+    }
+
+    /// Hardware volume of the active output, or a plain sentence when the device owns its volume.
+    @ViewBuilder
+    private var outputControl: some View {
+        if let dev = appState.activeOutputDevice, let v = appState.activeOutputVolume {
+            TFader(value: Binding(get: { v }, set: { appState.setOutputVolume(dev, value: $0, showHUD: false) }),
+                   range: 0...1, tint: c.ink_primary, height: 20, label: dev.name, valueText: Fmt.percent(v))
+        } else {
+            Text(appState.t("ui.notch.device_volume_fixed")).type(TimbreTypography.caption).foregroundStyle(c.ink_muted)
+                .lineLimit(1)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    private func sourcePeek(wing: CGFloat) -> some View {
         VStack(spacing: 0) {
             wingRow(wing: wing) {
                 Color.clear.frame(width: 18, height: 18)   // slot for the travelling icon
-                Text(focus?.name ?? appState.t("notch.empty_playing"))
-                    .type(focus == nil ? TimbreTypography.small : TimbreTypography.notchTitle)
-                    .foregroundStyle(focus == nil ? c.ink_muted : c.ink_primary)
+                Text(focus?.name ?? "")
+                    .type(TimbreTypography.notchTitle)
+                    .foregroundStyle(c.ink_primary)
                     .lineLimit(1)
                 Spacer(minLength: 0)
             } right: {
@@ -854,12 +911,6 @@ public struct NotchOverlayView: View {
                 TFader(value: volumeBinding(f), range: 0...2, unity: 1, tint: c.ink_primary, height: 20, label: f.name, valueText: Fmt.percent(f.volume), unityPosition: 0.75)
                     .padding(.horizontal, 18)
                     .frame(height: 30)
-            } else {
-                Text(appState.t("ui.notch.empty_hint")).type(TimbreTypography.caption).foregroundStyle(c.ink_muted)
-                    .lineLimit(1)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 18)
-                    .frame(height: 30)
             }
             let others = Self.otherPlaying(appState)
             if !others.isEmpty {
@@ -872,10 +923,6 @@ public struct NotchOverlayView: View {
             }
             Spacer(minLength: 0)
         }
-        // Click anywhere that is not a control → grow into the full mixer (Dynamic Island tap).
-        .contentShape(Rectangle())
-        .onTapGesture { expandFromPeek() }
-        .accessibilityAction(named: appState.t("ui.notch.expand")) { expandFromPeek() }
     }
 
     private func expandFromPeek() {
@@ -918,14 +965,13 @@ public struct NotchOverlayView: View {
                 Spacer(minLength: 0)
             } right: {
                 Spacer(minLength: 0)
-                MenuChip(title: appState.activeOutputDevice?.name ?? "—", symbol: appState.activeOutputDevice?.glyph) {
+                MenuChip(title: appState.activeOutputDevice?.name ?? "—", symbol: appState.activeOutputDevice?.glyph ?? "speaker.wave.2", iconOnly: true) {
                     ForEach(appState.outputDevices) { dev in
                         Button { appState.selectDefaultOutput(dev) } label: {
                             if dev.isDefaultOutput { Label(dev.name, systemImage: "checkmark") } else { Text(dev.name) }
                         }
                     }
                 }
-                .frame(maxWidth: wing - 24, alignment: .trailing)
             }
 
             Color.clear.frame(height: 8)
@@ -933,9 +979,13 @@ public struct NotchOverlayView: View {
             if let f = focus {
                 focusBlock(f).padding(.horizontal, 18)
             } else {
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(appState.t("notch.empty_playing")).type(TimbreTypography.small).foregroundStyle(c.ink_secondary)
-                    Text(appState.t("ui.notch.empty_hint")).type(TimbreTypography.caption).foregroundStyle(c.ink_muted)
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(spacing: 6) {
+                        Text(appState.t("notch.empty_playing")).type(TimbreTypography.caption).foregroundStyle(c.ink_muted)
+                        Text("·").type(TimbreTypography.caption).foregroundStyle(c.ink_faint)
+                        Text(appState.activeOutputDevice?.name ?? "—").type(TimbreTypography.caption).foregroundStyle(c.ink_secondary).lineLimit(1)
+                    }
+                    outputControl
                 }
                 .frame(height: 46, alignment: .center)
                 .padding(.horizontal, 18)
@@ -968,7 +1018,8 @@ public struct NotchOverlayView: View {
     private func focusBlock(_ f: AudioSourceDescriptor) -> some View {
         VStack(spacing: 10) {
             HStack(alignment: .center, spacing: 12) {
-                Text(f.isVoIPExcluded ? appState.t("mixer.voip_ignored") : (f.isPlaying ? appState.t("ui.notch.playing") : appState.t("ui.notch.paused")) + " · " + Fmt.volumeDB(f.isMuted ? 0 : f.volume) + " dB")
+                Text(f.isVoIPExcluded ? appState.t("mixer.voip_ignored")
+                     : String(format: appState.t(f.isPlaying ? "ui.notch.playing_on" : "ui.notch.paused_on"), appState.activeOutputDevice?.name ?? "—"))
                     .type(TimbreTypography.caption).foregroundStyle(c.ink_muted).lineLimit(1)
                 Spacer(minLength: 0)
                 if !f.isVoIPExcluded { valueLabel(f, big: true) }

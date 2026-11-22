@@ -36,6 +36,8 @@ Estudamos o código dos apps de notch abertos mais usados: DynamicNotchKit (base
 
 **Por que abandonamos o "pescoço" da v2.1.** Na v2.1 os estados abertos desciam só para baixo, sem tocar a barra. O dono do produto testou e achou estranho: parecia um cartão pendurado, não o notch crescendo. Nenhum app de referência faz isso. O que resolve a disputa com os menus é separar os estados persistentes dos transitórios (§1.3 e §1.5), não deformar a abertura.
 
+**Regra das asas:** na altura da câmera só cabem itens curtos (ícone, uma palavra, um número). Nome de dispositivo, frase ou botão com texto nunca vão para a asa: o texto é cortado ou invade a área da câmera. Esses itens vão para a linha abaixo, onde há largura.
+
 ### 1.3 Orelhas medidas (divisão de espaço com a barra de menus)
 
 `MenuBarSpace.freeEars` mede o espaço livre de cada lado do notch:
@@ -60,8 +62,8 @@ Estudamos o código dos apps de notch abertos mais usados: DynamicNotchKit (base
 | Repouso | W | H | 10 / 7 | nada desenhado (só o hardware); no hover aparece +5 pt de cada lado e +3 pt para baixo |
 | Compacto | W + orelhas medidas | H (ou H + 20 de queixo) | 10 / 7 | ícone e medidor nas orelhas livres |
 | HUD | W + 2 × 58 | H + 18 | 14 / 11 | asas: ícone e valor; queixo: barra de nível |
-| Espiada | W + 2 × 128 | H + 44 | 20 / 14 | asas: ícone, nome, volume, mudo; abaixo: fader |
-| Expandido | máx(W + 2 × 140, 464) | H + 8 + foco 66 + 34 por fonte (até 3) + alerta 44 + rodapé 46 | 24 / 14 | asas: app e saída; abaixo: volume, fader, outras fontes, rodapé |
+| Espiada | W + 2 × 128 | H + 44 (+ 34 por outro app tocando) | 20 / 14 | asas: ícone, nome, volume, mudo; abaixo: fader. **Nada tocando:** a espiada vira a saída. Asa esquerda: ícone do dispositivo e "Saída"; asa direita: volume do hardware; abaixo: nome completo do dispositivo e fader (ou "o volume é ajustado no próprio dispositivo") |
+| Expandido | máx(W + 2 × 140, 464) | H + 8 + foco 66 + 34 por fonte (até 3) + alerta 44 + rodapé 46 | 24 / 14 | asas: app (esquerda) e **só o ícone** do dispositivo de saída, que abre o menu (direita); abaixo: "Tocando em <dispositivo>", volume, fader, outras fontes, rodapé. Nada tocando: "Nenhuma fonte tocando · <dispositivo>" e o fader da saída |
 
 A janela tem **tamanho fixo** (cabe o maior estado) e nunca é redimensionada. Só a forma se move. Os cliques atravessam a janela fora da forma (`ignoresMouseEvents` atualizado a cada movimento do ponteiro enquanto aberta).
 

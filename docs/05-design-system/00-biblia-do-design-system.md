@@ -68,7 +68,7 @@ O app aceita flags de revisão que abrem cada superfície direto no estado desej
 
 ```bash
 ./dist/Timbr.app/Contents/MacOS/Timbr --studio mixer|equalizer|observatory|settings|support
-./dist/Timbr.app/Contents/MacOS/Timbr --notch compact|peek|expanded|hud
+./dist/Timbr.app/Contents/MacOS/Timbr --notch compact|peek|expanded|hud [--review-empty]
 ./dist/Timbr.app/Contents/MacOS/Timbr --panel-preview      # painel da barra de menus numa janela
 ./dist/Timbr.app/Contents/MacOS/Timbr --onboarding
 ```

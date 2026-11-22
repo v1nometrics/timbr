@@ -18,6 +18,17 @@
 
 
 
+### 2026-11-22 · Espiada sem nada tocando e asa da saída
+
+- **Relato:** a espiada vazia mostrava "Nenhuma…" cortado e uma dica sem utilidade. O botão com o nome do alto-falante ficava debaixo do notch.
+- **Feito:**
+  - Com nada tocando, a espiada vira a saída: ícone e "Saída" nas asas, o volume do hardware à direita, e abaixo o nome completo e o fader. O fader não abre o HUD por cima.
+  - O expandido mostra só o ícone do dispositivo na asa direita (o nome vira dica e rótulo de acessibilidade). A legenda passou a "Tocando em <dispositivo>", e o estado vazio ganhou o fader da saída.
+  - Regra das asas documentada.
+  - Flag de revisão `--review-empty`.
+  - `activeOutputVolume` publicado, atualizado por refresh, teclas de mídia e fader.
+- **Verificado:** capturas da espiada vazia, do expandido vazio e do expandido com Spotify; CI.
+
 ### 2026-11-22 · Revisão E2E do caminho de áudio (volume por app)
 
 - **Relato:** a regulagem não funcionava direito, acima de 100% nada mudava, e a saída criada pelo app tinha bug.

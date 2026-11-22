@@ -170,6 +170,8 @@ public final class AppState: ObservableObject {
 
     // Telemetry, Observatory & Guardian
     @Published public var telemetry: DSPTelemetrySnapshot = .idle
+    /// Hardware volume of the active output (0…1), nil when the device has no settable volume.
+    @Published public private(set) var activeOutputVolume: Double?
     /// Per-app limiter reduction (dB, rounded to 0.5), only for apps the limiter is actually holding.
     @Published public private(set) var sourceLimiterDB: [String: Double] = [:]
     private var telemetryTick = 0
@@ -387,10 +389,12 @@ public final class AppState: ObservableObject {
             let next = min(1.0, currentVol + 0.0625)
             _ = halManager.setOutputVolumeScalar(deviceID: out.audioObjectID, value: Float32(next))
             _ = halManager.setOutputMute(deviceID: out.audioObjectID, muted: false)
+            activeOutputVolume = next
             triggerHUD(title: out.name, value: next, muted: false)
         case .volumeDown:
             let next = max(0.0, currentVol - 0.0625)
             _ = halManager.setOutputVolumeScalar(deviceID: out.audioObjectID, value: Float32(next))
+            activeOutputVolume = next
             triggerHUD(title: out.name, value: next, muted: next <= 0.001)
         case .muteToggle:
             let nextMute = !currentMute
@@ -455,11 +459,14 @@ public final class AppState: ObservableObject {
             }
         }
         self.devices = newDevices
+        refreshActiveOutputVolume()
         if expectedOutputUID == nil {
             expectedOutputUID = activeOutputDevice?.uid
         }
 
-        self.sources = tapEngine.enumerateRunningAudioSources(existing: self.sources)
+        // `--review-empty`: design review of the "nothing playing" surfaces without pausing the user's audio.
+        self.sources = ProcessInfo.processInfo.arguments.contains("--review-empty")
+            ? [] : tapEngine.enumerateRunningAudioSources(existing: self.sources)
         self.competingNotchApps = CompetingNotchDetector.detectRunningCompetitors()
         self.accessibilityGranted = MediaKeyTap.isAccessibilityGranted
 
@@ -649,10 +656,23 @@ public final class AppState: ObservableObject {
         }
     }
 
-    public func setOutputVolume(_ device: AudioDeviceDescriptor, value: Double) {
+    /// `showHUD: false` when the change comes from a control that is already on screen (e.g. the
+    /// notch's own fader) — the HUD would replace the very panel the user is dragging in.
+    public func setOutputVolume(_ device: AudioDeviceDescriptor, value: Double, showHUD: Bool = true) {
         let clamped = Float32(min(max(value, 0.0), 1.0))
         _ = halManager.setOutputVolumeScalar(deviceID: device.audioObjectID, value: clamped)
-        triggerHUD(title: device.name, value: Double(clamped), muted: clamped <= 0.001)
+        if device.uid == activeOutputDevice?.uid { activeOutputVolume = Double(clamped) }
+        if showHUD { triggerHUD(title: device.name, value: Double(clamped), muted: clamped <= 0.001) }
+    }
+
+    func refreshActiveOutputVolume() {
+        guard let out = activeOutputDevice, out.isHWVolumeMasterSettable || out.isHWVolumeChannelSettable,
+              let v = halManager.readOutputVolumeScalar(deviceID: out.audioObjectID) else {
+            if activeOutputVolume != nil { activeOutputVolume = nil }
+            return
+        }
+        let d = Double(v)
+        if activeOutputVolume.map({ abs($0 - d) > 0.004 }) ?? true { activeOutputVolume = d }
     }
 
     public func setSourceVolume(bundleID: String, volume: Double) {

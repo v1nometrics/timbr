@@ -718,6 +718,8 @@ struct TField: View {
 struct MenuChip<Content: View>: View {
     let title: String
     var symbol: String?
+    /// Icon + chevron only (title becomes the tooltip): for tight spots like the notch wings.
+    var iconOnly = false
     @ViewBuilder var content: () -> Content
     @Environment(\.palette) private var c
 
@@ -727,9 +729,9 @@ struct MenuChip<Content: View>: View {
         } label: {
             HStack(spacing: 5) {
                 if let symbol {
-                    Image(systemName: symbol).font(.system(size: 10, weight: .medium))
+                    Image(systemName: symbol).font(.system(size: iconOnly ? 11 : 10, weight: .medium))
                 }
-                Text(title).type(TimbreTypography.caption).lineLimit(1)
+                if !iconOnly { Text(title).type(TimbreTypography.caption).lineLimit(1) }
                 Image(systemName: "chevron.up.chevron.down").font(.system(size: 7.5, weight: .semibold)).opacity(0.6)
             }
             .foregroundStyle(c.ink_secondary)
@@ -742,6 +744,8 @@ struct MenuChip<Content: View>: View {
         .buttonStyle(.plain)
         .menuIndicator(.hidden)
         .fixedSize()
+        .help(title)
+        .accessibilityLabel(title)
     }
 }
 
