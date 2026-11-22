@@ -6,6 +6,16 @@
 
 ---
 
+## 0. Estado implementado (2026-11-23)
+
+- **Núcleo:** `Sources/CTimbreDSP/src/timbre_dsp.cpp` (C++20, `Float64` interno, vDSP para FFT). Biquads Vicanek/RBJ, preamp automático pela resposta somada (+0,5 dB de margem de fase), limiter true-peak (detector 4× Catmull-Rom, lookahead de 1,5 ms, release de 80 ms, teto padrão −0,3 dBTP), LUFS momentâneo BS.1770, FFT a ~60 Hz, crossfeed estilo bs2b, linha de atraso de até 250 ms e dither TPDF opcional. Classe: **Comprovado** (testes C++ com ASan/UBSan no CI).
+- **Parâmetros:** buffer triplo wait-free. O escritor (thread de controle, serializado por mutex que o áudio nunca toca) publica config + bandas num slot livre (`timbre_dsp_update`); o áudio troca de slot no início de cada bloco. Um escritor publicando sem parar nunca sobrescreve o slot em uso: há um teste de corrida no CI. Swift só publica quando a assinatura da EQ muda. Ganho e A/B são atômicos com de-zipper de 10 ms e 20 ms.
+- **Render (`TapRenderer`):** sem alocação, lock ou ARC. Lê o tap no fim da lista de entradas (depois das entradas do subdispositivo), em estéreo intercalado ou em dois buffers mono. Escreve L/R nos canais 0/1 de saídas multicanal, em saídas planares ou como mix mono, e zera todo o resto.
+- **Medido no app instalado (2026-11-22):** ganho por app exato em ±0,01 dB; limiter segura −0,30 dBFS de pico com +6 dB sobre um tom de −1 dBFS. Ver [teste E2E](../08-registro/teste-e2e-volume-por-app-2026-11-22.md).
+- **Ainda não feito:** RTSan no CI (hoje ASan/UBSan), null test bit-exact com tap real (H-01), golden tests contra vetores EBU Tech 3341.
+
+---
+
 ## 1. Arquitetura do Pipeline de Processamento (Por Destino)
 
 Todo fluxo de áudio que entra no motor (após decisão de ativação por **P1** e **E-02**) percorre os estágios abaixo em **ponto flutuante de 64 bits (`Float64` / `double`)**:

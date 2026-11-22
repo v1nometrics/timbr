@@ -84,3 +84,27 @@
     - Implementado `ContinuityProximityParser` + `ContinuityBLEScanner` (manufacturer `0x004C`, type `0x07`) com classificação AirPods/Pro/Max/Beats e telemetria L/R/Case sem AACP.
     - UI do Observatório nunca inventa ANC/Transparency (P11); aviso de Spatial Audio em A2DP.
     - Validação com case aberto e E-08 HFP permanecem como bancada física.
+
+19. **`CATapDescription.isExclusive` inverte o tap (Comprovado, 2026-11-22).** `stereoMixdownOfProcesses:` nasce com `isExclusive = false` e `stereoGlobalTapButExcludeProcesses:` com `true`. Forçar `true` depois transforma "só estes processos" em "todos menos estes". Era a causa de "o volume por app não funciona". Medido com `--selftest-audio`.
+
+20. **Um segundo tap no mesmo processo para de receber áudio (Comprovado, 2026-11-22).** Com o timbr. já capturando um processo com `.mutedWhenTapped`, um tap de medição sobre o mesmo processo lia silêncio. O autoteste mede a fonte antes de o motor assumir o processo.
+
+21. **O HAL não notifica `IsRunningOutput` para processos novos (Comprovado, macOS 26, 2026-11-22).** Para um processo que acabou de aparecer, só `kAudioProcessPropertyIsRunning` dispara. O `AudioProcessMonitor` ouve os dois e relê a saída 60 ms depois; senão, sons curtos (um alerta de 0,3 s) se perdiam.
+
+22. **Atribuir áudio pelo texto do bundle ID erra (Comprovado, 2026-11-22).** `com.apple.WebKit.GPU` serve Safari, Raycast, Mail e qualquer app com WKWebView, e era rotulado "Safari". `responsibility_get_pid_responsible_for_pid` (libSystem, sem header público, buscado em runtime) devolve o app responsável. Apps accessory (barra de menus) precisam contar como donos.
+
+23. **Daemons do macOS tocam áudio sem app (Comprovado, 2026-11-22).** São eles `systemsoundserverd` (alertas; bundle reportado sem domínio reverso), `PowerChime`, `NotificationCenter`, `corespeechd`, `assistantd`, `avconferenced`, `callservicesd`, `universalaccessd` e `heard`. Viraram o catálogo `SystemAudioClient`.
+
+24. **Apps de ditado mantêm a saída "ligada" em silêncio (Comprovado, 2026-11-22).** O superwhisper fica com `IsRunningOutput = 1` por minutos sem emitir som. O Core Audio não dá o nível por processo; medi-lo exigiria um tap, que piora o item 25.
+
+25. **Qualquer tap faz o processo "usar entrada" (Comprovado, 2026-11-22).** O processo que lê um tap fica com `IsRunningInput = 1` (o microfone segue com `DeviceIsRunningSomewhere = 0`), e o macOS mostra o ponto roxo. O superwhisper interpreta isso, com um navegador aberto, como reunião ("Meeting detected"). Reproduzido duas vezes, também com política de ativação `.regular`.
+
+26. **TCC prende a Acessibilidade ao `cdhash` em builds ad-hoc (Comprovado, 2026-11-22).** A entrada no `TCC.db` tinha `csreq = cdhash H"31c867…"` de um build antigo. Com o build novo, `AXIsProcessTrusted()` passava a falso sem aviso e o macOS voltava ao HUD de volume próprio. Solução: identidade de assinatura local estável (`setup_dev_signing.sh`).
+
+27. **`MenuBarExtra(isInserted:)` controlado pelo estado do app entra em laço (Comprovado, SwiftUI no macOS 26, 2026-11-23).** O `sample` do processo mostrou `AppDelegate.scenesDidChange → makeMainMenu` sem parar (100 % de CPU, o app não fechava, o CI travou). Uma cena `Settings` permanente não resolveu. Trocado por `NSStatusItem` + `NSPopover`.
+
+28. **O macOS guarda a visibilidade de itens da barra de menus por `autosaveName` (Comprovado, 2026-11-23).** `NSStatusItem VisibleCC Item-0 = 0` herdado do item antigo fazia o novo nascer invisível (`isVisible = false`, frame fora da tela). Agora o item tem `autosaveName` próprio e visibilidade explícita.
+
+29. **Swift 6.1 (Xcode 16.4) é mais rígido que o 6.3 com isolamento em SwiftUI (Comprovado, 2026-11-22).** Closures de `Canvas` são `nonisolated` no 6.1, e propriedades estáticas de uma `View` são inferidas como `@MainActor`. O CI do GitHub ficou vermelho do redesign de 21/11 até 22/11 com o build local verde. A matemática do eixo do EQ foi para um `enum` fora da `View`.
+
+30. **Vídeo mudo no player do navegador não gera áudio para o macOS (Comprovado, 2026-11-23).** Com o YouTube em `muted: true`, nenhum processo do Chrome tinha saída ativa. Não aparece como fonte, e está correto.

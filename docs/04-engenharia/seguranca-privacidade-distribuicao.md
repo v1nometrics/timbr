@@ -4,6 +4,16 @@
 
 ---
 
+## 0. Estado implementado (2026-11-23)
+
+- **Acessibilidade** é usada para duas coisas: interceptar as teclas de volume, mudo e brilho (`CGEventTap`, com HUD no notch) e ler os menus do app em primeiro plano, para medir o espaço livre da barra (orelhas do notch). Sem ela, as teclas seguem o HUD do macOS e a orelha esquerda é tratada como ocupada.
+- **A permissão é presa à assinatura (Comprovado).** Em builds ad-hoc, o TCC guarda o `cdhash`, e cada build novo perde a permissão em silêncio. Por isso existe `scripts/setup_dev_signing.sh`: identidade local num keychain próprio, com senha em `~/.timbr-dev/` (modo 600), nunca no repositório. Se o app percebe que a permissão sumiu, ele registra o evento e pede de novo.
+- **Brilho** via `DisplayServices` (framework privado, buscado em runtime), com IOKit de reserva. Se não der para ler o brilho, a tecla segue para o macOS.
+- **Gravação de áudio do sistema:** qualquer tap acende o ponto roxo do macOS e marca o processo do timbr. como "usando entrada" (`IsRunningInput = 1`), sem usar o microfone. O tap global só existe com áudio tocando.
+- **Helper XPC e validação por code signing (§3.2): não implementados**; o motor roda no processo do app.
+
+---
+
 ## 1. Privacidade e Processamento Local
 
 1. **Processamento 100% local por padrão:** mixer, DSP, AutoEq em cache, otimização bayesiana (`PairwiseGP`), análise espectral e detecção de contexto rodam integralmente no Mac, sem exigir conta ou rede.

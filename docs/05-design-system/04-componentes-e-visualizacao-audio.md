@@ -59,3 +59,13 @@ Pico de amostra e true peak (ITU-R BS.1770, sobreamostragem 4×), LUFS M (400 ms
 ## 3. Correspondência web (docs, playground, site)
 
 Na web os mesmos papéis usam shadcn/ui: `slider` → TFader, `switch` → TSwitch, `toggle-group` → TSegmented, `button` → TButtonStyle, `chart` (Recharts, `XAxis scale="log"`, `chart-area-gradient`) → curva de EQ e espectro. Os tokens `--timbre-*` de `tokens.css` alimentam o tema shadcn. Detalhes em `05-assets-iconografia-e-referencias.md`.
+
+## Componentes do notch acrescentados em 2026-11-22/23
+
+| Componente | Onde | Regra |
+|---|---|---|
+| `MenuChip(iconOnly:)` | Asa direita do expandido (saída) | Só ícone e chevron na asa; o nome vira dica e rótulo de acessibilidade. Asas não levam texto longo |
+| `HoverLink` + `DimOnPress` | Nome do app nas asas e nas linhas de fonte | Placa suave no hover que vaza para fora do rótulo sem mexer no layout; pressão por opacidade, sem escala, para o ícone viajante continuar alinhado |
+| Faixa **Geral** (master) | Expandido, depois das fontes | Hairline acima, como o master de uma mesa: fader de hardware e mudo da saída; mudo em âmbar |
+| Linha "Saída sem som" | Espiada | Explica por que nada soa e oferece **Ativar som** |
+| HUD de brilho | HUD | Mesmo HUD do volume com `sun.min.fill`/`sun.max.fill` |

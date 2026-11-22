@@ -1,5 +1,11 @@
 # Auditoria E2E · 2026-11-21 (rodada de UI/UX e cumprimento do plano)
 
+> **Atualização 2026-11-23.** Este registro é de 21/11. Desde então:
+> - o notch foi redesenhado duas vezes (v2.1 e v2.2);
+> - o volume por app foi corrigido e medido (estava capturando os apps errados);
+> - entraram brilho, volume geral, ícone de barra de menus condicional, identidade acromática e compatibilidade com o superwhisper.
+>
+> Continuam abertos, desta lista: RF-0201, Sparkle/notarização, RF-0205, cenas, now playing, letras, bancada E-08…E-11, MacBook Pro OLED e consumo em repouso. Ver `progresso.md`.
 > Pedido do dono: revisar de ponta a ponta o plano, o que foi implementado e o que foi executado; a estética estava "muito feia e desfuncional, parecendo template de IA"; o notch não era preto absoluto. Este registro separa o que foi **verificado nesta rodada** do que continua **em aberto**, com as classes de evidência do `AGENTS.md`.
 
 ## 1. Diagnóstico (o que estava errado, com causa no código)

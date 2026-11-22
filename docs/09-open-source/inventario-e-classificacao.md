@@ -17,7 +17,7 @@
 | **Banco de Fones (AutoEq)** | `jaakkopasanen/AutoEq` (fetch sob demanda + cache/índice) | Importação manual REW / EqualizerAPO `.txt` | **MIT** (código/índice) | Perfis de Correção com crédito obrigatório do rig/autor |
 | **Casca do Notch & Geometria** | `MrKai77/DynamicNotchKit` + `Ext+NSScreen` (`Lakr233/NotchDrop`) | `NSPanel` próprio em AppKit | **MIT** | Notch não-ativante + pílula flutuante (sem API privada `SkyLight`) |
 | **Shaders & Reatividade UI** | `libraries.dev` (`VoiceGlowKit`, `VoiceRingKit`, `BorderBeamKit`, `DistortionWavesKit` por commit fixado) | SwiftUI `Canvas` + `Metal` próprio | **MIT** | Efeitos reativos de áudio no notch (proibido importar modelos `.mfxl`) |
-| **Now Playing & Letras** | `ungive/mediaremote-adapter` (+ wrapper SPM de `ejbills` PR #7) + `LRCLIB` API / parser `LyricFever` | `NSAppleScript` (Music/Spotify) | **BSD-3-Clause** / **MIT** | Metadados multi-sessão + letras sincronizadas `Geist Serif` |
+| **Now Playing & Letras** | `ungive/mediaremote-adapter` (+ wrapper SPM de `ejbills` PR #7) + `LRCLIB` API / parser `LyricFever` | `NSAppleScript` (Music/Spotify) | **BSD-3-Clause** / **MIT** | Metadados multi-sessão + letras sincronizadas em New York (ADR-0015) |
 | **Teclas de Mídia / DDC / Atalhos** | `MonitorControl` (trechos DDC/`CGEventTap`) + `sindresorhus/KeyboardShortcuts` | APIs nativas macOS sem macro `@Entry` | **MIT** | Super Volume Keys + atalhos globais `⌥⌘V/B/A/O/M` |
 | **Atualizações & Testes** | `sparkle-project/Sparkle` 2.10+ · `apple/swift-atomics` · `swiftlang/swift-testing` | `Synchronization.Atomic` (macOS 15+) | **MIT** / **Apache-2.0** | Auto-update EdDSA (Developer ID) + ring buffers + suíte Swift Testing |
 | **Site, Docs & Playground DS** | `shadcn/ui` + `NumberOneBot/dsssp` + `Bencho` (free) + `Spell UI` | HTML/CSS estático com `tokens.css` | **MIT** | Paridade 1:1 com `tokens.css` (ADR-0012) |
@@ -30,7 +30,7 @@
 |---|---|---|---|
 | **MIT / BSD-2 / BSD-3 / ISC / Unlicense / 0BSD / Apache-2.0** | ✅ Sim | Preservar aviso de copyright em `THIRD_PARTY_NOTICES.md` | `CoreAudioTapKit`, `tapmix`, `CAAudioHardware`, `rubato`, `ebur128`, `DynamicNotchKit`, `mediaremote-adapter`, `Sparkle`, `AutoEq` |
 | **MPL-2.0** (ou `GPL-3.0 OR MPL-2.0` escolhendo MPL-2.0) | ✅ Sim | Arquivos MPL modificados seguem MPL-2.0; não contamina módulos externos | `camilladsp` v5, `LyricsKit` |
-| **SIL OFL 1.1** (Fontes) | ✅ Sim | Embutir texto da OFL no bundle; não vender a fonte isoladamente | `Geist`, `Geist Mono`, `Geist Serif` |
+| **SIL OFL 1.1** (Fontes) | ✅ Sim | Embutir texto da OFL no bundle; não vender a fonte isoladamente | `Geist`, `Geist Mono`, `Geist Serif` (só na web; o app usa fontes do sistema, ADR-0015) |
 | **LGPL-2.1 / LGPL-3.0** | ⚠️ Evitar | Exige linkagem dinâmica e capacidade do usuário substituir a dylib (fricção na notarização/App Store) | `soxr`, `lsp-plugins` (ambos descartados) |
 | **GPL-2.0 / GPL-3.0 / AGPL-3.0** | ❌ Não (com MPL-2.0) | Copyleft viral obriga licenciar todo o executável em GPL/AGPL | `FineTune`, `boring.notch`, `Atoll`, `LosslessSwitcher`, `BlackHole`, `BackgroundMusic`, `JUCE`, `FxSound` |
 | **PolyForm Noncommercial / Sem `LICENSE` (`NONE`)** | ❌ Proibido | Não é Open Source (OSI) ou é *all rights reserved* | `PerAppVolume` (PolyForm NC), `audiotee`, `Liland`, `media-control`, `JamesDSPManager` (`NONE`) |

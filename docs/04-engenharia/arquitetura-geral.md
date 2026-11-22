@@ -4,6 +4,34 @@
 
 ---
 
+## 0. Estado implementado (2026-11-23)
+
+> O resto deste documento descreve a **arquitetura alvo**. Esta seção diz o que o código faz hoje. Classe de evidência: **Comprovado** (código executado, CI e autoteste E2E).
+
+```
+Timbr.app (um processo · Swift 6 + SwiftUI/AppKit)
+├─ TimbreApp      AppState (estado e orquestração) · NotchOverlay (NSPanel + sensor) · MenuBarIconController
+│                 (NSStatusItem condicional) · StudioWindow · OnboardingWindow · DSComponents
+├─ TimbreEngine   HALManager (dispositivos, snapshot P3) · ProcessTapEngine (taps + agregados + TapRenderer)
+│                 AudioProcessMonitor (eventos do Core Audio) · AudioProcessAttribution (dono do processo)
+│                 AudioSelfTest (medição E2E) · DisplayBrightness · MediaKeyTap · drivers M4 e linha Apple
+├─ TimbreCore     modelos, presets/APO, i18n PT/ES/EN, Guardião, SQLite, AutoEq, IA com limites, IPC,
+│                 SystemAudioClient / SilentOutputApps
+└─ CTimbreDSP     C++20 Float64 + vDSP via C ABI (EQ, preamp, limiter true-peak, LUFS, FFT, crossfeed, atraso)
+```
+
+| Tema | Alvo (abaixo) | Implementado |
+|---|---|---|
+| Processo do motor | Helper XPC separado (ADR-0006) | **Mesmo processo da UI.** ADR-0006 continua Proposto (E-16 não executado) |
+| Topologia | Um motor por saída física, com soma e limiter pós-soma | Um agregado privado por *slot*: por app, global e por espelho (ADR-0004, lições) |
+| Parâmetros para a thread de áudio | Fila SPSC ou ponteiro atômico com rampa | **Buffer triplo wait-free** (`timbre_dsp_update`); ganho e A/B por atômico com de-zipper de 10/20 ms |
+| Detecção de fontes | Listeners do HAL | `AudioProcessMonitor` (lista de processos, `IsRunning`, `IsRunningOutput`, coalescência de 120 ms) + varredura de reserva a cada 2 s |
+| Atribuição | Árvore de processos | Processo responsável → pacote `.app` do executável → cadeia de pais → bundle ID do Core Audio; serviços do macOS agrupados |
+| Snapshot e fail-safe (P3) | Snapshot + restauração | Implementado; 20× `kill -9` sem agregado órfão no CI |
+| Verificação | Bancada | `ci_check.sh` (headless) + `selftest_audio.sh` (mede o ganho real no app instalado) |
+
+---
+
 ## 1. Visão Macro em Camadas e Processos
 
 ```

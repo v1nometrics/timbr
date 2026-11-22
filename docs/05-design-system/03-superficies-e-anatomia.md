@@ -68,7 +68,7 @@ Estudamos o código dos apps de notch abertos mais usados: DynamicNotchKit (base
 | Compacto | W + orelhas medidas | H (ou H + 20 de queixo) | 10 / 7 | ícone e medidor nas orelhas livres |
 | HUD | W + 2 × 58 | H + 18 | 14 / 11 | asas: ícone e valor; queixo: barra de nível |
 | Espiada | W + 2 × 128 | H + 44 (+ 34 por outro app tocando) | 20 / 14 | asas: ícone, nome, volume, mudo; abaixo: fader. **Nada tocando:** a espiada vira a saída. Asa esquerda: ícone do dispositivo e "Saída"; asa direita: volume do hardware; abaixo: nome completo do dispositivo e fader (ou "o volume é ajustado no próprio dispositivo") |
-| Expandido | máx(W + 2 × 140, 464) | H + 8 + foco 66 + 34 por fonte (até 3) + alerta 44 + rodapé 46 | 24 / 14 | asas: app (esquerda) e **só o ícone** do dispositivo de saída, que abre o menu (direita); abaixo: "Tocando em <dispositivo>", volume, fader, outras fontes, rodapé. Nada tocando: "Nenhuma fonte tocando · <dispositivo>" e o fader da saída |
+| Expandido | máx(W + 2 × 140, 464) | H + 8 + foco 66 + faixa Geral 36 + 34 por fonte (até 3) + alerta 44 + rodapé 46 | 24 / 14 | asas: app (esquerda) e **só o ícone** do dispositivo de saída, que abre o menu (direita); abaixo: "Tocando em <dispositivo>", volume, fader, outras fontes, faixa Geral (volume e mudo da saída), rodapé. Nada tocando: "Nenhuma fonte tocando · <dispositivo>" e o fader da saída |
 
 A janela tem **tamanho fixo** (cabe o maior estado) e nunca é redimensionada. Só a forma se move. Os cliques atravessam a janela fora da forma (`ignoresMouseEvents` atualizado a cada movimento do ponteiro enquanto aberta).
 
@@ -93,7 +93,7 @@ O notch é **sempre preto absoluto**: não há tema de notch claro nem degradê.
 
 **Visibilidade:** o ícone só aparece quando o notch não é a entrada do app: sem tela com notch, com o notch desligado, no modo só barra de menus, ou quando a pessoa liga a opção em Ajustes. Com o notch ativo, o próprio notch tem menu de contexto (clique direito: Abrir Estúdio, Ajustes…, ícone na barra de menus, Sair).
 
-Painel `MenuBarExtra(.window)` de 348 pt, nas cores do Estúdio (claro ou escuro, conforme o sistema): marca, estado do caminho e saída, switch de processamento; até 5 fontes com fader; lista de saídas com taxa e ✓; botões Abrir Estúdio, A/B neutro e Sair. É o fallback universal (Mac sem notch, outro app de notch ativo, usuário de teclado).
+Painel de 348 pt num `NSPopover` ancorado ao `NSStatusItem` (`MenuBarIconController`; o `MenuBarExtra` do SwiftUI entrava em laço ao ser escondido), nas cores do Estúdio (claro ou escuro, conforme o sistema): marca, estado do caminho e saída, switch de processamento; até 5 fontes com fader; lista de saídas com taxa e ✓; botões Abrir Estúdio, A/B neutro e Sair. É o fallback universal (Mac sem notch, outro app de notch ativo, usuário de teclado).
 
 ## 3. Estúdio
 

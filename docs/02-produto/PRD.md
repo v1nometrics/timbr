@@ -110,7 +110,7 @@ Coluna "Viab." referencia a seção da matriz de viabilidade. Critérios de acei
 | RF-0603 | Taxa de amostragem e formato do dispositivo (quando gravável) | P0 | C |
 | RF-0604 | Sonda de capacidades: só mostrar controles suportados | P0 | C |
 | RF-0605 | Volume em software para dispositivos sem volume de hardware (DAC, HDMI), com aviso de perda de bit-perfect | P1 | C |
-| RF-0606 | Teclas de volume/mute controlam o destino atual, com HUD no notch | P1 | C |
+| RF-0606 | Teclas de volume/mute (e de brilho da tela embutida) controlam o destino atual, com HUD no notch | P1 | C |
 | RF-0607 | Perfis por dispositivo (UID): volume inicial, EQ, rotas | P0 | C |
 | RF-0608 | Mostrar quais apps usam o microfone agora | P1 | C |
 | RF-0609 | Troca automática da taxa do dispositivo para a da fonte (quando a taxa da fonte for conhecida) | P2 | B |
@@ -185,7 +185,7 @@ Coluna "Viab." referencia a seção da matriz de viabilidade. Critérios de acei
 |---|---|---|---|
 | RF-1301 | Estados do notch: repouso, compacto, espiada (hover), expandido; HUD transitório | P0 | E |
 | RF-1302 | Pílula para Macs sem notch e monitores externos | P0 | E |
-| RF-1303 | Item na barra de menus com o mesmo conteúdo do notch expandido | P0 | E |
+| RF-1303 | Item na barra de menus com o mesmo conteúdo do notch expandido, visível quando o notch não é a entrada (sem notch, notch desligado, modo só barra de menus) ou por opção | P0 | E |
 | RF-1304 | Estúdio (janela) | P0 (mínimo) / P1 (completo) | E |
 | RF-1305 | Operação completa por teclado e VoiceOver | P0 | E |
 | RF-1306 | Live Activity (macOS 27.3+) | P2 | D |

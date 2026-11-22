@@ -71,7 +71,10 @@ O app aceita flags de revisão que abrem cada superfície direto no estado desej
 ./dist/Timbr.app/Contents/MacOS/Timbr --notch compact|peek|expanded|hud [--review-empty]
 ./dist/Timbr.app/Contents/MacOS/Timbr --panel-preview      # painel da barra de menus numa janela
 ./dist/Timbr.app/Contents/MacOS/Timbr --onboarding
+./dist/Timbr.app/Contents/MacOS/Timbr --demo             # coreografia do notch (grave com screencapture -v)
 ```
+
+`--review-empty` mostra os estados "nada tocando" sem pausar o áudio de quem revisa.
 
 Fotografe com `screencapture -x` e revise com o checklist acima. As capturas da revisão de 2026-11-21 estão descritas em `docs/08-registro/auditoria-e2e-2026-11-21.md`.
 

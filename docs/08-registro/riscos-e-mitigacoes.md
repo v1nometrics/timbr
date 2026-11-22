@@ -39,3 +39,12 @@
 | **R-16** | Reclamação de direitos autorais sobre medições de fone (oratory1990) ou letras (LRCLIB / endpoints privados) | Média | Alto | Baixar índice AutoEq em runtime com cache + crédito; nunca redistribuir letras nem empacotar endpoints privados sem opt-in explícito |
 | **R-17** | Risco de escrita destrutiva em dispositivos Bluetooth (brick/despareamento) | Baixa | Crítico | Read-first; lista negra explícita em ADR-0011 (sem DFU, factory reset ou pairing) |
 | **R-18** | Rejeição na Mac App Store por `CGEventTap`, Perl helper ou Automation | Certa (full) | Médio | Distribuição oficial via Developer ID + Notarização + Sparkle 2 + Homebrew (ADR-0007); versão "lite" avaliada apenas em E-17 |
+
+## 5. Riscos encontrados em uso (2026-11-22/23)
+
+| ID | Risco | Prob. | Impacto | Mitigação |
+|---|---|---|---|---|
+| **R-19** | Permissões TCC (Acessibilidade) perdidas a cada build ou atualização com assinatura diferente | Certa em ad-hoc | Alto (teclas voltam ao HUD do sistema, orelha esquerda some) | Identidade local estável (`setup_dev_signing.sh`); em release, Developer ID; o app detecta a perda, registra e pede de novo |
+| **R-20** | Apps que vigiam "quem usa entrada de áudio" (superwhisper) reagem aos nossos taps | Certa enquanto há tap | Médio (falso "Meeting detected") | Tap global só com áudio tocando; documentado em `compatibilidade-apps-2026-11-22.md` com o ajuste recomendado no superwhisper |
+| **R-21** | Divergência entre o Swift local (6.3) e o do CI (6.1) | Alta | Médio (PR vermelho com build local verde) | Só mesclar com o check do PR verde; seguir as regras de isolamento do 6.1 em código de `View` |
+| **R-22** | APIs privadas (`responsibility_get_pid_responsible_for_pid`, `DisplayServices`) mudarem numa atualização do macOS | Média | Baixo a médio | Busca em runtime com alternativa (pacote `.app` e cadeia de pais; IOKit) e passagem da tecla ao macOS se falhar |

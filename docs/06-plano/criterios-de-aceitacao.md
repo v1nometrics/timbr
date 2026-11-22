@@ -1,5 +1,7 @@
 # Critérios de Aceitação por Fase e por Épico
 
+> **Situação (2026-11-23):** a verificação item a item está em [roadmap-e-backlog.md · Situação](roadmap-e-backlog.md) e no [teste E2E de volume por app](../08-registro/teste-e2e-volume-por-app-2026-11-22.md). Critérios que dependem de bancada (E-08, E-09, E-10) ou de dogfood de 14 dias ainda não foram executados.
+
 > **Regra:** um item só é considerado aceito quando passa em critérios funcionais **e** não funcionais mensuráveis, com evidência registrada em `docs/08-registro/progresso.md` ou `RESULTADO.md` de experimento.
 
 ---
