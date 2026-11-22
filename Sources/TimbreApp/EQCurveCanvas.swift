@@ -15,10 +15,6 @@ public struct EQCurveCanvas: View {
     @State private var dragged: UUID?
     @State private var hovered: UUID?
 
-    // Static and nonisolated: these are pure math used inside Canvas closures, which Swift 6.1
-    // (Xcode 16.4, the CI runner) treats as nonisolated.
-    private static let fMin = 20.0, fMax = 20000.0
-    private static let dbRange = 15.0
     private let gridF: [Double] = [20, 30, 40, 50, 60, 80, 100, 200, 300, 400, 500, 600, 800, 1000, 2000, 3000, 4000, 5000, 6000, 8000, 10000, 20000]
     private let majorF: [Double] = [100, 1000, 10000]
     private let labelF: [Double] = [20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000]
@@ -28,21 +24,9 @@ public struct EQCurveCanvas: View {
         self.height = height
     }
 
-    nonisolated private func x(_ f: Double, _ w: CGFloat) -> CGFloat {
-        CGFloat((log10(min(max(f, Self.fMin), Self.fMax)) - log10(Self.fMin)) / (log10(Self.fMax) - log10(Self.fMin))) * w
-    }
-    nonisolated private func f(_ x: CGFloat, _ w: CGFloat) -> Double {
-        pow(10, log10(Self.fMin) + Double(min(max(x / max(w, 1), 0), 1)) * (log10(Self.fMax) - log10(Self.fMin)))
-    }
-    nonisolated private func y(_ db: Double, _ h: CGFloat) -> CGFloat {
-        h * (1 - CGFloat((min(max(db, -Self.dbRange), Self.dbRange) + Self.dbRange) / (2 * Self.dbRange)))
-    }
-    nonisolated private func db(_ y: CGFloat, _ h: CGFloat) -> Double {
-        (1 - Double(min(max(y / max(h, 1), 0), 1))) * 2 * Self.dbRange - Self.dbRange
-    }
 
     private var freqs: [Double] {
-        (0..<240).map { i in pow(10, log10(Self.fMin) + Double(i) / 239 * (log10(Self.fMax) - log10(Self.fMin))) }
+        (0..<240).map { i in pow(10, log10(EQAxis.fMin) + Double(i) / 239 * (log10(EQAxis.fMax) - log10(EQAxis.fMin))) }
     }
 
     public var body: some View {
@@ -61,12 +45,12 @@ public struct EQCurveCanvas: View {
                 Canvas { ctx, _ in
                     // Grid
                     for gf in gridF {
-                        var p = Path(); let gx = x(gf, w)
+                        var p = Path(); let gx = EQAxis.x(gf, w)
                         p.move(to: CGPoint(x: gx, y: 0)); p.addLine(to: CGPoint(x: gx, y: h))
                         ctx.stroke(p, with: .color(majorF.contains(gf) ? c.line_default : c.line_grid), lineWidth: 0.5)
                     }
                     for d in stride(from: -12.0, through: 12.0, by: 6.0) {
-                        var p = Path(); let gy = y(d, h)
+                        var p = Path(); let gy = EQAxis.y(d, h)
                         p.move(to: CGPoint(x: 0, y: gy)); p.addLine(to: CGPoint(x: w, y: gy))
                         ctx.stroke(p, with: .color(d == 0 ? c.line_strong : c.line_grid), lineWidth: d == 0 ? 0.75 : 0.5)
                     }
@@ -77,24 +61,24 @@ public struct EQCurveCanvas: View {
                         let n = spectrum.count
                         for (i, v) in spectrum.enumerated() where i > 0 {
                             let fr = Double(i) / Double(n) * rate / 2
-                            guard fr >= Self.fMin, fr <= Self.fMax else { continue }
+                            guard fr >= EQAxis.fMin, fr <= EQAxis.fMax else { continue }
                             let norm = CGFloat(min(max((Double(v) + 90) / 90, 0), 1))
-                            sp.addLine(to: CGPoint(x: x(fr, w), y: h - norm * h * 0.9))
+                            sp.addLine(to: CGPoint(x: EQAxis.x(fr, w), y: h - norm * h * 0.9))
                         }
                         sp.addLine(to: CGPoint(x: w, y: h)); sp.closeSubpath()
                         ctx.fill(sp, with: .color(c.ink_primary.opacity(0.05)))
                     }
                     // Result fill between curve and 0 dB
-                    let zeroY = y(0, h)
+                    let zeroY = EQAxis.y(0, h)
                     var fill = Path(); fill.move(to: CGPoint(x: 0, y: zeroY))
-                    for (i, fr) in fs.enumerated() { fill.addLine(to: CGPoint(x: x(fr, w), y: y(result[i], h))) }
+                    for (i, fr) in fs.enumerated() { fill.addLine(to: CGPoint(x: EQAxis.x(fr, w), y: EQAxis.y(result[i], h))) }
                     fill.addLine(to: CGPoint(x: w, y: zeroY)); fill.closeSubpath()
                     ctx.fill(fill, with: .color(c.accent_fill))
 
                     func curve(_ m: [Double]) -> Path {
                         var p = Path()
                         for (i, fr) in fs.enumerated() {
-                            let pt = CGPoint(x: x(fr, w), y: y(m[i], h))
+                            let pt = CGPoint(x: EQAxis.x(fr, w), y: EQAxis.y(m[i], h))
                             if i == 0 { p.move(to: pt) } else { p.addLine(to: pt) }
                         }
                         return p
@@ -113,7 +97,7 @@ public struct EQCurveCanvas: View {
                         .type(TimbreTypography.monoSmall)
                         .foregroundStyle(c.ink_muted)
                         .fixedSize()
-                        .position(x: min(max(x(lf, w), 10), w - 12), y: h + 11)
+                        .position(x: min(max(EQAxis.x(lf, w), 10), w - 12), y: h + 11)
                 }
                 // dB labels
                 ForEach([12.0, 6.0, 0.0, -6.0, -12.0], id: \.self) { d in
@@ -121,7 +105,7 @@ public struct EQCurveCanvas: View {
                         .type(TimbreTypography.monoSmall)
                         .foregroundStyle(d == 0 ? c.ink_secondary : c.ink_muted)
                         .fixedSize()
-                        .position(x: w + 18, y: y(d, h))
+                        .position(x: w + 18, y: EQAxis.y(d, h))
                 }
 
                 // Band handles (advanced mode)
@@ -136,16 +120,16 @@ public struct EQCurveCanvas: View {
                                 .foregroundStyle(band.enabled ? c.ink_primary : c.ink_muted)
                         }
                         .frame(width: active ? 20 : 17, height: active ? 20 : 17)
-                        .position(x: x(band.freqHz, w), y: y(band.type == .peak || band.type == .lowShelf || band.type == .highShelf ? band.gainDB : 0, h))
+                        .position(x: EQAxis.x(band.freqHz, w), y: EQAxis.y(band.type == .peak || band.type == .lowShelf || band.type == .highShelf ? band.gainDB : 0, h))
                         .onHover { hovered = $0 ? band.id : (hovered == band.id ? nil : hovered) }
                         .gesture(
                             DragGesture(minimumDistance: 0, coordinateSpace: .named("eq"))
                                 .onChanged { g in
                                     dragged = band.id
                                     var b = band
-                                    b.freqHz = min(max(f(g.location.x, w), Self.fMin), Self.fMax)
+                                    b.freqHz = min(max(EQAxis.f(g.location.x, w), EQAxis.fMin), EQAxis.fMax)
                                     if b.type == .peak || b.type == .lowShelf || b.type == .highShelf {
-                                        b.gainDB = (db(g.location.y, h) * 2).rounded() / 2
+                                        b.gainDB = (EQAxis.db(g.location.y, h) * 2).rounded() / 2
                                     }
                                     appState.updateTasteBand(b)
                                 }
@@ -161,5 +145,27 @@ public struct EQCurveCanvas: View {
         }
         .frame(height: height)
         .accessibilityElement(children: .contain)
+    }
+}
+
+/// Axis math for the EQ curve: log frequency (20 Hz–20 kHz) × ±15 dB. A plain enum outside the View,
+/// so it is not MainActor-isolated: Canvas closures are nonisolated under Swift 6.1 (Xcode 16.4,
+/// the CI runner) and must be able to call it.
+enum EQAxis {
+    static let fMin = 20.0
+    static let fMax = 20000.0
+    static let dbRange = 15.0
+
+    static func x(_ f: Double, _ w: CGFloat) -> CGFloat {
+        CGFloat((log10(min(max(f, fMin), fMax)) - log10(fMin)) / (log10(fMax) - log10(fMin))) * w
+    }
+    static func f(_ x: CGFloat, _ w: CGFloat) -> Double {
+        pow(10, log10(fMin) + Double(min(max(x / max(w, 1), 0), 1)) * (log10(fMax) - log10(fMin)))
+    }
+    static func y(_ db: Double, _ h: CGFloat) -> CGFloat {
+        h * (1 - CGFloat((min(max(db, -dbRange), dbRange) + dbRange) / (2 * dbRange)))
+    }
+    static func db(_ y: CGFloat, _ h: CGFloat) -> Double {
+        (1 - Double(min(max(y / max(h, 1), 0), 1))) * 2 * dbRange - dbRange
     }
 }
