@@ -18,6 +18,20 @@
 
 
 
+### 2026-11-22 · Fontes do macOS com nome e ícone
+
+- **Relato:** apareceu "systemsoundser…" com a letra "S" como ícone.
+- **Causa:** processos do macOS sem app (alertas, chime do carregador, Siri, chamadas, leitura em voz alta) caíam no último recurso da atribuição: o nome do executável.
+- **Feito:**
+  - Catálogo `SystemAudioClient` (TimbreCore) com seis grupos: Sons do sistema, Siri e Ditado, Chamadas (protegidas como VoIP), Leitura em voz alta, Visualização Rápida e Outros sons do macOS. Cada grupo tem nome em PT/ES/EN e o ícone de um app real (Ajustes, Siri, FaceTime…).
+  - Clicar num desses grupos abre o painel de Ajustes correspondente.
+  - O monitor passou a ouvir também `IsRunning`. Medido no macOS 26: para um processo novo, o HAL notifica `IsRunning`, mas não `IsRunningOutput`. Ele também registra o início de cada saída, para sons curtos (um alerta de 0,3 s) não se perderem entre varreduras.
+  - No Mixer, "Em pausa" deu lugar a "Tocou há N minutos" para fontes que não estão tocando agora.
+- **Verificado:**
+  - Alerta real via `AudioServicesPlayAlertSound` aparece como "Sons do sistema" com o ícone de Ajustes.
+  - Atribuição testada: Chrome → Google Chrome, Spotify, Superwhisper, `systemsoundserverd` → Sons do sistema.
+  - Testes do catálogo no CI.
+
 ### 2026-11-22 · Espiada sem nada tocando e asa da saída
 
 - **Relato:** a espiada vazia mostrava "Nenhuma…" cortado e uma dica sem utilidade. O botão com o nome do alto-falante ficava debaixo do notch.

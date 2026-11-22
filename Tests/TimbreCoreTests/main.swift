@@ -188,6 +188,17 @@ struct TimbreCoreTestRunner {
         expect(ordered == ["com.google.Chrome", "com.spotify.client", "a.muted", "b.recent"], "Source display order stable with simultaneous playback: \(ordered)")
         print("  [PASS] Simultaneous sources ordering")
 
+        // macOS daemons get friendly groups; apps are never captured by the catalog.
+        expect(SystemAudioClient.classify(reportedBundleID: "systemsoundserverd", executablePath: "/usr/sbin/systemsoundserverd") == .systemSounds, "systemsoundserverd → System sounds")
+        expect(SystemAudioClient.classify(reportedBundleID: "com.apple.PowerChime", executablePath: nil) == .systemSounds, "PowerChime → System sounds")
+        expect(SystemAudioClient.classify(reportedBundleID: "com.apple.assistantd", executablePath: nil) == .siri, "assistantd → Siri")
+        expect(SystemAudioClient.classify(reportedBundleID: "com.apple.avconferenced", executablePath: nil) == .calls, "avconferenced → Calls")
+        expect(GuardianAnalyzer.isVoIPOrDAWProtected(bundleID: SystemAudioClient.calls.rawValue), "System calls are VoIP-protected")
+        expect(SystemAudioClient.classify(reportedBundleID: "com.spotify.client", executablePath: "/Applications/Spotify.app/Contents/MacOS/Spotify") == nil, "Apps are not system clients")
+        expect(SystemAudioClient.isSystemExecutable("/usr/libexec/historicalaudiod") && !SystemAudioClient.isSystemExecutable("/Applications/X.app/Contents/MacOS/X"), "System executable detection")
+        expect(SystemAudioClient.allCases.allSatisfy { TimbreStrings.allKeys.contains($0.nameKey) }, "Every system client name is localized")
+        print("  [PASS] System audio clients catalog")
+
         print("[TimbreCoreTests] ALL PASSED")
     }
 }

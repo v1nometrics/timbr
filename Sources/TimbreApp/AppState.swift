@@ -466,7 +466,12 @@ public final class AppState: ObservableObject {
 
         // `--review-empty`: design review of the "nothing playing" surfaces without pausing the user's audio.
         self.sources = ProcessInfo.processInfo.arguments.contains("--review-empty")
-            ? [] : tapEngine.enumerateRunningAudioSources(existing: self.sources)
+            ? [] : tapEngine.enumerateRunningAudioSources(existing: self.sources, recentlyStarted: processMonitor.drainRecentlyStarted()).map { src in
+                guard let client = SystemAudioClient(bundleID: src.bundleID) else { return src }
+                var s = src
+                s.name = t(client.nameKey)
+                return s
+            }
         self.competingNotchApps = CompetingNotchDetector.detectRunningCompetitors()
         self.accessibilityGranted = MediaKeyTap.isAccessibilityGranted
 

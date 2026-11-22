@@ -933,6 +933,18 @@ public struct NotchOverlayView: View {
 
     /// Bring the app that owns this audio to the front (launch it if it has quit), then fold away.
     private func bringToFront(_ src: AudioSourceDescriptor) {
+        if let client = SystemAudioClient(bundleID: src.bundleID) {
+            // macOS sounds have no app: open the settings pane that controls them (calls → FaceTime).
+            if let url = client.settingsURL {
+                NSWorkspace.shared.open(url)
+            } else if client == .calls, let app = NSWorkspace.shared.urlForApplication(withBundleIdentifier: client.iconBundleID) {
+                NSWorkspace.shared.openApplication(at: app, configuration: NSWorkspace.OpenConfiguration())
+            } else {
+                return
+            }
+            withAnimation(TimbreMotion.notchClose) { appState.notchState = appState.shouldShowCompact ? .compact : .resting }
+            return
+        }
         let running = NSRunningApplication.runningApplications(withBundleIdentifier: src.bundleID)
         if let app = running.first(where: { $0.activationPolicy == .regular }) ?? running.first {
             app.activate()

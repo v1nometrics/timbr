@@ -198,7 +198,7 @@ public final class ProcessTapEngine: @unchecked Sendable {
         return result
     }
 
-    public func enumerateRunningAudioSources(existing: [AudioSourceDescriptor] = []) -> [AudioSourceDescriptor] {
+    public func enumerateRunningAudioSources(existing: [AudioSourceDescriptor] = [], recentlyStarted: Set<AudioObjectID> = []) -> [AudioSourceDescriptor] {
         var addr = AudioObjectPropertyAddress(
             mSelector: kAudioHardwarePropertyProcessObjectList,
             mScope: kAudioObjectPropertyScopeGlobal,
@@ -239,6 +239,8 @@ public final class ProcessTapEngine: @unchecked Sendable {
             var runAddr = AudioObjectPropertyAddress(mSelector: kAudioProcessPropertyIsRunningOutput, mScope: kAudioObjectPropertyScopeGlobal, mElement: 0)
             _ = AudioObjectGetPropertyData(objID, &runAddr, 0, nil, &runSize, &runningOut)
             let isPlaying = runningOut != 0
+            // Started and already finished since the last pass (e.g. a short alert): recent, not playing.
+            let justPlayed = !isPlaying && recentlyStarted.contains(objID)
 
             var cfBundle: CFString?
             var bSize = UInt32(MemoryLayout<CFString?>.size)
@@ -259,18 +261,20 @@ public final class ProcessTapEngine: @unchecked Sendable {
                 if isPlaying {
                     cur.isPlaying = true
                     cur.lastActiveAt = Date()
+                } else if justPlayed {
+                    cur.lastActiveAt = Date()
                 }
                 cur.name = owner.name
                 cur.isVoIPExcluded = voipProtected
                 grouped[bundleID] = cur
-            } else if isPlaying {
+            } else if isPlaying || justPlayed {
                 grouped[bundleID] = AudioSourceDescriptor(
                     bundleID: bundleID,
                     name: owner.name,
                     pids: [pid],
                     volume: 1.0,
                     isMuted: false,
-                    isPlaying: true,
+                    isPlaying: isPlaying,
                     isVoIPExcluded: voipProtected
                 )
             }

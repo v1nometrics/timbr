@@ -547,7 +547,9 @@ enum AppIconCache {
     private static var cache: [String: NSImage] = [:]
     static func icon(for bundleID: String) -> NSImage? {
         if let hit = cache[bundleID] { return hit }
-        guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) else { return nil }
+        // macOS daemon groups (System sounds, Siri…) borrow the icon of the app that represents them.
+        let lookup = SystemAudioClient(bundleID: bundleID)?.iconBundleID ?? bundleID
+        guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: lookup) else { return nil }
         let img = NSWorkspace.shared.icon(forFile: url.path)
         cache[bundleID] = img
         return img

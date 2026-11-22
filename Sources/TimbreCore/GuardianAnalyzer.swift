@@ -45,6 +45,7 @@ public enum GuardianAnalyzer {
         "com.microsoft.teams",
         "com.microsoft.teams2",
         "com.apple.FaceTime",
+        "timbr.system.calls",            // FaceTime/phone daemons (SystemAudioClient.calls)
         "com.hnc.Discord",
         "com.cisco.webexmeetingsapp",
         "com.google.Chrome.app.kjgfgldnnfoeklkmfkjfagphfepbbdan", // Meet PWA

@@ -15,6 +15,7 @@
 import Foundation
 import AppKit
 import Darwin
+import TimbreCore
 
 public enum AudioProcessAttribution {
     public struct Owner: Equatable, Sendable {
@@ -39,11 +40,17 @@ public enum AudioProcessAttribution {
             return Owner(pid: p, bundleID: bid, name: app.localizedName ?? bid)
         }
 
+        // 0. macOS daemons with no app (system sounds, Siri, calls…) → a friendly group.
+        let path = executablePath(pid)
+        if let client = SystemAudioClient.classify(reportedBundleID: reportedBundleID, executablePath: path) {
+            return Owner(pid: pid, bundleID: client.rawValue, name: client.defaultName)
+        }
+
         // 1. Responsible process.
         if let responsible, case let r = responsible(pid), r > 0, let o = appOwner(r) { return o }
 
         // 2. Outermost .app bundle containing the executable (Chromium/Electron helpers live inside it).
-        if let path = executablePath(pid), let range = path.range(of: ".app/") {
+        if let path, let range = path.range(of: ".app/") {
             let appPath = String(path[..<range.lowerBound]) + ".app"
             if let bundle = Bundle(path: appPath), let bid = bundle.bundleIdentifier {
                 if let running = runningApps.values.first(where: { $0.bundleIdentifier == bid }), let o = appOwner(running.processIdentifier) {
@@ -67,6 +74,10 @@ public enum AudioProcessAttribution {
 
         // 4. What Core Audio said.
         if let o = appOwner(pid) { return o }
+        if SystemAudioClient.isSystemExecutable(path) {
+            let c = SystemAudioClient.otherSystem
+            return Owner(pid: pid, bundleID: c.rawValue, name: c.defaultName)
+        }
         let bid = reportedBundleID ?? runningApps[pid]?.bundleIdentifier ?? "pid.\(pid)"
         let name = runningApps[pid]?.localizedName ?? bid.components(separatedBy: ".").last ?? bid
         return Owner(pid: pid, bundleID: bid, name: name)

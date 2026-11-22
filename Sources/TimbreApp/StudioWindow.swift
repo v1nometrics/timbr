@@ -443,7 +443,13 @@ private struct SourceRow: View {
         if src.isMuted { return appState.t("ui.status.muted") }
         if src.volume > 1.0001, appState.sourceLimiterDB[src.bundleID] != nil { return appState.t("ui.status.limited") }
         if src.volume > 1.0001 { return appState.t("ui.status.boost") }
-        return src.isPlaying ? appState.t("ui.notch.playing") : appState.t("ui.notch.paused")
+        if src.isPlaying { return appState.t("ui.notch.playing") }
+        // Not playing ≠ paused (an alert that just sounded was never "paused"): say when it last played.
+        let f = RelativeDateTimeFormatter()
+        f.locale = Locale(identifier: appState.language == .ptBR ? "pt_BR" : appState.language == .es ? "es" : "en")
+        f.unitsStyle = .full
+        let ago = Date().timeIntervalSince(src.lastActiveAt) < 60 ? appState.t("ui.status.just_now") : f.localizedString(for: src.lastActiveAt, relativeTo: Date())
+        return String(format: appState.t("ui.status.played"), ago)
     }
 }
 
