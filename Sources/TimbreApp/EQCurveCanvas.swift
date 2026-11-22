@@ -15,8 +15,10 @@ public struct EQCurveCanvas: View {
     @State private var dragged: UUID?
     @State private var hovered: UUID?
 
-    private let fMin = 20.0, fMax = 20000.0
-    private let dbRange = 15.0
+    // Static and nonisolated: these are pure math used inside Canvas closures, which Swift 6.1
+    // (Xcode 16.4, the CI runner) treats as nonisolated.
+    private static let fMin = 20.0, fMax = 20000.0
+    private static let dbRange = 15.0
     private let gridF: [Double] = [20, 30, 40, 50, 60, 80, 100, 200, 300, 400, 500, 600, 800, 1000, 2000, 3000, 4000, 5000, 6000, 8000, 10000, 20000]
     private let majorF: [Double] = [100, 1000, 10000]
     private let labelF: [Double] = [20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000]
@@ -26,21 +28,21 @@ public struct EQCurveCanvas: View {
         self.height = height
     }
 
-    private func x(_ f: Double, _ w: CGFloat) -> CGFloat {
-        CGFloat((log10(min(max(f, fMin), fMax)) - log10(fMin)) / (log10(fMax) - log10(fMin))) * w
+    nonisolated private func x(_ f: Double, _ w: CGFloat) -> CGFloat {
+        CGFloat((log10(min(max(f, Self.fMin), Self.fMax)) - log10(Self.fMin)) / (log10(Self.fMax) - log10(Self.fMin))) * w
     }
-    private func f(_ x: CGFloat, _ w: CGFloat) -> Double {
-        pow(10, log10(fMin) + Double(min(max(x / max(w, 1), 0), 1)) * (log10(fMax) - log10(fMin)))
+    nonisolated private func f(_ x: CGFloat, _ w: CGFloat) -> Double {
+        pow(10, log10(Self.fMin) + Double(min(max(x / max(w, 1), 0), 1)) * (log10(Self.fMax) - log10(Self.fMin)))
     }
-    private func y(_ db: Double, _ h: CGFloat) -> CGFloat {
-        h * (1 - CGFloat((min(max(db, -dbRange), dbRange) + dbRange) / (2 * dbRange)))
+    nonisolated private func y(_ db: Double, _ h: CGFloat) -> CGFloat {
+        h * (1 - CGFloat((min(max(db, -Self.dbRange), Self.dbRange) + Self.dbRange) / (2 * Self.dbRange)))
     }
-    private func db(_ y: CGFloat, _ h: CGFloat) -> Double {
-        (1 - Double(min(max(y / max(h, 1), 0), 1))) * 2 * dbRange - dbRange
+    nonisolated private func db(_ y: CGFloat, _ h: CGFloat) -> Double {
+        (1 - Double(min(max(y / max(h, 1), 0), 1))) * 2 * Self.dbRange - Self.dbRange
     }
 
     private var freqs: [Double] {
-        (0..<240).map { i in pow(10, log10(fMin) + Double(i) / 239 * (log10(fMax) - log10(fMin))) }
+        (0..<240).map { i in pow(10, log10(Self.fMin) + Double(i) / 239 * (log10(Self.fMax) - log10(Self.fMin))) }
     }
 
     public var body: some View {
@@ -75,7 +77,7 @@ public struct EQCurveCanvas: View {
                         let n = spectrum.count
                         for (i, v) in spectrum.enumerated() where i > 0 {
                             let fr = Double(i) / Double(n) * rate / 2
-                            guard fr >= fMin, fr <= fMax else { continue }
+                            guard fr >= Self.fMin, fr <= Self.fMax else { continue }
                             let norm = CGFloat(min(max((Double(v) + 90) / 90, 0), 1))
                             sp.addLine(to: CGPoint(x: x(fr, w), y: h - norm * h * 0.9))
                         }
@@ -141,7 +143,7 @@ public struct EQCurveCanvas: View {
                                 .onChanged { g in
                                     dragged = band.id
                                     var b = band
-                                    b.freqHz = min(max(f(g.location.x, w), fMin), fMax)
+                                    b.freqHz = min(max(f(g.location.x, w), Self.fMin), Self.fMax)
                                     if b.type == .peak || b.type == .lowShelf || b.type == .highShelf {
                                         b.gainDB = (db(g.location.y, h) * 2).rounded() / 2
                                     }
