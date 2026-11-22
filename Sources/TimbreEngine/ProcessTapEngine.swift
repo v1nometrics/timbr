@@ -210,11 +210,17 @@ public final class ProcessTapEngine: @unchecked Sendable {
         }
 
         let selfPID = ProcessInfo.processInfo.processIdentifier
-        let runningApps = Dictionary(uniqueKeysWithValues: NSWorkspace.shared.runningApplications.compactMap { app -> (Int32, NSRunningApplication)? in
-            (app.processIdentifier, app)
-        })
+        let runningApps = Dictionary(NSWorkspace.shared.runningApplications.map { ($0.processIdentifier, $0) },
+                                     uniquingKeysWith: { first, _ in first })
 
-        var grouped: [String: AudioSourceDescriptor] = Dictionary(uniqueKeysWithValues: existing.map { ($0.bundleID, $0) })
+        // Keep user state (volume, mute, routing, recency) but recompute what is live on every pass:
+        // a source is "playing" only if one of its processes is outputting audio right now.
+        var grouped: [String: AudioSourceDescriptor] = [:]
+        for var prev in existing {
+            prev.isPlaying = false
+            prev.pids = []
+            grouped[prev.bundleID] = prev
+        }
 
         for objID in procIDs {
             var pid: pid_t = 0
@@ -227,6 +233,7 @@ public final class ProcessTapEngine: @unchecked Sendable {
             var runSize = UInt32(MemoryLayout<UInt32>.size)
             var runAddr = AudioObjectPropertyAddress(mSelector: kAudioProcessPropertyIsRunningOutput, mScope: kAudioObjectPropertyScopeGlobal, mElement: 0)
             _ = AudioObjectGetPropertyData(objID, &runAddr, 0, nil, &runSize, &runningOut)
+            let isPlaying = runningOut != 0
 
             var cfBundle: CFString?
             var bSize = UInt32(MemoryLayout<CFString?>.size)
@@ -234,23 +241,27 @@ public final class ProcessTapEngine: @unchecked Sendable {
             _ = withUnsafeMutablePointer(to: &cfBundle) { ptr in
                 AudioObjectGetPropertyData(objID, &bAddr, 0, nil, &bSize, ptr)
             }
-            let rawBundle = (cfBundle as String?) ?? runningApps[pid]?.bundleIdentifier ?? "pid.\(pid)"
-            // Group WebKit / Chromium helper subprocesses cleanly under parent identifier when possible
-            let bundleID = normalizeHelperBundleID(rawBundle)
-            let appName = runningApps[pid]?.localizedName ?? bundleID.components(separatedBy: ".").last ?? bundleID
-            let isPlaying = runningOut != 0
+
+            // Attribute helper processes (Chromium/Electron helpers, WebKit GPU processes, XPC
+            // audio services) to the app the user actually sees.
+            let owner = AudioProcessAttribution.owner(of: pid, reportedBundleID: cfBundle as String?, runningApps: runningApps)
+            guard owner.pid != selfPID else { continue }
+            let bundleID = owner.bundleID
             let voipProtected = GuardianAnalyzer.isVoIPOrDAWProtected(bundleID: bundleID)
 
             if var cur = grouped[bundleID] {
                 if !cur.pids.contains(pid) { cur.pids.append(pid) }
-                cur.isPlaying = cur.isPlaying || isPlaying
-                if isPlaying { cur.lastActiveAt = Date() }
+                if isPlaying {
+                    cur.isPlaying = true
+                    cur.lastActiveAt = Date()
+                }
+                cur.name = owner.name
                 cur.isVoIPExcluded = voipProtected
                 grouped[bundleID] = cur
             } else if isPlaying {
                 grouped[bundleID] = AudioSourceDescriptor(
                     bundleID: bundleID,
-                    name: appName,
+                    name: owner.name,
                     pids: [pid],
                     volume: 1.0,
                     isMuted: false,
@@ -260,22 +271,19 @@ public final class ProcessTapEngine: @unchecked Sendable {
             }
         }
 
-        // Order: playing now -> muted -> recent (last 10 min)
-        let cutoff = Date().addingTimeInterval(-600)
+        let now = Date()
+        for key in grouped.keys {
+            if grouped[key]!.isPlaying {
+                if grouped[key]!.playingSince == nil { grouped[key]!.playingSince = now }
+            } else {
+                grouped[key]!.playingSince = nil
+            }
+        }
+        // Order: playing now (newest run first) -> muted -> recent (last 10 min)
+        let cutoff = now.addingTimeInterval(-600)
         return grouped.values
             .filter { $0.isPlaying || $0.isMuted || $0.lastActiveAt > cutoff }
-            .sorted {
-                if $0.isPlaying != $1.isPlaying { return $0.isPlaying && !$1.isPlaying }
-                if $0.isMuted != $1.isMuted { return $0.isMuted && !$1.isMuted }
-                return $0.lastActiveAt > $1.lastActiveAt
-            }
-    }
-
-    private func normalizeHelperBundleID(_ id: String) -> String {
-        if id.contains("com.apple.WebKit") { return "com.apple.Safari" }
-        if id.contains("com.google.Chrome.helper") { return "com.google.Chrome" }
-        if id.contains("company.thebrowser.Browser.helper") { return "company.thebrowser.Browser" }
-        return id
+            .sorted(by: AudioSourceDescriptor.displayOrder)
     }
 
     public func updateDSP(preset: TimbrePreset, outputDevice: AudioDeviceDescriptor?, abMode: ABCompareMode, gain: Double = 1.0, delayMs: Double = 0.0) {

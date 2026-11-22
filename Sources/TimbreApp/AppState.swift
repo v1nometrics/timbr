@@ -186,6 +186,7 @@ public final class AppState: ObservableObject {
     @Published public var showOnboarding: Bool = false
 
     private var refreshTimer: Timer?
+    private let processMonitor = AudioProcessMonitor()
     private var telemetryTimer: Timer?
     private var hudDismissWorkItem: DispatchWorkItem?
     private var compactDismissWorkItem: DispatchWorkItem?
@@ -311,6 +312,10 @@ public final class AppState: ObservableObject {
             onOpenStudio: { [weak self] in self?.openStudioHandler?() }
         )
 
+        // Sources appear/disappear as Core Audio reports them; the timer is only a fallback.
+        processMonitor.start { [weak self] in
+            Task { @MainActor in self?.refreshSystemState() }
+        }
         refreshTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.refreshSystemState() }
         }
@@ -349,6 +354,7 @@ public final class AppState: ObservableObject {
 
     public func shutdown() {
         refreshTimer?.invalidate()
+        processMonitor.stop()
         telemetryTimer?.invalidate()
         halManager.stopSystemWatchdog()
         hotKeyManager.unregisterAll()

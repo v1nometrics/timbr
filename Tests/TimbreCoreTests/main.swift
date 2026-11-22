@@ -176,6 +176,18 @@ struct TimbreCoreTestRunner {
         expect(diag.audioBuffersIncluded == false && diagJSON.contains("\"audioBuffersIncluded\" : false"), "Diagnostics zero audio buffers")
         print("  [PASS] SQLiteStore, AutoEq offline & DiagnosticsExporter")
 
+        // Source ordering: several apps playing keep a stable order (newest run leads), then muted, then recent.
+        let t0 = Date(timeIntervalSince1970: 1_000)
+        var spotify = AudioSourceDescriptor(bundleID: "com.spotify.client", name: "Spotify", isPlaying: true, lastActiveAt: t0)
+        var chrome = AudioSourceDescriptor(bundleID: "com.google.Chrome", name: "Chrome", isPlaying: true, lastActiveAt: t0.addingTimeInterval(30))
+        let mutedSrc = AudioSourceDescriptor(bundleID: "a.muted", name: "Muted", isMuted: true, lastActiveAt: t0)
+        let recent = AudioSourceDescriptor(bundleID: "b.recent", name: "Recent", lastActiveAt: t0.addingTimeInterval(60))
+        // Both refresh lastActiveAt every pass; only playingSince decides between them.
+        spotify.lastActiveAt = t0.addingTimeInterval(90); chrome.lastActiveAt = t0.addingTimeInterval(90)
+        let ordered = [recent, spotify, mutedSrc, chrome].sorted(by: AudioSourceDescriptor.displayOrder).map(\.bundleID)
+        expect(ordered == ["com.google.Chrome", "com.spotify.client", "a.muted", "b.recent"], "Source display order stable with simultaneous playback: \(ordered)")
+        print("  [PASS] Simultaneous sources ordering")
+
         print("[TimbreCoreTests] ALL PASSED")
     }
 }

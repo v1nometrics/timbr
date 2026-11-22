@@ -330,6 +330,9 @@ public struct AudioSourceDescriptor: Identifiable, Codable, Hashable, Sendable {
     public var targetDestinationUIDs: [String]
     public var delayMsByDestination: [String: Double]
     public var lastActiveAt: Date
+    /// When the current playback run started (nil while silent). Keeps the order stable when
+    /// several apps play at once: the most recently started one leads.
+    public var playingSince: Date?
 
     public init(
         bundleID: String,
@@ -353,6 +356,16 @@ public struct AudioSourceDescriptor: Identifiable, Codable, Hashable, Sendable {
         self.targetDestinationUIDs = targetDestinationUIDs
         self.delayMsByDestination = delayMsByDestination
         self.lastActiveAt = lastActiveAt
+        self.playingSince = isPlaying ? lastActiveAt : nil
+    }
+
+    /// Display order: playing (newest run first) → muted → most recently active.
+    public static func displayOrder(_ a: AudioSourceDescriptor, _ b: AudioSourceDescriptor) -> Bool {
+        if a.isPlaying != b.isPlaying { return a.isPlaying }
+        if a.isPlaying, let sa = a.playingSince, let sb = b.playingSince, sa != sb { return sa > sb }
+        if a.isMuted != b.isMuted { return a.isMuted }
+        if a.lastActiveAt != b.lastActiveAt { return a.lastActiveAt > b.lastActiveAt }
+        return a.bundleID < b.bundleID
     }
 
     public var boostDB: Double? {

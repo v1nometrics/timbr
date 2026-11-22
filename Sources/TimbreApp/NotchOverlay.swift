@@ -144,6 +144,11 @@ struct NotchLayout {
     static let hudDepth: CGFloat = 18
     static let shadowPad: CGFloat = 28
 
+    /// Peek: the focus app in the wings + its fader, then one row per other app playing now.
+    static func peekDepth(rows: Int) -> CGFloat {
+        peekDepth + (rows > 0 ? 4 + CGFloat(rows) * 34 : 0)
+    }
+
     static func expandedDepth(rows: Int, hasAlert: Bool, hasFocus: Bool) -> CGFloat {
         8 + (hasFocus ? 66 : 46) + CGFloat(rows) * 34 + (hasAlert ? 44 : 0) + 46 + 2
     }
@@ -164,7 +169,7 @@ struct NotchLayout {
         case .hud:
             return NotchSpec(l: hudHalf, r: hudHalf, h: H + Self.hudDepth, bottom: 14, shoulder: 11)
         case .peek:
-            return NotchSpec(l: peekHalf, r: peekHalf, h: H + Self.peekDepth, bottom: 20, shoulder: openS)
+            return NotchSpec(l: peekHalf, r: peekHalf, h: H + Self.peekDepth(rows: rows), bottom: 20, shoulder: openS)
         case .expanded:
             return NotchSpec(l: expandedHalf, r: expandedHalf,
                              h: H + Self.expandedDepth(rows: rows, hasAlert: hasAlert, hasFocus: hasFocus),
@@ -479,7 +484,7 @@ public final class NotchPanelController {
 
     private func screenRect(for state: NotchState) -> CGRect {
         guard let appState else { return .zero }
-        let s = layoutModel.spec(state, rows: NotchOverlayView.listRows(appState), hasAlert: !appState.guardianAlerts.isEmpty, hasFocus: appState.focusSource != nil)
+        let s = layoutModel.spec(state, rows: NotchOverlayView.rows(for: state, appState), hasAlert: !appState.guardianAlerts.isEmpty, hasFocus: appState.focusSource != nil)
         let topY = g.screenFrame.maxY - (g.hasPhysicalNotch ? 0 : 6)
         return CGRect(x: g.screenFrame.midX - s.l, y: topY - s.h, width: s.l + s.r, height: s.h)
     }
@@ -602,6 +607,14 @@ public struct NotchOverlayView: View {
     private let c = TimbreColors.notch
 
     static func listRows(_ s: AppState) -> Int { max(0, min(s.mixerSources.count - 1, 3)) }
+    /// Other apps playing right now (besides the focus one) — every one gets a fader in the peek.
+    static func otherPlaying(_ s: AppState) -> [AudioSourceDescriptor] {
+        let focusID = s.focusSource?.bundleID
+        return Array(s.mixerSources.filter { $0.isPlaying && $0.bundleID != focusID }.prefix(3))
+    }
+    static func rows(for state: NotchState, _ s: AppState) -> Int {
+        state == .peek ? otherPlaying(s).count : listRows(s)
+    }
 
     private var g: NotchScreenGeometry { interaction.geometry }
     private var layout: NotchLayout { NotchLayout(g: g, ears: interaction.ears) }
@@ -611,7 +624,7 @@ public struct NotchOverlayView: View {
     private var H: CGFloat { g.notchHeight }
 
     private func spec(_ s: NotchState) -> NotchSpec {
-        layout.spec(s, rows: Self.listRows(appState), hasAlert: !appState.guardianAlerts.isEmpty, hasFocus: focus != nil)
+        layout.spec(s, rows: Self.rows(for: s, appState), hasAlert: !appState.guardianAlerts.isEmpty, hasFocus: focus != nil)
     }
 
     private static func isOpen(_ s: NotchState) -> Bool { s == .peek || s == .expanded || s == .hud }
@@ -643,6 +656,7 @@ public struct NotchOverlayView: View {
         .frame(width: canvas.width, height: canvas.height, alignment: .topLeading)
         .animation(reduceMotion ? .easeOut(duration: 0.12) : animation(for: state), value: state)
         .animation(TimbreMotion.smooth, value: Self.listRows(appState))
+        .animation(TimbreMotion.smooth, value: Self.otherPlaying(appState).map(\.bundleID))
         .animation(TimbreMotion.smooth, value: appState.guardianAlerts.count)
         .surface(.notch)
         .preferredColorScheme(.dark)
@@ -752,7 +766,16 @@ public struct NotchOverlayView: View {
                           color: appState.isProcessingBypassed ? c.ink_muted : c.accent_base)
             }
         }
+        let second = Self.otherPlaying(appState).first
+        let lead = iconFrame(.compact, canvas: canvas)
         return ZStack(alignment: .topLeading) {
+            // A second app playing peeks out from behind the focus icon (the travelling icon is drawn above).
+            if let second, lead.visible, layout.useChin || interaction.ears.left >= 34 {
+                AppIcon(bundleID: second.bundleID, name: second.name, size: lead.size - 3)
+                    .position(x: lead.center.x - 9, y: lead.center.y)
+                    .opacity(0.9)
+                    .transition(.opacity)
+            }
             if layout.useChin {
                 indicator.position(x: cx + layout.half - 22, y: H + NotchLayout.chinHeight / 2 - 1)
             } else if interaction.ears.left > 0, interaction.ears.right > 0 {
@@ -831,6 +854,15 @@ public struct NotchOverlayView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 18)
                     .frame(height: 30)
+            }
+            let others = Self.otherPlaying(appState)
+            if !others.isEmpty {
+                VStack(spacing: 0) {
+                    ForEach(others) { src in sourceRow(src) }
+                }
+                .padding(.horizontal, 18)
+                .padding(.top, 4)
+                .transition(.opacity)
             }
             Spacer(minLength: 0)
         }

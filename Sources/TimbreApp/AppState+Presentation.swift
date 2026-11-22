@@ -11,11 +11,7 @@ extension AppState {
     var mixerSources: [AudioSourceDescriptor] {
         let horizon = Date().addingTimeInterval(-600)
         let visible = sources.filter { $0.isPlaying || $0.isMuted || $0.lastActiveAt > horizon }
-        return visible.sorted { a, b in
-            if a.isPlaying != b.isPlaying { return a.isPlaying }
-            if a.isMuted != b.isMuted { return a.isMuted }
-            return a.lastActiveAt > b.lastActiveAt
-        }
+        return visible.sorted(by: AudioSourceDescriptor.displayOrder)
     }
 
     /// The source the notch talks about: first playing non-call app, else the most recent one.

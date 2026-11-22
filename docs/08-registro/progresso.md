@@ -18,6 +18,27 @@
 
 
 
+### 2026-11-22 · Detecção de fontes simultâneas
+
+- **Relato:** com dois apps tocando, o notch mostrava só um.
+- **Causas encontradas:**
+  1. O estado "tocando" de uma fonte era somado ao da varredura anterior e nunca voltava a falso.
+  2. A atribuição adivinhava pelo texto do bundle ID: o áudio WebKit do Raycast aparecia como "Safari", e helpers de outros apps não eram reconhecidos.
+  3. A espiada e o compacto mostravam só o app em foco.
+  4. A lista só atualizava a cada 2 s.
+  5. Com dois apps tocando, a ordem podia trocar a cada varredura.
+- **Feito:**
+  - `AudioProcessAttribution` resolve o dono do processo nesta ordem: processo responsável, depois o pacote `.app` do executável, depois a cadeia de pais, e por fim o ID reportado. Apps de barra de menus contam como donos.
+  - O estado "tocando" é recalculado do zero em toda varredura.
+  - `AudioProcessMonitor` ouve as mudanças da lista de processos e de `IsRunningOutput`, com coalescência de 120 ms; o timer de 2 s ficou só como reserva.
+  - `playingSince` mais `displayOrder` dão uma ordem estável: o app que começou a tocar por último lidera.
+  - Na espiada, cada app que está tocando tem o próprio fader. No compacto, o ícone do segundo app aparece atrás do primeiro.
+- **Verificado (Comprovado):**
+  - Dois tons simultâneos (QuickTime e `afplay`) aparecem na espiada e no expandido, cada um com fader.
+  - Atribuição testada: Raycast → Raycast, Safari → Safari, QuickTime → QuickTime, `afplay` → app responsável pelo terminal.
+  - Teste de ordem no CI; CI inteiro passando.
+- **Limite conhecido:** o Chrome toca todas as abas e PWAs por um único processo de áudio. Separar por aba depende da extensão (porta IPC 48192).
+
 ### 2026-11-22 · Notch v2.2 — modelo dos apps de referência (abre para os lados e para baixo)
 
 - **Pesquisa:** leitura do código-fonte de DynamicNotchKit (MIT), NotchDrop (MIT), boring.notch e Atoll (GPL, só parâmetros, nenhum código copiado). Os três têm o mesmo modelo:
