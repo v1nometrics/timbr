@@ -6,9 +6,9 @@ Uma decisão "Proposta" só vira "Aceita" quando (a) o dono aprova, quando é de
 
 | ADR | Decisão | Status | Depende de |
 |---|---|---|---|
-| [0001](ADR-0001-licenca.md) | Licença MPL-2.0 + DCO; GPL só como referência de estudo | Proposto (decisão do dono) | — |
+| [0001](ADR-0001-licenca.md) | Licença MPL-2.0 + DCO; GPL só como referência de estudo | **Aceito** | — |
 | [0002](ADR-0002-plataforma-nativa.md) | App nativo Swift 6 + SwiftUI/AppKit; stack web só para docs, site e playground do design system | Aceito | — |
-| [0003](ADR-0003-nucleo-dsp.md) | Núcleo DSP em double com fronteira C ABI; implementação (C++ próprio vs crate CamillaDSP) decidida por E-06 | Proposto | E-06 |
+| [0003](ADR-0003-nucleo-dsp.md) | Núcleo DSP em `Float64` (`C++20 + Accelerate/vDSP`) com fronteira C ABI | **Aceito** (`E-06`) | E-06 |
 | [0004](ADR-0004-captura-por-process-taps.md) | Captura por process taps; sem plug-in HAL no MVP | Aceito na direção, topologia fina por E-02/E-04 | E-02, E-04 |
 | [0005](ADR-0005-piso-macos.md) | Piso de sistema: macOS 15; recursos de taps do 26 usados quando disponíveis | Proposto | E-02 |
 | [0006](ADR-0006-processo-do-motor.md) | Motor de áudio em processo auxiliar separado da UI | Proposto | E-16 |
@@ -20,3 +20,5 @@ Uma decisão "Proposta" só vira "Aceita" quando (a) o dono aprova, quando é de
 | [0012](ADR-0012-tokens-fonte-unica.md) | Tokens de design em fonte única (JSON) gerando Swift e CSS | Aceito | — |
 | [0013](ADR-0013-superficies.md) | Notch como superfície primária + barra de menus + janela Estúdio + Live Activity quando disponível | Aceito | E-12 |
 | [ADR-0014](ADR-0014-nome-identidade-e-i18n.md) | Nome oficial `timbr.`, alinhamento `v1torres.dev` e i18n PT/ES/EN na v1 | **Aceito** |
+| [ADR-0015](ADR-0015-tipografia-de-sistema.md) | Tipografia de sistema SF Pro / SF Mono / New York no app; Geist só na web | **Aceito** |
+| [ADR-0016](ADR-0016-identidade-acromatica.md) | Identidade acromática: sem cor de marca; ênfase por tinta; cor só semântica (substitui a cor da ADR-0014) | **Aceito** |

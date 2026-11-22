@@ -1,6 +1,6 @@
 # ADR-0003 · Núcleo DSP
 
-- **Status:** Proposto · decide em E-06
+- **Status:** Aceito · 2026-11-21 (decidido por `E-06`: C++20 + Accelerate/vDSP `Float64`)
 - **Data:** 2026-11-21
 
 ## Contexto

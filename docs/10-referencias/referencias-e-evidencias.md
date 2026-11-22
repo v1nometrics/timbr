@@ -74,6 +74,8 @@ A matriz completa de 62+ repositórios com **URL, SHA exato, licença verificada
 - **Notas Fase 1:** [01 Captura](../00-pesquisa/notas-fase-1/01_captura_roteamento_volume_por_app.md) · [02 Motor EQ](../00-pesquisa/notas-fase-1/02_motor_eq_hifi_e_presets.md) · [03 Dispositivos](../00-pesquisa/notas-fase-1/03_controle_dispositivos_entrada_saida.md) · [04 Now Playing](../00-pesquisa/notas-fase-1/04_now_playing_letras_reconhecimento.md) · [05 Personalização/IA](../00-pesquisa/notas-fase-1/05_personalizacao_aprendizado_ia_eq.md) · [06 Mercado/Restrições](../00-pesquisa/notas-fase-1/06_mercado_benchmarks_restricoes.md)
 - **Notas Fase 2:**
   - [07 · Momentum 4, Protocolo GAIA v3, AirPods Pro e Ecossistema Bluetooth](../00-pesquisa/notas-fase-2/07_momentum4_protocolo_e_ecossistema.md)
+  - [12 · Linha Apple Audio Accessory (AirPods → Max) no macOS](../00-pesquisa/notas-fase-2/12_airpods_linha_apple.md)
+  - [Laboratório AirPods](../03-viabilidade/airpods-laboratorio.md)
   - [08 · Referências UI e Componentes](../00-pesquisa/notas-fase-2/08_referencias_ui_componentes.md)
   - [09 · DNA Visual Órbita e Ronda](../00-pesquisa/notas-fase-2/09_dna_visual_orbita_e_ronda.md)
   - [10 · Engenharia de Áudio, Precisão DSP, Segurança Auditiva e Testes](../00-pesquisa/notas-fase-2/10_engenharia_de_audio_qualidade_e_testes.md)

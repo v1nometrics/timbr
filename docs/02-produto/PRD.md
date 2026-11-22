@@ -138,6 +138,8 @@ Coluna "Viab." referencia a seção da matriz de viabilidade. Critérios de acei
 | RF-0805 | Sincronizar EQ interno do fone com o do Timbre (oferecer zerar o interno) | P2 | ver laboratório |
 | RF-0806 | Bateria de fones Bluetooth genéricos (quando exposta) | P2 | C |
 | RF-0807 | SDK de drivers documentado para outros fabricantes | P3 | — |
+| RF-0808 | Driver linha Apple (AirPods / Pro / Max / Beats): HAL + Continuity BLE L/R/Case + AutoEq; **sem** AACP (ANC/Transparency ficam no macOS) | P1 | ver airpods-laboratorio |
+| RF-0809 | Observatório: card Apple com SF Symbol, selos REPORTADO/INFERIDO, aviso Spatial Audio e copy AACP fechado (P11) | P1 | G |
 
 ### EP-09 · Abas de navegador
 | ID | Requisito | Prior. | Viab. |

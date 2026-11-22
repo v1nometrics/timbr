@@ -43,3 +43,17 @@
 | **EP-12 Inteligência** | 100% dos deltas gerados por LLM passam por validador tipado (faixa de frequência, Q, ganho por banda e delta global); desfazer em 1 clique restaura estado exato; A/B cego equaliza loudness antes de comparar. |
 | **EP-13 Notch & Superfícies** | Hover com histerese evita abertura acidental; pass-through fora da forma; `⌥⌘V` abre/fecha com `0 ms` de transição; zero botão de configuração dentro do notch; Pílula e MenuBar funcionam sem notch físico. |
 | **EP-14 Segurança & Privacidade** | Nenhuma permissão pedida no primeiro start sem ação contextual; zero chamada de rede externa em operação normal offline; relatório de diagnóstico revisável antes de salvar e sem buffers de áudio. |
+
+---
+
+## 3. Estado Real de Evidência em `2026-11-21`
+
+- **Verificado localmente via [`scripts/ci_check.sh`](../../scripts/ci_check.sh):**
+  - `E-06` (DSP Float64 + Vicanek + Null Test + Limiter `-0.3`/`-1.0 dBTP` + BS.1770 LUFS + Crossfeed + 24-bit TPDF + A/B igual-latência) sob ASan+UBSan;
+  - `E-07` (sonda HAL local), `E-12` (geometria de notch `179 pt`), `E-01` (criação/destruição de Process Tap);
+  - `TimbreCoreTests` (EqualizerAPO round-trip/cap, IPC Bearer+Origin 401/403/200, bounds IA, `PairwiseGP`, 73 chaves `PT/ES/EN`, regras `G-01`–`G-07` + Silent Studio, SQLite, AutoEq offline, diagnósticos sem buffers);
+  - `TimbreEngineTests` (GAIA v3 + denylist `0x0607`/`0x02xx` + FW `3.18.0`, HAL snapshot/restore, P1 `0 taps` em bypass/neutro) e `--smoke-check` em `dist/Timbr.app`.
+- **Pendente de ambiente físico / interação humana (não simulável em CI headless):**
+  - Conexão física de Sennheiser Momentum 4 e AirPods Pro (`E-08`, `E-09`, `E-10`, `E-11`);
+  - Grants interativos de TCC (Audio Capture, Accessibility) na UI em uso real com `kill -9` (20×), dogfood de 14 dias (`Gate G2`) e beta com ≥ 50 testadores + notarização Developer ID (`Gate G3`);
+  - Verificação Clang RTSan (`-fsanitize=realtime`, ausente no Apple Clang 21 CLT).

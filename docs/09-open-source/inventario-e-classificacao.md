@@ -1,7 +1,7 @@
 # Inventário Open Source, Classificação e Bill of Materials (BOM)
 
 > **Fonte primária:** Auditorias de engenharia em `docs/00-pesquisa/notas-fase-2/` ([11a Captura/HAL](../00-pesquisa/notas-fase-2/11a_auditoria_captura_audio_hal.md), [11b DSP/Presets](../00-pesquisa/notas-fase-2/11b_auditoria_dsp_presets.md), [11c UI/Mídia/Infra](../00-pesquisa/notas-fase-2/11c_auditoria_ui_notch_midia.md) e [08 Referências UI](../00-pesquisa/notas-fase-2/08_referencias_ui_componentes.md)).
-> **Regra operacional ([ADR-0001](../07-decisoes/ADR-0001-licenca.md)):** Núcleo recomendado sob **MPL-2.0 + DCO**. Projetos **GPL/AGPL** são listados exclusivamente em **ESTUDAR COMO REFERÊNCIA** ou **DESCARTAR** — zero cópia de código permitida.
+> **Regra operacional ([ADR-0001](../07-decisoes/ADR-0001-licenca.md)):** Núcleo oficial sob **MPL-2.0 + DCO**, com atribuições de mecanismos `MIT` em [`NOTICE`](../../NOTICE). Projetos **GPL/AGPL** são listados exclusivamente em **ESTUDAR COMO REFERÊNCIA** ou **DESCARTAR** — zero cópia de código permitida.
 
 ---
 
@@ -60,6 +60,9 @@
 - `ejbills/mediaremote-adapter` (BSD-3) — incorporar PR #7 (Swift 6 + fix de CPU spin) sobre `ungive` v0.8.0.
 - `aviwad/LyricFever` (MIT) — adaptar `LRCLIBLyricProvider` e parser LRC adicionando testes unitários.
 - `MonitorControl/MonitorControl` (MIT) — adaptar `Arm64DDC` e `MediaKeyTapManager` atrás de módulo opcional.
+- `Zhengyang-Liu/m4-companion` (MIT) — framing `GaiaSPP` (`0xFF 0x03`), `GaiaSPPDeframer`, opcodes read-only GAIA v3 e fluxo `IOBluetoothRFCOMMChannel` adaptados em [`Momentum4Driver.swift`](../../Sources/TimbreEngine/Momentum4Driver.swift) (creditado em [`NOTICE`](../../NOTICE)).
+- `AbhisekGanguly/AudioRouter` (MIT) — padrão `OrphanedTapCleanup` adaptado em [`ProcessTapEngine.swift`](../../Sources/TimbreEngine/ProcessTapEngine.swift) para limpeza de aggregate devices órfãos pós-crash (creditado em [`NOTICE`](../../NOTICE)).
+- `hudsonbrendon/apple-ble` + `imranhwafa/mubar` (MIT) — semântica Continuity proximity `0x004C` / type `0x07` e scan CoreBluetooth; **reimplementados** em [`AirPodsFamilyDriver.swift`](../../Sources/TimbreEngine/AirPodsFamilyDriver.swift) (creditado em [`NOTICE`](../../NOTICE) §3).
 
 ### 3.3 `ESTUDAR COMO REFERÊNCIA` (Leitura arquitetural / Proibida cópia GPL)
 - `ronitsingh10/FineTune` (GPL-3.0) — lições preciosas de produção no macOS 26/27: `OrphanedTapCleanup`, `CrashGuard`, crossfade sem silêncio, isenção de chamadas VoIP e issues #477/#483/#491/#493/#498.
@@ -69,8 +72,14 @@
 - `vincentneo/LosslessSwitcher` (GPL-3.0) — lição negativa da issue #231 (troca prematura de sample rate por pre-buffering em logs do Apple Music).
 - `TheBoredTeam/boring.notch` & `Ebullioscopic/Atoll` (GPL-3.0) — ergonomia de notch, `DynamicIslandTests`, mas evitar `SkyLight` privado e leaks de `log stream`.
 - `ryanfrancesconi/spfk-audio-hardware` (MIT) — padrão `AudioBackend` mockável para CI sem hardware.
+- `BySergiMM/OmniMac` (MIT) — referência de UX multi-utilitário no notch e confirmação de que EQ `Float32` RBJ 10 bandas fica abaixo do padrão `Float64` Vicanek do `timbr.`.
+- `niyamvora/ILoveNotch` (MIT) — referência de ergonomia SwiftUI de notch multi-tool.
+- `librepods-org/librepods` (GPL-3.0) — mapa AACP L2CAP `0x1001` e Magic Pairing; **prova de inviabilidade no macOS user-space**; zero código.
+- `lihaoyun6/AirBattery` (AGPL-3.0) — Nearbility no macOS; **proibida cópia**.
+- `furiousMAC/continuity` (docs públicas) — offsets proximity-pairing type `0x07`.
 - `bitgapp/eqMac` (Apache-2.0 no v1.3.2 legado), `gavv/libASPL` (MIT), `briankendall/proxy-audio-device` (Unlicense), `sbooth/SFBAudioEngine` (MIT), `Yudaotor/lyrimuse` (GPL-3.0), `csteinmetz1/pyloudnorm` (MIT).
 
 ### 3.4 `DESCARTAR` (Incompatíveis, sem licença, abandonados ou fora da arquitetura)
+- **Sem código aberto auditável / sem licença:** `XPro-Gamer-Rhine/R9-EQ-app` (`NONE` — repositório contém apenas docs e instaladores binários).
 - **Bloqueio jurídico (`NONE` / `PolyForm` / `AGPL`):** `GabrielSabadinn/PerAppVolume` (PolyForm NC), `makeusabrew/audiotee` (`NONE`), `sacis/Liland` (`NONE`), `ungive/media-control` (`NONE`), `james34602/JamesDSPManager` (`NONE`), `fxsound2/fxsound-app` (AGPL-3.0), `juce-framework/JUCE` (AGPL-3.0 / comercial).
 - **Arquitetura / Licença / Abandono:** `ExistentialAudio/BlackHole` (GPL-3.0 + marca restrita, driver HAL), `kyleneideck/BackgroundMusic` (GPL-2.0, 545 issues), `chirlu/soxr` (LGPL-2.1, parado em 2018), `lsp-plugins/lsp-plugins` (LGPL-3.0), `rnine/SimplyCoreAudio` (arquivado), `deweller/switchaudio-osx` & `karaggeorge/macos-audio-devices` (obsoletos), `ddddxxx/LyricsX` (parado em 2022), `kirtan-shah/nowplaying-cli` (GPL-3.0), `AudioKit/AudioKit` (`AVAudioEngine` inadequado para RT HAL), `grame-cncm/faust` (overhead desnecessário).

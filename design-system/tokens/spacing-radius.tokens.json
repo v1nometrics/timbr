@@ -48,29 +48,49 @@
     },
     "control": {
       "$type": "dimension",
+      "$value": "7px"
+    },
+    "field": {
+      "$type": "dimension",
       "$value": "8px"
     },
     "card": {
       "$type": "dimension",
-      "$value": "14px"
+      "$value": "12px"
+    },
+    "panel": {
+      "$type": "dimension",
+      "$value": "16px"
     },
     "notchExpanded": {
       "$type": "dimension",
-      "$value": "22px"
+      "$value": "24px"
+    },
+    "notchShoulder": {
+      "$type": "dimension",
+      "$value": "7px"
     },
     "pill": {
       "$type": "dimension",
       "$value": "9999px"
+    },
+    "notchShoulderOpen": {
+      "$type": "dimension",
+      "$value": "14px"
     }
   },
   "borderWidth": {
-    "hairlineNotch": {
+    "hairline": {
       "$type": "dimension",
       "$value": "0.5px"
     },
     "default": {
       "$type": "dimension",
       "$value": "1px"
+    },
+    "hairlineNotch": {
+      "$type": "dimension",
+      "$value": "0px"
     }
   }
 }

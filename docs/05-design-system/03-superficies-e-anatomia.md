@@ -1,87 +1,131 @@
-# 03 · Superfícies, Geometria e Anatomia Espacial
+# 03 · Superfícies e anatomia
 
-> **Base normativa:** [ADR-0013 · Superfícies](../07-decisoes/ADR-0013-superficies.md), [Especificação Funcional §3](../02-produto/especificacao-funcional.md#3-notch-estados-e-transições), Apple HIG (Menu Bar, Popovers, Live Activities) e [nota 08 §5](../00-pesquisa/notas-fase-2/08_referencias_ui_componentes.md#5-linguagem-de-design-apple-macos-26-tahoe--macos-27-golden-gate-nov2026).
+> Implementação: `NotchOverlay.swift` (notch e pílula), `MenuBarPanel.swift` (barra de menus), `StudioWindow.swift` (Estúdio), `OnboardingWindow.swift` (Introdução). Regras de comportamento em `02-produto/especificacao-funcional.md §3`.
 
----
+## 1. O notch
 
-## 1. Princípio de Arquitetura Espacial: "Notch é Estado, Estúdio é Profundidade"
+### 1.1 O preto (e o limite físico dele)
 
-O Timbre existe em **seis superfícies complementares** para nunca sobrecarregar o notch e para garantir funcionamento idêntico em Macs com notch LCD, MacBook Pro OLED com Dynamic Island, Macs desktop sem notch e monitores externos.
+O preenchimento é `Color(.sRGB, 0, 0, 0, 1)`: zero absoluto, sem contorno, sem sombra, sem blur, sem transparência (lei L1).
 
-| Superfície | Papel | Densidade | Fundo | Regra de corte |
-|---|---|---|---|---|
-| **1. Notch** | Estado imediato, controle do foco, HUD, espiada | Mínima | `#000000` absoluto | Nunca configuração; máx. 2 níveis |
-| **2. Pílula Flutuante** | Equivalente ao notch em telas sem recorte físico | Mínima | `#000000` absoluto + borda `line.default` | Mesmo conteúdo do notch; posicionável |
-| **3. MenuBarExtra** | Fallback universal e acesso por teclado | Média | Material nativo macOS (menu) | Sempre disponível, mesmo com notch desligado |
-| **4. Estúdio** | Edição de EQ, Correção/Gosto, Cenas, Drivers, Preferências | Alta | `light` (`#FAFAFA`) / `dark` (`#141414`) | Layout 7/5; janela padrão macOS |
-| **5. Observatório** | Caminho do sinal ponta a ponta, medidores, linha do tempo | Alta | `light` / `dark` (aba do Estúdio ou janela destacável) | Selos `MEDIDO` / `REPORTADO` / `INFERIDO` |
-| **6. Live Activity** | Presença nativa na Dynamic Island OLED e menu bar (macOS 27.3+) | Mínima | `#000000` opaco (norma HIG) | Compact/Minimal (≤ 28 pt) + Expanded |
+**Limite do hardware, dito com honestidade.** O notch físico é um vazio sem pixels. A área que o timbr. desenha ao redor dele são pixels de tela exibindo preto:
 
----
-
-## 2. Anatomia do Notch (5 Estados + Regras de Hardware)
-
-### 2.1 Detecção geométrica e janelas AppKit (`NSPanel`)
-
-- **Geometria real:** calculada por `NSScreen.safeAreaInsets.top`, `auxiliaryTopLeftArea` e `auxiliaryTopRightArea`. A largura física do notch é `screen.frame.width - left.width - right.width`; a altura é `safeAreaInsets.top` (`~32–38 pt` conforme modelo Air/Pro e escala).
-- **Janela não-ativante:** subclasse de `NSPanel` com `.nonactivatingPanel`, `level = .mainMenu + 3` (ou `.statusBar`), `collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle, .fullScreenAuxiliary]`.
-- **Foco:** o painel **nunca** vira `keyWindow` em `Repouso`, `Compacto`, `HUD` ou `Espiada`. Só aceita teclado no estado `Expandido` quando o usuário clica num campo ou abre via atalho (`⌥⌘V`).
-- **Pass-through de cliques:** a janela é ligeiramente maior que o desenho visível para abrigar a área de histerese do hover; cliques fora da forma preta atravessam para a barra de menus nativa (ou ativam `ignoresMouseEvents` dinamicamente conforme posição do cursor).
-
-- **Orçamento horizontal no estado `Compacto` (MacBooks 13"/14"):** extensão lateral estritamente limitada a **`≤ 40 pt` por lado** além das orelhas físicas do notch (máx. 2 sinais visuais: mini-capa/indicador de atividade + métrica única ou ícone de estado). Em menu bars densas, recuar automaticamente para `Repouso` antes de colidir com ícones do sistema.
-- **Localização compacta (`PT / ES / EN`):** strings no Notch/Pílula usam chaves curtas dedicadas no `.xcstrings` para evitar truncamento em espanhol e português.
-
-### 2.2 Máquina de estados do Notch
-
-```
-  [Repouso] ──(áudio ativo + pref)──▶ [Compacto]
-      ▲                                   │
-      │ (3s inativo)                      │ (hover 120ms)
-      └─────────── [HUD] ◀──(tecla/alerta)┘
-                     │                    ▼
-                     │              [Espiada] ──(hover sai 300ms)──▶ [Compacto/Repouso]
-                     │                    │
-                     └──(clique / ⌥⌘V)────▼
-                                     [Expandido] ──(clique fora / Esc / ⌥⌘V)──▶ [Compacto/Repouso]
-```
-
-| Estado | Dimensão indicativa `[Proposta]` | Conteúdo permitido (teto rígido) |
+| Tela | O preto desenhado parece… | Por quê |
 |---|---|---|
-| **Repouso** | Exatamente o recorte do hardware (`0 px` extras) | Nada. O notch é invisível. |
-| **Compacto** | `+28–44 pt` em cada asa lateral (altura = `safeAreaInsets.top`) | **Asa esquerda:** mini-capa (`18×18 pt`, `radius 4 pt`) ou ícone do app em foco + micro espectro opcional (`3–4` barras). **Asa direita:** destino curto ou selo de estado (`EQ`, ponto de alerta único). |
-| **HUD** | Largura do notch + `60–80 pt` por asa (ou barra abaixo `+36 pt` de altura) | **Só o evento:** ícone do destino + nome curto em `type.eyebrow` + barra horizontal fina (`4–6 pt` cápsula) + valor em `type.mediumValue` com `.numericText()`. Some em `1,2 s`. |
-| **Espiada** | `~360 × 96 pt` (desce suavemente abaixo do recorte) | **Uma linha principal:** fonte em foco (capa/ícone + faixa + artista em 1 linha) + slider de volume direto + chip de destino + botão de bypass rápido. Máximo 3 controles interativos. |
-| **Expandido** | `~440–520 pt` largura × altura dinâmica (`≤ 380 pt`) | **3 zonas separadas por `0.5 pt line.subtle`:** (1) Cabeçalho: destino ativo, botão `Estúdio`, status `BIT-PERFECT` / `EQ ATIVO`; (2) **Mixer**: até 5 fontes ativas (ícone, nome, slider 1:1, mute, chip de destino); (3) **Faixa + Letra / Ação:** transport compacto ou 2 linhas de letra `Geist Serif` + eventual **1 alerta** do Guardião. |
+| **Liquid Retina (LCD IPS, MacBook Air)** | Levemente acinzentado ao lado do notch físico, em sala escura | O LCD não apaga a luz de fundo; o pixel preto deixa vazar luz (contraste ~1000:1). Nenhum software corrige isso. |
+| **Liquid Retina XDR (mini-LED, MacBook Pro)** | Quase indistinguível | Zonas de escurecimento local apagam a luz de fundo, com halo leve perto de áreas claras |
+| **OLED (MacBook Pro 2026)** | Idêntico | Pixel preto = pixel apagado |
 
-### 2.3 Regras anti-poluição no Notch
+O que está sob nosso controle, e foi corrigido na v2.0: (1) não existe mais contorno de 11% de branco, que era o que tornava a borda visível em qualquer tela; (2) o topo é reto e encosta na moldura, sem frestas da barra de menus entre a moldura e a forma; (3) os ombros côncavos continuam a curva do hardware; (4) em repouso não desenhamos nada, só o notch físico aparece.
 
-1. **Zero caixas dentro do notch.** Nada de `RoundedRectangle` com fundo cinza envolvendo cada app do mixer. Cada linha do mixer é texto + slider diretamente sobre `#000000`, separada por `0.5 pt` de `white @ 7%`.
-2. **Sem configurações no notch.** Editar bandas Q/Hz, importar AutoEq, treinar preferências ou configurar drivers **nunca** acontece no notch — um botão `Estúdio ↗` abre a janela completa.
-3. **Personalização de estética do notch (pedido explícito do usuário):** oferecer nas Preferências do Estúdio um seletor de modo do notch com 3 presets fiéis à gramática do projeto:
-   - **Preto Contínuo (Padrão):** `#000000` puro, bordas inferiores suaves `continuous`, zero borda externa.
-   - **Preto com Fio Editorial:** `#000000` com filete inferior `0.5 pt` em `white @ 11%` (ou gradiente sutil de `1 px` para separar de wallpapers muito escuros).
-   - **Silencioso (Somente Menu Bar / Pílula):** desativa o overlay do recorte e mantém todas as funções rápidas no menu e pílula sob demanda.
-4. **Conflito no MacBook Pro OLED (Dynamic Island):** quando `safeAreaInsets.top` indicar ausência de recorte estático ou presença de Dynamic Island nativa / outro app de notch no topo central, o Timbre não compete pelo espaço: muda automaticamente o modo primário para **Live Activity + Pílula/MenuBar**, avisando de forma calma.
+### 1.2 Forma única que abre para os lados e para baixo
 
----
+Estudamos o código dos apps de notch abertos mais usados: DynamicNotchKit (base de vários apps), boring.notch e NotchDrop. Todos usam o mesmo modelo, e é o que faz a forma ler como o notch crescendo:
 
-## 3. Anatomia do Estúdio e Observatório (Janela Padrão macOS)
+```
+ ╮ombro                                              ombro╭     ← borda da tela (y = 0)
+ │  [ícone] Nome do app   ▓▓▓ câmera ▓▓▓   100 %  [mudo]  │     ← asas, na altura da barra de menus (H)
+ │  ─────────────────────●──────────────                  │     ← corpo
+ ╰────────────────────────────────────────────────────────╯     ← cantos contínuos
+```
 
-### 3.1 Estrutura geral (`~1040 × 700 pt` mínima)
+- **Uma forma só**, colada na borda da tela. Ela cresce para os lados e para baixo a partir do notch físico, nos dois eixos ao mesmo tempo.
+- **Asas:** na altura da barra de menus, à esquerda e à direita da câmera, fica o conteúdo mais importante: quem toca (ícone e nome) e quanto (volume) ou para onde (saída). Abaixo fica o controle. É o mesmo arranjo do boring.notch aberto e das atividades compactas do DynamicNotchKit.
+- **Ombros** côncavos no topo continuam a curva do hardware: 7 pt fechado, 14 pt aberto (os apps de referência usam 6 → 15/19 pt).
+- **Sombra preta suave só enquanto aberto** (raio 14, y 6, 50%). Ela dá a profundidade de "ilha" sobre conteúdo claro; sobre conteúdo escuro some.
 
-- **Navegação lateral estreita (`200–220 pt`):** `Mixer & Saídas` · `Equalizador` · `Correção & Gosto` · `Dispositivos` · `Observatório` · `Inteligência & A/B` · `Preferências`. Item ativo com `accent.subtle` + texto `accent.strong` (`[Órbita]`).
-- **Grid de conteúdo 7/5 (`gap: 20 pt`, padding `24 pt`):**
-  - **Tela Equalizador:** `7/12` = Gráfico PEQ interativo (curvas `Correção`, `Gosto`, `Resultado` + espectro pós-EQ atrás + faixa de headroom/preamp no rodapé); `5/12` = controles simples (`Graves`, `Calor`, `Presença`, `Ar`) no topo + tabela numérica de bandas embaixo (alternável).
-  - **Tela Correção & Gosto:** `7/12` = Resposta do fone vs. alvo Harman/5128; `5/12` = Seletor de medição AutoEq (fonte, equipamento, crédito) + controles de gosto + botão `A/B Cego`.
-  - **Tela Dispositivos:** `7/12` = Lista de saídas/entradas com capacidades sondadas pelo HAL (taxa nominal, formato físico, clock, volume HW/SW); `5/12` = Painel do driver ativo (ex.: Momentum 4: bateria, ANC, Transparency, Sidetone, EQ interno + aviso de conflito G-04).
-  - **Tela Observatório:** Bloco superior `12/12` = Diagrama horizontal do caminho do sinal (`Fonte → Mixer → Correção → Gosto → Preamp/Limiter → Saída → Fone`), cada nó clicável mostrando latência e selo `MEDIDO` / `REPORTADO` / `INFERIDO`; abaixo em `7/5` = Medidores calibrados (Peak / dBTP / EBU R128) à esquerda e Linha do tempo de eventos do Guardião à direita.
+**Por que abandonamos o "pescoço" da v2.1.** Na v2.1 os estados abertos desciam só para baixo, sem tocar a barra. O dono do produto testou e achou estranho: parecia um cartão pendurado, não o notch crescendo. Nenhum app de referência faz isso. O que resolve a disputa com os menus é separar os estados persistentes dos transitórios (§1.3 e §1.5), não deformar a abertura.
 
----
+**Master (Geral):** o volume por app só faz sentido com o volume geral à mão. O expandido tem a faixa "Geral", depois das fontes e separada por uma linha, como o master de uma mesa: volume do hardware da saída e mudo.
 
-## 4. Live Activity (macOS 27.3+ e MacBook Pro OLED)
+- Se o master está mudo ou em 0%, a espiada mostra "Saída sem som" ou "Saída em 0%" com o botão "Ativar som".
+- Aumentar o volume de um app, tirar um app do mudo ou subir o fader geral reativa o som da saída, como no macOS. Sem isso, os controles por app mexeriam sem produzir som.
 
-Seguindo rigorosamente a HIG (`Live Activities`, acesso 2026-11-21):
-- **Fundo obrigatório:** `#000000` opaco para encaixar na Dynamic Island sem borda visível.
-- **Minimal / Compact Trailing:** caber dentro de um círculo de `28 pt` de diâmetro — mostra apenas ícone do destino ou mini-anel de nível em `accent.base` (`#A78BFF`).
-- **Compact Leading:** mini-capa (`20×20 pt`) ou ícone do app de áudio em foco.
-- **Expanded:** nome do app + volume em `type.mediumValue` + estado do EQ (`+3,2 dB · Harman` ou `BIT-PERFECT`) + botão de bypass e de abrir Estúdio.
+**Regra das asas:** na altura da câmera só cabem itens curtos (ícone, uma palavra, um número). Nome de dispositivo, frase ou botão com texto nunca vão para a asa: o texto é cortado ou invade a área da câmera. Esses itens vão para a linha abaixo, onde há largura.
+
+### 1.3 Orelhas medidas (divisão de espaço com a barra de menus)
+
+`MenuBarSpace.freeEars` mede o espaço livre de cada lado do notch:
+- **Direita:** janelas de ícones de status (`CGWindowList`, camada 25; sem permissão).
+- **Esquerda:** menus do app em primeiro plano, via Acessibilidade (só quando já concedida). Sem ela, o lado esquerdo é tratado como ocupado: nunca adivinhamos por cima dos menus de alguém.
+- Orelha = espaço livre − 8 pt de respiro, limitada a 44 pt; abaixo de 26 pt, não há orelha.
+- Remede ao trocar de app em primeiro plano, ao entrar no compacto e a cada 4 s enquanto compacto.
+
+| Espaço livre | Compacto mostra |
+|---|---|
+| Dois lados | Ícone do app à esquerda, medidor à direita |
+| Só um lado (≥ 40 pt) | Ícone e medidor dividem a orelha disponível |
+| Só um lado (26–40 pt) | Só o ícone |
+| Nenhum | **Queixo**: o notch cresce 20 pt para baixo, com ícone e medidor dentro, sem tocar a barra |
+
+### 1.4 Estados e medidas
+
+`W` e `H` são a largura e a altura do notch físico.
+
+| Estado | Largura | Altura total | Raio de baixo / ombro | Conteúdo |
+|---|---|---|---|---|
+| Repouso | W | H | 10 / 7 | nada desenhado (só o hardware); no hover aparece +5 pt de cada lado e +3 pt para baixo |
+| Compacto | W + orelhas medidas | H (ou H + 20 de queixo) | 10 / 7 | ícone e medidor nas orelhas livres |
+| HUD | W + 2 × 58 | H + 18 | 14 / 11 | asas: ícone e valor; queixo: barra de nível |
+| Espiada | W + 2 × 128 | H + 44 (+ 34 por outro app tocando) | 20 / 14 | asas: ícone, nome, volume, mudo; abaixo: fader. **Nada tocando:** a espiada vira a saída. Asa esquerda: ícone do dispositivo e "Saída"; asa direita: volume do hardware; abaixo: nome completo do dispositivo e fader (ou "o volume é ajustado no próprio dispositivo") |
+| Expandido | máx(W + 2 × 140, 464) | H + 8 + foco 66 + 34 por fonte (até 3) + alerta 44 + rodapé 46 | 24 / 14 | asas: app (esquerda) e **só o ícone** do dispositivo de saída, que abre o menu (direita); abaixo: "Tocando em <dispositivo>", volume, fader, outras fontes, rodapé. Nada tocando: "Nenhuma fonte tocando · <dispositivo>" e o fader da saída |
+
+A janela tem **tamanho fixo** (cabe o maior estado) e nunca é redimensionada. Só a forma se move. Os cliques atravessam a janela fora da forma (`ignoresMouseEvents` atualizado a cada movimento do ponteiro enquanto aberta).
+
+### 1.5 Interação
+
+- **Abrir:** o hover sobre o notch (ou sobre as orelhas) faz o pop na hora. Se o ponteiro fica 150 ms, abre a espiada, com um toque háptico leve. Passar rápido pela barra não abre nada. Clique abre o expandido. Detecção por `NSTrackingArea`, sem polling.
+- **Clicar:** como tocar na Dynamic Island.
+  - Na espiada, clicar em qualquer lugar fora de um controle a transforma no expandido, com a mesma mola e o ícone viajando.
+  - No expandido, clicar no nome de um app (na asa ou numa linha de fonte) traz esse app para a frente, ou o abre se ele foi fechado, e o notch se recolhe. Um realce suave no hover indica que o nome é clicável.
+  - Clicar no notch fechado abre direto o expandido.
+  - O painel aceita o primeiro clique: não é preciso "focar" antes.
+- **Fechar acompanhando o ponteiro:** enquanto aberto, a distância do ponteiro até a forma dirige um progresso contínuo de 0 a 1 (espiada: 64 pt; expandido: 104 pt; **30 pt quando o ponteiro está na faixa da barra de menus**, para que ir até um menu coberto o libere quase na hora), com curva elástica. A forma encolhe em direção ao estado fechado, o conteúdo desfoca (até 6 pt) e some, e o ícone viaja de volta para a orelha, tudo em tempo real. Se o ponteiro volta, tudo volta. Passando o limite, fecha com a mola `notchClose`, partindo exatamente de onde estava (sem salto).
+- **Expandido por clique ou atalho:** só passa a seguir o ponteiro depois que ele entra na forma uma vez; abrir pelo teclado não fecha sozinho.
+- **Um único ícone viaja** entre orelha, espiada e expandido; os blocos de conteúdo reservam o espaço dele. Nunca há duas cópias se cruzando.
+- Clique fora ou `Esc` fecham. O monitoramento de movimento só existe enquanto aberto (custo zero em repouso).
+
+### 1.6 Personalização permitida
+
+O notch é **sempre preto absoluto**: não há tema de notch claro nem degradê. Personalizações seguras: mostrar ou não a atividade nas orelhas; usar só a barra de menus. Desde a ADR-0016 o conteúdo do notch é só branco e cinzas sobre preto; matiz só em avisos semânticos (âmbar, verde).
+
+## 2. Barra de menus
+
+**Visibilidade:** o ícone só aparece quando o notch não é a entrada do app: sem tela com notch, com o notch desligado, no modo só barra de menus, ou quando a pessoa liga a opção em Ajustes. Com o notch ativo, o próprio notch tem menu de contexto (clique direito: Abrir Estúdio, Ajustes…, ícone na barra de menus, Sair).
+
+Painel `MenuBarExtra(.window)` de 348 pt, nas cores do Estúdio (claro ou escuro, conforme o sistema): marca, estado do caminho e saída, switch de processamento; até 5 fontes com fader; lista de saídas com taxa e ✓; botões Abrir Estúdio, A/B neutro e Sair. É o fallback universal (Mac sem notch, outro app de notch ativo, usuário de teclado).
+
+## 3. Estúdio
+
+```
+┌────────────┬──────────────────────────────────────────────────────┐
+│ ● ● ●      │ 01 — MIXER                                           │
+│ timbr.     │ Cada fonte no seu volume                [Ação]       │
+│            │ Frase-resumo do caminho do sinal                     │
+│ ▤ Mixer    │ ┌KPI┐ ┌KPI┐ ┌KPI┐ ┌KPI┐                              │
+│ ∿ EQ       │ 01 Fontes de áudio ───────────────────────────────── │
+│ ⌁ Observ.  │ ┌ lista em cartão com hairlines ──────────────────┐ │
+│ APP        │ └──────────────────────────────────────────────────┘ │
+│ ⚙ Ajustes  │ 02 Saídas …                                         │
+│ ⓘ Sobre    │ 03 Entrada …                                        │
+│ ─────────  │                                                      │
+│ ● Caminho  │                                                      │
+│ [Desligar] │                                                      │
+└────────────┴──────────────────────────────────────────────────────┘
+```
+
+- Janela com conteúdo em tamanho total (`fullSizeContentView`), barra de título transparente; a barra lateral passa sob os semáforos. 1180×780 inicial, mínimo 980×640, posição lembrada.
+- Barra lateral: marca, navegação (⌘1–5), bloco de estado no rodapé com o botão de desligar o processamento (⌥⌘B).
+- Tema: Sistema, Claro ou Escuro (Ajustes). O notch não segue o tema.
+
+| Página | Tarefa principal (acima da dobra) | Secundário (abaixo) |
+|---|---|---|
+| Mixer | KPIs + volumes por fonte | Saídas (padrão, espelho, atraso, impedância do M4), Entrada (microfone, mudo global, ducking) |
+| Equalizador | Curva + métricas + Gosto (4 controles) ou Filtros (tabela Pro-Q) | Correção do fone · Comparar às cegas + treinador · Descreva o som (IA) |
+| Observatório | Caminho do sinal com marcas de origem + KPIs medidos | Espectro real · driver do fone · Guardião · linha do tempo |
+| Ajustes | Aparência · Notch · Permissões · Navegadores · Dados | — |
+| Sobre | Marca, propósito, código-fonte, apoiar | Versão, licença, motor, privacidade |
+
+## 4. Introdução
+
+Janela escura de 720×520 com barra de título transparente, quatro passos com indicador de progresso em cápsulas, sem decoração (os círculos "atmosféricos" da v1 foram removidos por parecerem template). Idioma em `TSegmented`; botões `TButtonStyle`.

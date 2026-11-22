@@ -1,63 +1,55 @@
-# 05 · Assets, Iconografia e Referências Masters
+# 05 · Assets, iconografia e referências
 
----
+## 1. Ícones
 
-## 1. Inventário de Assets do App Nativo
+**SF Symbols, sempre.** Peso `medium` em navegação e ações, `regular` em glifos de dispositivo; renderização `hierarchical` nos dispositivos.
 
-| Categoria | Asset / Fonte | Formato / Origem | Licença | Notas de empacotamento |
-|---|---|---|---|---|
-| **Tipografia principal** | `Geist-Regular.ttf`, `Geist-Medium.ttf` | Fontes estáticas (Vercel Geist) | SIL OFL 1.1 | Registrar via `ATSApplicationFontsPath` no `Info.plist`; incluir texto da OFL em `LICENSES/` |
-| **Tipografia técnica** | `GeistMono-Regular.ttf`, `GeistMono-Medium.ttf` | Fontes estáticas | SIL OFL 1.1 | Usada em todos os eyebrows, eixos, unidades e timestamps |
-| **Tipografia editorial** | `GeistSerif-Regular.ttf` | Fonte estática | SIL OFL 1.1 | Usada exclusivamente em letras sincronizadas e citações humanas |
-| **Símbolos de interface** | SF Symbols 8 | Sistema (macOS 15–27) | Apple SDK | Preferir `.symbolRenderingMode(.hierarchical)` e `variableValue` |
-| **Wordmark oficial (`timbr.`)** | `timbr.` em caixa baixa + `.` (fundo `#141414`/`#191919`, texto `#F2F2F2`, tagline `#8C8C8C`) | Vetorial SVG/PDF + SwiftUI | Própria | Referência visual do `v1torres.dev` (`›v1_`): lowercase + pontuação final; usar em splash, About, Estúdio e site |
-| **Ícone do App (`.icns` / Icon Composer)** | Monólito neutro escuro (`#111111`) com glifo geométrico **curva paramétrica + ponto `.`** (e versão alternativa monocromática com acento `#7747FF` contido) | Icon Composer (macOS 26+) + Asset Catalog | Própria | **Nunca colocar a palavra `timbr.` de 6 letras dentro do ícone `16×16`/`32×32`** (fica ilegível); o glifo `curva + .` preserva o parentesco com `v1torres.dev` em qualquer resolução |
-| **Silhuetas de dispositivos** | Ícones vetoriais limpos (over-ear, IEM, DAC USB, HDMI, alto-falante, Momentum 4, AirPods) | PDF / SVG vetorizado monocromático (`template` rendering) | Própria / SF Symbols | Renderização por `renderingMode(.template)` para seguir `ink.primary` / `ink.secondary` nas 3 superfícies |
-| **Sons de calibração (E-04 / Teste auditivo)** | Impulsos/clicks e tons senoidais gerados em runtime | Síntese matemática em `Float64` | Própria | Não embarcar WAVs pesados; gerar deterministicamente |
+| Papel | Símbolo |
+|---|---|
+| Mixer | `slider.vertical.3` |
+| Equalizador | `point.bottomleft.forward.to.point.topright.scurvepath` |
+| Observatório | `waveform.path.ecg.rectangle` |
+| Ajustes / Sobre | `gearshape` / `info.circle` |
+| Barra de menus | `waveform` (ativo) · `waveform.slash` (desligado) |
+| Volume (HUD) | `speaker.fill` · `speaker.wave.1/2/3.fill` · `speaker.slash.fill` |
+| Mudo em linha | `speaker.wave.2` → `speaker.slash.fill` (âmbar) |
+| Processamento | `power` |
+| Interno / USB / BT / analógico / HDMI | `laptopcomputer` / `cable.connector` / `headphones` / `headphones` / `tv` |
+| AirPods / Pro / Max | `airpods` / `airpodspro` / `airpodsmax` |
+| Caixa externa | `hifispeaker` |
+| Aba de navegador | `globe` |
 
-### Mapeamento canônico de SF Symbols
+Ícones de apps vêm do próprio app (`NSWorkspace.icon(forFile:)`). Nunca redesenhe ícones de terceiros.
 
-| Conceito | SF Symbol | Recurso |
+## 2. Marca
+
+- Wordmark **timbr.**: SF Pro Semibold, tracking negativo proporcional; o ponto em `accent.signal`. Tamanhos usados: 13 (notch), 15 (barra de menus), 19 (barra lateral), 56 (Sobre).
+- Ícone do app: `Resources/Timbr.icns`, gerado por `scripts/generate_icns.py`.
+- Proibido: contorno na marca, gradiente, sombra, mudar a cor do ponto fora do acento.
+
+## 3. Referências mestras
+
+| Referência | O que tomamos | O que **não** tomamos |
 |---|---|---|
-| Volume dinâmico por app/saída | `speaker.wave.3` | `variableValue: Double(volume)` |
-| Mudo | `speaker.slash` | Tinta `ink.muted` (ou `negative` se inesperado) |
-| Equalizador ativo / bypass | `slider.horizontal.3` / `waveform.path` | `accent.base` quando ativo |
-| Bit-perfect / sinal íntegro | `checkmark.seal` | `semantic.ok` |
-| Guardião / alerta de degradação | `exclamationmark.triangle` | `semantic.warn` ou `semantic.danger` |
-| Fone over-ear (ex.: Momentum 4) | `headphones` | — |
-| Intra-auricular / AirPods | `airpodspro` / `earbuds` | Usar símbolo do dispositivo quando o sistema/driver identificar |
-| DAC / interface externa | `cable.connector` / `hifispeaker` | — |
-| Reconhecimento ShazamKit | `shazam.logo` (ou `waveform.badge.magnifyingglass`) | Verificar disponibilidade de símbolo por versão do SDK |
-| Abrir Estúdio | `arrow.up.forward.square` | — |
+| **Órbita / ronda diária (SIP)** — nota `09_dna_visual_orbita_e_ronda.md` | Sistema acromático (o violeta do Órbita **não** foi herdado, ADR-0016); eyebrows em mono maiúsculo com tracking; números grandes tabulares; seções numeradas `01…07`; cartões brancos com borda sutil sobre papel quente; notas "como ler" | Geist como fonte do app (fica para a web); gradiente de marca |
+| **Apple HIG + WWDC (skill `apple-design`)** | Molas interrompíveis; tipografia de sistema com tracking por tamanho; squircles; materiais por tom; Dynamic Island como linguagem do notch | Liquid Glass sobre o notch (o notch precisa ser preto opaco) |
+| **Emil Kowalski (skill `emil-design-eng`)** | Curvas fortes, pressionar 0,97, blur para unir estados, não animar teclado, assimetria abrir/fechar | Bounce em contexto profissional |
+| **FabFilter Pro-Q** | Curva com espectro por trás, alças numeradas, valores arrastáveis | Coloração intensa por banda |
+| **macOS Ajustes do Sistema** | Linhas agrupadas com título, subtítulo e controle à direita | — |
 
----
+## 4. Bibliotecas web: como usar (nota `08_referencias_ui_componentes.md`)
 
-## 2. Diretório de Tokens (`design-system/`)
+O app é nativo (ADR-0002). As bibliotecas abaixo são usadas no **site, na documentação e no playground** e como **referência de comportamento** para os componentes SwiftUI.
 
-Conforme [ADR-0012](../07-decisoes/ADR-0012-tokens-fonte-unica.md), os tokens vivem na raiz em `design-system/tokens/` no formato W3C DTCG:
+| Biblioteca | Uso no timbr. | Componentes |
+|---|---|---|
+| **shadcn/ui** (MIT) | Base do site e do playground; gráficos do site | `chart` (Recharts, eixo log, `chart-area-gradient`, `chart-line-linear`, tooltip com indicador de linha), `slider`, `switch`, `toggle-group`, `tabs`, `command`, `sonner`, `sheet` |
+| **Bencho** (free, MIT) | Referência de motion e protótipos web | `dynamic-island` (morph pílula→player), `sound` (now playing), `wake-slider`, `liq-toggle`, `rolling-counter`, `time-scrubber` |
+| **Spell UI** (MIT) | Landing e docs | `kbd`, `shimmer-text`, `blur-reveal`, `bars-spinner` |
+| **libraries.dev** (MIT no código) | Candidatos a efeitos áudio-reativos **opt-in** no notch (sempre alimentados por nível real) | `VoiceRingKit`, `VoiceGlowKit`, `BorderBeamKit`, `DistortionWavesKit` |
 
-```
-design-system/
-├── tokens/
-│   ├── color.tokens.json         # Escala neutra OKLCH + claro/escuro/notch + acento + semânticas + séries
-│   ├── typography.tokens.json    # Famílias, tamanhos, pesos, tracking e line-heights
-│   ├── spacing-radius.tokens.json# Espaçamento 2/4pt, grade 7/5, raios concêntricos, bordas
-│   └── motion.tokens.json        # Curvas cúbicas, springs (bounce 0), staggers, durações
-└── scripts/
-    └── generate_tokens.py        # Compila JSON -> Swift (TimbreTokens.swift) + CSS (tokens.css)
-```
+Regra: nenhum efeito decorativo entra no notch por padrão; qualquer efeito áudio-reativo é opcional, alimentado por nível medido, e respeita "Reduzir movimento".
 
----
+## 5. Capturas de referência
 
-## 3. Referências Masters (Mapa Consolidado)
-
-| Domínio | Referência Master | O que adotamos | O que descartamos | Licença / Tipo |
-|---|---|---|---|---|
-| **Identidade visual & editorial** | **Órbita (SIP) & Ronda Diária** | Neutros OKLCH croma 0, 2 pesos (`400`/`500`), 3 vozes tipográficas, acento violeta único, mistura OKLab, grade 7/5, "menos caixas" | Sombra de elevação pesada no notch; cores de redes sociais | Referência interna do autor |
-| **Física, materiais e plataforma** | **Apple HIG + `$apple-design`** | Springs criticamente amortecidas, *velocity handoff*, concentricidade, `NSPanel` não-ativante, Live Activities `#000000` | Liquid Glass sobre textos densos ou dentro do notch | Documentação oficial Apple |
-| **Micro-interações e rigor** | **`$emil-design-eng`** | Zero animação em teclado, `< 300 ms`, `scale(0.97)` ao clicar, sem `scale(0)`, `transform-origin` real, `blur` em crossfade | Curvas genéricas fracas (`ease-in-out` padrão) | Skill de engenharia UI |
-| **Editor de EQ** | **FabFilter Pro-Q 4** | Escalas `±3/6/12/30 dB`, Spectrum Grab, Piano Display, curva composta + por banda + espectro atrás, edição por rolagem/arrasto | Visual skeuomórfico/gradiente pesado de DAW | Benchmark comercial (UI spec) |
-| **Medição de áudio** | **EBU Tech 3341 V4 & FLUX** | Janelas `0,4 s` M / `3 s` S / I gated, escalas `+9/+18`, `dBTP`, balísticas VU/PPM selecionáveis, unidade sempre visível | Suavização artificial em barras EBU | Norma técnica pública |
-| **Shaders & reatividade SwiftUI** | **`libraries.dev` (Jakub Antalik)** | `VoiceGlowKit`, `VoiceRingKit`, `BorderBeamKit`, `DistortionWavesKit` via SwiftPM (commit fixado) | Modelos `.mfxl` proprietários (licença comercial restritiva) | MIT (código) |
-| **Protótipos de motion & Web** | **`Bencho` + `shadcn/ui` + `Spell UI` + `DSSSP`** | Referência de física para SwiftUI; componentes React para docs, site e playground de EQ | WebView como UI principal do app residente | MIT |
-| **Arquitetura de render real-time** | **`AudioKitUI`** (`FFTView`, `MetalView`) & **`AudioKit/Controls`** | Padrão `Canvas` + `TimelineView` + Metal para `60–120 Hz`; lógica de gesto de knobs/sliders | Dependência acoplada ao core do AudioKit ou pacotes sem manutenção | MIT |
+Gere com as flags de revisão (`00-biblia §6`). Toda mudança visual de PR anexa capturas de: notch (compacto, espiada, expandido, HUD), Estúdio (5 páginas, claro e escuro), barra de menus e Introdução.

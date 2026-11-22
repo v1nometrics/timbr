@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>timbr.</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #141414; --surface: #191919; --ink: #F2F2F2; --muted: #8C8C8C; --accent: #A78BFF; --line: #2B2B2B;
+    }
+    body { margin: 0; padding: 14px; width: 268px; font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: var(--bg); color: var(--ink); }
+    .card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px; display: grid; gap: 10px; }
+    .row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    label { font-size: 11px; color: var(--muted); }
+    input[type="password"], input[type="range"] { width: 100%; }
+    input[type="password"] { background: #242424; border: 1px solid var(--line); border-radius: 6px; color: var(--ink); padding: 6px 8px; font-size: 11px; }
+    button { background: var(--accent); color: #0B0B0B; border: 0; border-radius: 8px; padding: 6px 10px; font-weight: 600; cursor: pointer; font-size: 12px; }
+    .mono { font-family: ui-monospace, monospace; font-size: 11px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="row">
+      <strong>timbr.</strong>
+      <span id="status" class="mono">Ready</span>
+    </div>
+    <div>
+      <label for="token">Pairing Token (Settings → IPC)</label>
+      <input id="token" type="password" placeholder="Paste ephemeral bearer token" />
+    </div>
+    <div>
+      <div class="row">
+        <label for="vol">Tab Gain</label>
+        <span id="volLabel" class="mono">100%</span>
+      </div>
+      <input id="vol" type="range" min="0" max="200" value="100" />
+    </div>
+    <div class="row">
+      <button id="muteBtn" type="button">Mute Tab</button>
+      <button id="saveTokenBtn" type="button">Pair</button>
+    </div>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>

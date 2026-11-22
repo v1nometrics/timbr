@@ -1,6 +1,6 @@
 # ADR-0001 · Licença do projeto
 
-- **Status:** Proposto · aguarda decisão do dono
+- **Status:** Aceito · 2026-11-21 (aprovado pelo dono: open-source MPL-2.0 para portfólio/doações, mantendo viabilidade comercial futura)
 - **Data:** 2026-11-21
 
 ## Contexto
