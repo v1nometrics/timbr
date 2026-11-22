@@ -198,6 +198,9 @@ public final class AppState: ObservableObject {
     private var refreshTimer: Timer?
     private let processMonitor = AudioProcessMonitor()
     private var lastLoggedTapFailure: String?
+    /// Last time any source was playing; the global EQ tap is torn down this long after silence.
+    private var lastAudioActivityAt = Date.distantPast
+    static let globalTapGraceSeconds: TimeInterval = 10
     private var telemetryTimer: Timer?
     private var hudDismissWorkItem: DispatchWorkItem?
     private var compactDismissWorkItem: DispatchWorkItem?
@@ -571,6 +574,8 @@ public final class AppState: ObservableObject {
             anyNonNeutralBand || activePreset.crossfeedEnabled || anySourceTap || duckFactor < 0.999 || !mirrorTargets.isEmpty
         )
         let excludedBundles = sources.filter { $0.isVoIPExcluded }.map { $0.bundleID }
+        if sources.contains(where: { $0.isPlaying }) { lastAudioActivityAt = Date() }
+        let audioActive = Date().timeIntervalSince(lastAudioActivityAt) < Self.globalTapGraceSeconds
 
         tapEngine.updateDSP(preset: activePreset, outputDevice: out, abMode: effectiveAB, gain: duckFactor)
         tapEngine.reconcileMultiTap(
@@ -581,7 +586,8 @@ public final class AppState: ObservableObject {
             sources: sources,
             excludedBundleIDs: excludedBundles,
             duckFactor: duckFactor,
-            mirrorOutputs: mirrorTargets
+            mirrorOutputs: mirrorTargets,
+            audioActive: audioActive
         )
         // Surface engine failures instead of swallowing them (they used to be silent).
         let failure = tapEngine.lastFailure

@@ -97,3 +97,17 @@ public enum SystemAudioClient: String, CaseIterable, Sendable {
         return p.hasPrefix("/usr/") || p.hasPrefix("/System/") || p.hasPrefix("/Library/Apple/")
     }
 }
+
+/// Apps that keep an audio *output* engine running while producing no sound (dictation and
+/// transcription tools keep it warm for their start/stop chimes). Core Audio reports them as
+/// "running output", but they are not playing anything a person would want to see or control.
+/// superwhisper verified on 2026-11-22 (IsRunningOutput = 1 for minutes, no audible output).
+public enum SilentOutputApps {
+    public static let bundleIDs: Set<String> = [
+        "com.superduper.superwhisper",
+        "com.electron.wispr-flow",       // Wispr Flow
+        "com.goodsnooze.MacWhisper",     // MacWhisper
+    ]
+
+    public static func contains(_ bundleID: String) -> Bool { bundleIDs.contains(bundleID) }
+}

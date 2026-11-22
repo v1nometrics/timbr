@@ -18,6 +18,16 @@
 
 
 
+### 2026-11-22 · Compatibilidade: superwhisper e Chrome
+
+- Detalhes e evidências em [compatibilidade-apps-2026-11-22.md](compatibilidade-apps-2026-11-22.md).
+- **Feito:**
+  - `SilentOutputApps`: superwhisper e outros apps de ditado não contam mais como "tocando".
+  - O tap global só existe com áudio ativo (10 s de folga), o que reduz o "Meeting detected" falso do superwhisper e o ponto roxo em repouso.
+- **Medido:**
+  - Taps ⇒ `IsRunningInput = 1` no processo do timbr., sem usar o microfone. O superwhisper vê isso como reunião sempre que há um navegador aberto; reproduzido duas vezes.
+  - Chrome + Spotify simultâneos aparecem corretamente na espiada.
+
 ### 2026-11-22 · Teclas de volume e brilho no notch
 
 - **Relato:** o controle de volume e brilho não funcionava mais no notch; aparecia a animação padrão do Mac.

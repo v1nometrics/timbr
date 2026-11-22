@@ -238,9 +238,6 @@ public final class ProcessTapEngine: @unchecked Sendable {
             var runSize = UInt32(MemoryLayout<UInt32>.size)
             var runAddr = AudioObjectPropertyAddress(mSelector: kAudioProcessPropertyIsRunningOutput, mScope: kAudioObjectPropertyScopeGlobal, mElement: 0)
             _ = AudioObjectGetPropertyData(objID, &runAddr, 0, nil, &runSize, &runningOut)
-            let isPlaying = runningOut != 0
-            // Started and already finished since the last pass (e.g. a short alert): recent, not playing.
-            let justPlayed = !isPlaying && recentlyStarted.contains(objID)
 
             var cfBundle: CFString?
             var bSize = UInt32(MemoryLayout<CFString?>.size)
@@ -254,6 +251,11 @@ public final class ProcessTapEngine: @unchecked Sendable {
             let owner = AudioProcessAttribution.owner(of: pid, reportedBundleID: cfBundle as String?, runningApps: runningApps)
             guard owner.pid != selfPID else { continue }
             let bundleID = owner.bundleID
+            // Dictation tools keep a silent output engine running: never "playing" (SilentOutputApps).
+            let silentUtility = SilentOutputApps.contains(bundleID)
+            let isPlaying = runningOut != 0 && !silentUtility
+            // Started and already finished since the last pass (e.g. a short alert): recent, not playing.
+            let justPlayed = !isPlaying && !silentUtility && recentlyStarted.contains(objID)
             let voipProtected = GuardianAnalyzer.isVoIPOrDAWProtected(bundleID: bundleID)
 
             if var cur = grouped[bundleID] {
@@ -445,7 +447,8 @@ public final class ProcessTapEngine: @unchecked Sendable {
         sources: [AudioSourceDescriptor],
         excludedBundleIDs: [String],
         duckFactor: Double = 1.0,
-        mirrorOutputs: [MirrorOutputTarget] = []
+        mirrorOutputs: [MirrorOutputTarget] = [],
+        audioActive: Bool = true
     ) -> Bool {
         guard processingEnabled, let outputDevice else {
             stopAndDestroyTap()
@@ -495,7 +498,10 @@ public final class ProcessTapEngine: @unchecked Sendable {
 
         // 2. Primary global destination tap (when EQ, crossfeed, or ducking is active for remaining apps)
         let eqActive = preset.allEffectiveBands.contains { $0.enabled && abs($0.gainDB) > 0.01 }
-        let needsGlobal = eqActive || preset.crossfeedEnabled || duckFactor < 0.999
+        // The global tap only exists while something is actually playing (plus a grace period decided
+        // by the caller). Idle, it would keep the purple "recording" indicator lit and make apps that
+        // watch for audio input (e.g. superwhisper's meeting detection) think a meeting started.
+        let needsGlobal = (eqActive || preset.crossfeedEnabled || duckFactor < 0.999) && audioActive
         if needsGlobal {
             let globalExcludes = Array(Set(baseExcludedObjs + perAppObjs))
             desiredKeys.insert("global")
