@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MPL-2.0
 #include "timbre_dsp.h"
 #include <cassert>
+#include <thread>
+#include <atomic>
 #include <cmath>
 #include <cstdio>
 #include <vector>
@@ -160,6 +162,42 @@ int main() {
         assert(peak_idx == 480 && peak_val > 0.79f);
         timbre_dsp_destroy(eng);
         std::printf("  [PASS] Multi-output delay_ms=10.0 aligned impulse at exact sample %zu\n", peak_idx);
+    }
+
+    {
+        // Triple buffer: a writer publishing EQ as fast as it can while the audio thread renders must
+        // never produce torn parameters (non-finite or exploding output). Runs under ASan/UBSan in CI.
+        timbre_dsp_config_t cfg = timbre_dsp_default_config(48000.0, 512);
+        timbre_dsp_engine_t* eng = timbre_dsp_create(cfg);
+        std::atomic<bool> stop{false};
+        std::thread writer([&] {
+            int n = 0;
+            while (!stop.load()) {
+                timbre_band_t bands[8];
+                for (int b = 0; b < 8; ++b) {
+                    bands[b] = timbre_band_t{TIMBRE_FILTER_PEAK, TIMBRE_DESIGN_RBJ, TIMBRE_LAYER_TASTE,
+                                             60.0 * (b + 1) * (1 + (n % 7)), ((n + b) % 2 ? 6.0 : -6.0), 0.7 + 0.1 * b, true};
+                }
+                timbre_dsp_update(eng, cfg, bands, 8);
+                ++n;
+            }
+        });
+        std::vector<float> in(256 * 2), out(256 * 2);
+        for (size_t i = 0; i < 256; ++i) { in[2 * i] = in[2 * i + 1] = 0.25f * std::sin(0.05f * float(i)); }
+        float worst = 0.0f;
+        for (int block = 0; block < 4000; ++block) {
+            timbre_dsp_process_strided_f32(eng, in.data(), in.data() + 1, 2, out.data(), out.data() + 1, 2, 256);
+            for (float v : out) { assert(std::isfinite(v)); worst = std::max(worst, std::abs(v)); }
+        }
+        stop.store(true);
+        writer.join();
+        assert(worst <= 1.0f);
+        // Strided mono mix: out_r == NULL writes (L+R)/2.
+        std::vector<float> mono(256);
+        timbre_dsp_process_strided_f32(eng, in.data(), in.data() + 1, 2, mono.data(), nullptr, 1, 256);
+        for (float v : mono) assert(std::isfinite(v));
+        timbre_dsp_destroy(eng);
+        std::printf("  [PASS] Wait-free parameter triple buffer under a racing writer + strided/mono render\n");
     }
 
     std::printf("[CTimbreDSPTests] ALL PASSED\n");

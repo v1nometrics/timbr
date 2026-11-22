@@ -135,6 +135,11 @@ public final class ProcessTapEngine: @unchecked Sendable {
     private let lock = NSLock()
     private var dspEngine: OpaquePointer? // Fallback/shared curve evaluator & primary metrics
     private var activeSlots: [String: TapSlot] = [:]
+    /// Last parameter signature published to each DSP engine (main thread). Publishing only on
+    /// change keeps the 2 s refresh and fader drags from re-sending identical EQ parameters.
+    private var publishedSignature: [OpaquePointer: Int] = [:]
+    /// Human-readable reason of the last tap/aggregate failure, for the event log (nil = healthy).
+    public private(set) var lastFailure: String?
     private var lastZeroBufferRecoveryAt: Date = .distantPast
     private var consecutiveZeroBuffers: UInt64 = 0
 
@@ -289,7 +294,8 @@ public final class ProcessTapEngine: @unchecked Sendable {
     public func updateDSP(preset: TimbrePreset, outputDevice: AudioDeviceDescriptor?, abMode: ABCompareMode, gain: Double = 1.0, delayMs: Double = 0.0) {
         lock.lock()
         let fallbackEng = dspEngine
-        let primarySlot = activeSlots["global"] ?? activeSlots.values.first
+        // Only the global slot carries the global gain; per-app slots get their own gain in reconcile.
+        let primarySlot = activeSlots["global"]
         let sr = outputDevice?.sampleRate ?? lastSampleRate
         lock.unlock()
 
@@ -315,12 +321,20 @@ public final class ProcessTapEngine: @unchecked Sendable {
         cfg.limiter_enabled = true
         cfg.crossfeed_enabled = preset.crossfeedEnabled
         cfg.delay_ms = delayMs
-        timbre_dsp_update_config(enginePtr, cfg)
 
-        let bands = preset.allEffectiveBands.map { $0.cBand }
-        bands.withUnsafeBufferPointer { buf in
-            timbre_dsp_set_bands(enginePtr, buf.baseAddress, UInt32(buf.count))
+        let effective = preset.allEffectiveBands
+        var h = Hasher()
+        h.combine(sampleRate); h.combine(cfg.limiter_ceiling_dbtp); h.combine(cfg.crossfeed_enabled); h.combine(delayMs)
+        h.combine(effective)
+        let signature = h.finalize()
+        if publishedSignature[enginePtr] != signature {
+            publishedSignature[enginePtr] = signature
+            let bands = effective.map { $0.cBand }
+            bands.withUnsafeBufferPointer { buf in
+                timbre_dsp_update(enginePtr, cfg, buf.baseAddress, UInt32(buf.count))   // one publish, wait-free for the audio thread
+            }
         }
+        // Gain and A/B are single atomics: always safe to set.
         timbre_dsp_set_ab_mode(enginePtr, abMode.cType)
         timbre_dsp_set_output_gain(enginePtr, gain)
     }
@@ -354,6 +368,17 @@ public final class ProcessTapEngine: @unchecked Sendable {
             cpuMicroseconds: Double(m.process_ns_last) / 1000.0,
             spectrumBinsDB: bins
         )
+    }
+
+    /// Limiter gain reduction (dB, ≤ 0) of every per-app slot, keyed by bundle ID. A boosted app
+    /// whose limiter is working hard is already as loud as it can get without distortion.
+    public func limiterReductionByApp() -> [String: Double] {
+        lock.lock()
+        let slots = activeSlots.filter { $0.key.hasPrefix("app:") }.map { (String($0.key.dropFirst(4)), $0.value.enginePtr) }
+        var out: [String: Double] = [:]
+        for (bid, eng) in slots { out[bid] = timbre_dsp_get_metrics(eng).limiter_gr_db }
+        lock.unlock()
+        return out
     }
 
     public func evaluateCurve(bands: [EQBand], freqsHz: [Double], layer: EQLayer? = nil) -> (magDB: [Double], recommendedPreampDB: Double) {
@@ -485,7 +510,11 @@ public final class ProcessTapEngine: @unchecked Sendable {
         }
 
         // 3. Simultaneous multi-output mirror taps (E-04 / B-201) — unmuted; failure must NOT
-        // tear down the primary muted path (mirrors are best-effort).
+        // tear down the primary muted path (mirrors are best-effort). Apps the user muted are
+        // excluded so they stay silent on the mirror too. (Known limit: other per-app volumes
+        // are not replicated on mirrors.)
+        let mutedObjs = Self.translatePIDsToProcessObjects(sources.filter { $0.isMuted }.flatMap { $0.pids })
+        let mirrorExcludes = Array(Set(baseExcludedObjs + mutedObjs))
         var mirrorFailed = false
         for target in mirrorOutputs where target.device.uid != outputDevice.uid {
             let key = "mirror:\(target.device.uid)"
@@ -493,7 +522,7 @@ public final class ProcessTapEngine: @unchecked Sendable {
             let ok = ensureTapSlot(
                 key: key,
                 outputDevice: target.device,
-                mode: .excludeProcesses(baseExcludedObjs),
+                mode: .excludeProcesses(mirrorExcludes),
                 muteBehavior: .unmuted,
                 preset: preset,
                 abMode: abMode,
@@ -526,6 +555,7 @@ public final class ProcessTapEngine: @unchecked Sendable {
             for slot in rollback { destroySlot(slot) }
         }
         if mirrorFailed { allSuccess = false }
+        if allSuccess { lastFailure = nil }
 
         // Tear down any stale slots no longer in desiredKeys
         lock.lock()
@@ -609,7 +639,10 @@ public final class ProcessTapEngine: @unchecked Sendable {
             }
             tapDesc.name = "timbr.tap.\(key).\(outputDevice.uid)"
             tapDesc.isPrivate = true
-            tapDesc.isExclusive = true
+            // Do NOT touch isExclusive here. The initialisers already set it correctly:
+            // stereoMixdownOfProcesses → false (tap ONLY these), stereoGlobalTapButExcludeProcesses →
+            // true (tap everything EXCEPT these). Forcing it to true turned every per-app tap into
+            // "every other app", so moving one app's fader changed all the others instead.
             tapDesc.muteBehavior = muteBehavior
             if case .excludeProcesses = mode, tapDesc.responds(to: NSSelectorFromString("setBundleIDs:")) {
                 var excludes = excludedBundleIDs
@@ -620,6 +653,7 @@ public final class ProcessTapEngine: @unchecked Sendable {
             var tapID = AudioObjectID(kAudioObjectUnknown)
             let tapErr = AudioHardwareCreateProcessTap(tapDesc, &tapID)
             guard tapErr == noErr, tapID != AudioObjectID(kAudioObjectUnknown) else {
+                lastFailure = "AudioHardwareCreateProcessTap(\(key)) = \(Self.describe(tapErr))"
                 return false
             }
 
@@ -646,12 +680,14 @@ public final class ProcessTapEngine: @unchecked Sendable {
             var aggID = AudioObjectID(kAudioObjectUnknown)
             let aggErr = AudioHardwareCreateAggregateDevice(aggDesc as CFDictionary, &aggID)
             guard aggErr == noErr, aggID != AudioObjectID(kAudioObjectUnknown) else {
+                lastFailure = "AudioHardwareCreateAggregateDevice(\(key)) = \(Self.describe(aggErr))"
                 AudioHardwareDestroyProcessTap(tapID)
                 return false
             }
 
             let cfg = timbre_dsp_default_config(outputDevice.sampleRate, 1024)
             guard let enginePtr = timbre_dsp_create(cfg) else {
+                lastFailure = "timbre_dsp_create(\(key)) failed"
                 AudioHardwareDestroyAggregateDevice(aggID)
                 AudioHardwareDestroyProcessTap(tapID)
                 return false
@@ -669,17 +705,11 @@ public final class ProcessTapEngine: @unchecked Sendable {
             var procID: AudioDeviceIOProcID?
             // RT Audio Thread: captures ONLY OpaquePointer (enginePtr) — zero Swift ARC retain/release, zero locks, zero heap allocs
             let ioErr = AudioDeviceCreateIOProcIDWithBlock(&procID, aggID, nil) { _, inInputData, _, outOutputData, _ in
-                let inABL = UnsafeMutableAudioBufferListPointer(UnsafeMutablePointer(mutating: inInputData))
-                let outABL = UnsafeMutableAudioBufferListPointer(outOutputData)
-                guard let inBuf = inABL.first, let outBuf = outABL.first,
-                      let inPtr = inBuf.mData?.assumingMemoryBound(to: Float.self),
-                      let outPtr = outBuf.mData?.assumingMemoryBound(to: Float.self) else { return }
-
-                let frames = outBuf.mDataByteSize / UInt32(MemoryLayout<Float>.size * 2)
-                timbre_dsp_process_interleaved_f32(enginePtr, inPtr, outPtr, frames)
+                TapRenderer.render(enginePtr, inInputData, outOutputData)
             }
 
             guard ioErr == noErr, let procID else {
+                lastFailure = "AudioDeviceCreateIOProcIDWithBlock(\(key)) = \(Self.describe(ioErr))"
                 timbre_dsp_destroy(enginePtr)
                 AudioHardwareDestroyAggregateDevice(aggID)
                 AudioHardwareDestroyProcessTap(tapID)
@@ -688,6 +718,7 @@ public final class ProcessTapEngine: @unchecked Sendable {
 
             let startErr = AudioDeviceStart(aggID, procID)
             guard startErr == noErr else {
+                lastFailure = "AudioDeviceStart(\(key)) = \(Self.describe(startErr))"
                 AudioDeviceDestroyIOProcID(aggID, procID)
                 timbre_dsp_destroy(enginePtr)
                 AudioHardwareDestroyAggregateDevice(aggID)
@@ -711,10 +742,19 @@ public final class ProcessTapEngine: @unchecked Sendable {
             lock.unlock()
             return true
         }
+        lastFailure = "Process taps need macOS 14.2 or later"
         return false
     }
 
+    static func describe(_ status: OSStatus) -> String {
+        let n = UInt32(bitPattern: status)
+        let bytes = [UInt8((n >> 24) & 0xFF), UInt8((n >> 16) & 0xFF), UInt8((n >> 8) & 0xFF), UInt8(n & 0xFF)]
+        if bytes.allSatisfy({ $0 >= 32 && $0 < 127 }), let s = String(bytes: bytes, encoding: .ascii) { return "'\(s)' (\(status))" }
+        return "\(status)"
+    }
+
     private func destroySlot(_ slot: TapSlot) {
+        publishedSignature[slot.enginePtr] = nil
         AudioDeviceStop(slot.aggregateID, slot.ioProcID)
         AudioDeviceDestroyIOProcID(slot.aggregateID, slot.ioProcID)
         AudioHardwareDestroyAggregateDevice(slot.aggregateID)
@@ -732,6 +772,65 @@ public final class ProcessTapEngine: @unchecked Sendable {
 
         for slot in slots {
             destroySlot(slot)
+        }
+    }
+}
+
+/// Real-time render for one tap slot. No allocation, no locks, no Swift reference counting.
+/// Handles whatever stream layout the aggregate presents instead of assuming "first buffer, stereo".
+enum TapRenderer {
+    static func render(_ engine: OpaquePointer,
+                       _ input: UnsafePointer<AudioBufferList>,
+                       _ output: UnsafeMutablePointer<AudioBufferList>) {
+        let inABL = UnsafeMutableAudioBufferListPointer(UnsafeMutablePointer(mutating: input))
+        let outABL = UnsafeMutableAudioBufferListPointer(output)
+        // Anything we do not write must be silence, never stale memory.
+        for b in outABL {
+            if let d = b.mData { memset(d, 0, Int(b.mDataByteSize)) }
+        }
+        guard inABL.count > 0, outABL.count > 0 else { return }
+
+        // Input: the tap's streams come after any input streams of the sub-device, so read from the end.
+        // Stereo mixdown arrives as one interleaved 2-channel buffer, or as two mono buffers.
+        let fsz = UInt32(MemoryLayout<Float>.size)
+        let last = inABL[inABL.count - 1]
+        guard let lastData = last.mData?.assumingMemoryBound(to: Float.self), last.mNumberChannels > 0 else { return }
+        let inL: UnsafePointer<Float>
+        let inR: UnsafePointer<Float>
+        let inStride: UInt32
+        let inFrames: UInt32
+        if last.mNumberChannels >= 2 {
+            inL = UnsafePointer(lastData)
+            inR = UnsafePointer(lastData + 1)
+            inStride = last.mNumberChannels
+            inFrames = last.mDataByteSize / fsz / last.mNumberChannels
+        } else if inABL.count >= 2, inABL[inABL.count - 2].mNumberChannels == 1,
+                  let l = inABL[inABL.count - 2].mData?.assumingMemoryBound(to: Float.self) {
+            inL = UnsafePointer(l)
+            inR = UnsafePointer(lastData)
+            inStride = 1
+            inFrames = min(last.mDataByteSize, inABL[inABL.count - 2].mDataByteSize) / fsz
+        } else {
+            inL = UnsafePointer(lastData)
+            inR = UnsafePointer(lastData)
+            inStride = 1
+            inFrames = last.mDataByteSize / fsz
+        }
+        guard inFrames > 0 else { return }
+
+        // Output: L/R on channels 0/1 of the first stream (interleaved N channels), or on the first
+        // two mono streams (planar), or a mono mix on a single mono stream.
+        let o0 = outABL[0]
+        guard let d0 = o0.mData?.assumingMemoryBound(to: Float.self), o0.mNumberChannels > 0 else { return }
+        if o0.mNumberChannels >= 2 {
+            let frames = min(inFrames, o0.mDataByteSize / fsz / o0.mNumberChannels)
+            timbre_dsp_process_strided_f32(engine, inL, inR, inStride, d0, d0 + 1, o0.mNumberChannels, frames)
+        } else if outABL.count >= 2, outABL[1].mNumberChannels == 1, let d1 = outABL[1].mData?.assumingMemoryBound(to: Float.self) {
+            let frames = min(inFrames, o0.mDataByteSize / fsz, outABL[1].mDataByteSize / fsz)
+            timbre_dsp_process_strided_f32(engine, inL, inR, inStride, d0, d1, 1, frames)
+        } else {
+            let frames = min(inFrames, o0.mDataByteSize / fsz)
+            timbre_dsp_process_strided_f32(engine, inL, inR, inStride, d0, nil, 1, frames)
         }
     }
 }

@@ -441,6 +441,7 @@ private struct SourceRow: View {
     private var status: String {
         if src.isVoIPExcluded { return appState.t("ui.status.call") }
         if src.isMuted { return appState.t("ui.status.muted") }
+        if src.volume > 1.0001, appState.sourceLimiterDB[src.bundleID] != nil { return appState.t("ui.status.limited") }
         if src.volume > 1.0001 { return appState.t("ui.status.boost") }
         return src.isPlaying ? appState.t("ui.notch.playing") : appState.t("ui.notch.paused")
     }

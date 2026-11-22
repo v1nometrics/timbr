@@ -170,6 +170,9 @@ public final class AppState: ObservableObject {
 
     // Telemetry, Observatory & Guardian
     @Published public var telemetry: DSPTelemetrySnapshot = .idle
+    /// Per-app limiter reduction (dB, rounded to 0.5), only for apps the limiter is actually holding.
+    @Published public private(set) var sourceLimiterDB: [String: Double] = [:]
+    private var telemetryTick = 0
     @Published public var driverTelemetry: HardwareDriverTelemetry?
     @Published public var guardianAlerts: [GuardianAlert] = []
     @Published public var mutedGuardianPairs: Set<String> = []
@@ -187,6 +190,7 @@ public final class AppState: ObservableObject {
 
     private var refreshTimer: Timer?
     private let processMonitor = AudioProcessMonitor()
+    private var lastLoggedTapFailure: String?
     private var telemetryTimer: Timer?
     private var hudDismissWorkItem: DispatchWorkItem?
     private var compactDismissWorkItem: DispatchWorkItem?
@@ -493,6 +497,13 @@ public final class AppState: ObservableObject {
     private func pollTelemetry() {
         let snap = tapEngine.readTelemetry()
         self.telemetry = snap
+        telemetryTick &+= 1
+        if telemetryTick % 8 == 0 {   // ~4 Hz is plenty for a status line
+            let held = tapEngine.limiterReductionByApp()
+                .filter { $0.value < -1.0 }
+                .mapValues { ($0 * 2).rounded() / 2 }
+            if held != sourceLimiterDB { sourceLimiterDB = held }
+        }
     }
 
     public func syncDSPAndTap() {
@@ -525,6 +536,12 @@ public final class AppState: ObservableObject {
             duckFactor: duckFactor,
             mirrorOutputs: mirrorTargets
         )
+        // Surface engine failures instead of swallowing them (they used to be silent).
+        let failure = tapEngine.lastFailure
+        if failure != lastLoggedTapFailure {
+            lastLoggedTapFailure = failure
+            if let failure { logEvent(category: "routing", message: "Tap failed: \(failure)") }
+        }
     }
 
     public func toggleMirrorOutput(_ device: AudioDeviceDescriptor) {

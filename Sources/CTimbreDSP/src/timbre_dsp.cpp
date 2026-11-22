@@ -9,6 +9,7 @@
 #include <cmath>
 #include <complex>
 #include <cstring>
+#include <mutex>
 #include <vector>
 
 namespace {
@@ -423,8 +424,17 @@ inline double tpdf_noise(uint32_t& rng) noexcept {
 } // namespace
 
 struct timbre_dsp_engine {
-    std::array<ParameterSlot, 2> slots{};
-    std::atomic<int> active_slot{0};
+    // Wait-free triple buffer: the writer only touches slots[writer_idx], the audio thread only
+    // slots[reader_idx]; `middle` hands the newest published slot over (kDirty = not yet taken).
+    static constexpr int kDirty = 4;
+    std::array<ParameterSlot, 3> slots{};
+    std::atomic<int> middle{2};
+    int reader_idx{0};                 // audio thread only
+    int writer_idx{1};                 // writers only (under writer_mutex)
+    std::mutex writer_mutex;           // serialises control-thread writers; never taken on the audio thread
+    timbre_dsp_config_t writer_config{};
+    std::array<timbre_band_t, TIMBRE_MAX_BANDS> writer_bands{};
+    uint32_t writer_band_count{0};
     std::atomic<double> target_output_gain{1.0};
     std::atomic<int> ab_mode{TIMBRE_AB_MODE_FULL};
 
@@ -551,8 +561,8 @@ timbre_dsp_config_t timbre_dsp_default_config(double sample_rate, uint32_t max_f
 timbre_dsp_engine_t* timbre_dsp_create(timbre_dsp_config_t config) {
     auto* eng = new timbre_dsp_engine();
     if (config.sample_rate <= 1000.0) config.sample_rate = 48000.0;
-    populate_slot(eng->slots[0], config, nullptr, 0);
-    populate_slot(eng->slots[1], config, nullptr, 0);
+    for (auto& s : eng->slots) populate_slot(s, config, nullptr, 0);
+    eng->writer_config = config;
     eng->limiter.prepare(config.sample_rate);
     eng->kweight.configure(config.sample_rate);
 
@@ -573,22 +583,41 @@ void timbre_dsp_destroy(timbre_dsp_engine_t* engine) {
     delete engine;
 }
 
+namespace {
+// Caller holds writer_mutex.
+void publish_locked(timbre_dsp_engine_t* engine) noexcept {
+    ParameterSlot& s = engine->slots[engine->writer_idx];
+    populate_slot(s, engine->writer_config, engine->writer_bands.data(), engine->writer_band_count);
+    engine->metric_preamp_db.store(s.preamp_db, std::memory_order_relaxed);
+    engine->writer_idx = engine->middle.exchange(engine->writer_idx | timbre_dsp_engine::kDirty, std::memory_order_acq_rel) & 3;
+}
+
+void copy_bands_locked(timbre_dsp_engine_t* engine, const timbre_band_t* bands, uint32_t count) noexcept {
+    engine->writer_band_count = bands ? std::min<uint32_t>(count, TIMBRE_MAX_BANDS) : 0;
+    for (uint32_t i = 0; i < engine->writer_band_count; ++i) engine->writer_bands[i] = bands[i];
+}
+} // namespace
+
+void timbre_dsp_update(timbre_dsp_engine_t* engine, timbre_dsp_config_t config, const timbre_band_t* bands, uint32_t count) {
+    if (!engine) return;
+    std::lock_guard<std::mutex> g(engine->writer_mutex);
+    engine->writer_config = config;
+    copy_bands_locked(engine, bands, count);
+    publish_locked(engine);
+}
+
 void timbre_dsp_update_config(timbre_dsp_engine_t* engine, timbre_dsp_config_t config) {
     if (!engine) return;
-    const int cur = engine->active_slot.load(std::memory_order_acquire);
-    const int nxt = 1 - cur;
-    const auto& prev = engine->slots[cur];
-    populate_slot(engine->slots[nxt], config, prev.raw_bands.data(), prev.band_count);
-    engine->active_slot.store(nxt, std::memory_order_release);
+    std::lock_guard<std::mutex> g(engine->writer_mutex);
+    engine->writer_config = config;
+    publish_locked(engine);
 }
 
 void timbre_dsp_set_bands(timbre_dsp_engine_t* engine, const timbre_band_t* bands, uint32_t count) {
     if (!engine) return;
-    const int cur = engine->active_slot.load(std::memory_order_acquire);
-    const int nxt = 1 - cur;
-    populate_slot(engine->slots[nxt], engine->slots[cur].config, bands, count);
-    engine->metric_preamp_db.store(engine->slots[nxt].preamp_db, std::memory_order_relaxed);
-    engine->active_slot.store(nxt, std::memory_order_release);
+    std::lock_guard<std::mutex> g(engine->writer_mutex);
+    copy_bands_locked(engine, bands, count);
+    publish_locked(engine);
 }
 
 void timbre_dsp_set_output_gain(timbre_dsp_engine_t* engine, double linear_gain) {
@@ -659,7 +688,10 @@ void timbre_dsp_process_planar_f32(
     if (!engine || !in_l || !in_r || !out_l || !out_r || frame_count == 0) return;
 
     const auto t0 = std::chrono::steady_clock::now();
-    const ParameterSlot& slot = engine->slots[engine->active_slot.load(std::memory_order_acquire)];
+    if (engine->middle.load(std::memory_order_acquire) & timbre_dsp_engine::kDirty) {
+        engine->reader_idx = engine->middle.exchange(engine->reader_idx, std::memory_order_acq_rel) & 3;
+    }
+    const ParameterSlot& slot = engine->slots[engine->reader_idx];
     const double fs = slot.config.sample_rate;
     const double gain_target = engine->target_output_gain.load(std::memory_order_relaxed);
     const double gain_alpha = 1.0 - std::exp(-1.0 / (fs * 0.010)); // 10 ms de-zippering
@@ -837,6 +869,42 @@ void timbre_dsp_process_interleaved_f32(
         for (uint32_t i = 0; i < chunk; ++i) {
             output[(offset + i) * 2] = out_l[i];
             output[(offset + i) * 2 + 1] = out_r[i];
+        }
+        offset += chunk;
+    }
+}
+
+void timbre_dsp_process_strided_f32(
+    timbre_dsp_engine_t* engine,
+    const float* in_l,
+    const float* in_r,
+    uint32_t in_stride,
+    float* out_l,
+    float* out_r,
+    uint32_t out_stride,
+    uint32_t frame_count
+) {
+    if (!engine || !in_l || !in_r || !out_l || frame_count == 0) return;
+    if (in_stride == 0) in_stride = 1;
+    if (out_stride == 0) out_stride = 1;
+    std::array<float, 256> a_l{}, a_r{}, b_l{}, b_r{};
+    uint32_t offset = 0;
+    while (offset < frame_count) {
+        const uint32_t chunk = std::min<uint32_t>(256, frame_count - offset);
+        for (uint32_t i = 0; i < chunk; ++i) {
+            const size_t k = static_cast<size_t>(offset + i) * in_stride;
+            a_l[i] = in_l[k];
+            a_r[i] = in_r[k];
+        }
+        timbre_dsp_process_planar_f32(engine, a_l.data(), a_r.data(), b_l.data(), b_r.data(), chunk);
+        for (uint32_t i = 0; i < chunk; ++i) {
+            const size_t k = static_cast<size_t>(offset + i) * out_stride;
+            if (out_r) {
+                out_l[k] = b_l[i];
+                out_r[k] = b_r[i];
+            } else {
+                out_l[k] = 0.5f * (b_l[i] + b_r[i]);
+            }
         }
         offset += chunk;
     }

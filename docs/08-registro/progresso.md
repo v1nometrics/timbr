@@ -18,6 +18,21 @@
 
 
 
+### 2026-11-22 · Revisão E2E do caminho de áudio (volume por app)
+
+- **Relato:** a regulagem não funcionava direito, acima de 100% nada mudava, e a saída criada pelo app tinha bug.
+- **Causa raiz (Comprovado):** `isExclusive = true` forçado em todo tap transformava o tap por app em "todos os outros apps". Reproduzido e medido; detalhes em [teste-e2e-volume-por-app-2026-11-22.md](teste-e2e-volume-por-app-2026-11-22.md).
+- **Feito:**
+  - Flag corrigida.
+  - Agregados próprios fora da lista de dispositivos.
+  - Buffer triplo wait-free de parâmetros, com publicação só quando a EQ muda.
+  - Callback de áudio que respeita o layout dos canais.
+  - Falhas registradas no Observatório.
+  - `updateDSP` só no slot global; espelho exclui apps no mudo.
+  - Estado "No limite" no Mixer.
+  - Autoteste `--selftest-audio` e `scripts/selftest_audio.sh`.
+- **Verificado:** autoteste 6/6 no app instalado (−6,02 / −12,04 / +6,02 / +3,52 dB exatos, mudo em silêncio, limitador em −0,30 dBFS). Teste de corrida do DSP no CI; CI inteiro passando.
+
 ### 2026-11-22 · Identidade acromática (ADR-0016)
 
 - **Pedido do dono:** tirar a obrigação com o roxo; o Órbita continua como referência, sem o violeta dele.

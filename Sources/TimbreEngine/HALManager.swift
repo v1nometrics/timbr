@@ -117,6 +117,9 @@ public final class HALManager: @unchecked Sendable {
 
         return ids.compactMap { id -> AudioDeviceDescriptor? in
             guard let uid = getStringProp(id, kAudioDevicePropertyDeviceUID) else { return nil }
+            // Our own private aggregates are plumbing, not devices: never list them (they would show up
+            // as outputs, could be picked as mirrors and churn the device list on every tap change).
+            if uid.hasPrefix(ProcessTapEngine.aggregateUIDPrefix) { return nil }
             let name = getStringProp(id, kAudioObjectPropertyName) ?? uid
             let mfr = getStringProp(id, kAudioObjectPropertyManufacturer) ?? ""
             let isHidden = (getUInt32Prop(id, kAudioDevicePropertyIsHidden) ?? 0) != 0

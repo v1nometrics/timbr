@@ -17,6 +17,17 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
 
     public func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
+        // End-to-end audio measurement (no UI, no AppState): `Timbr --selftest-audio <report.json>`.
+        let launchArgs = ProcessInfo.processInfo.arguments
+        if let i = launchArgs.firstIndex(of: "--selftest-audio") {
+            let url = URL(fileURLWithPath: i + 1 < launchArgs.count ? launchArgs[i + 1] : NSTemporaryDirectory() + "timbr-selftest.json")
+            Task { @MainActor in
+                let r = await AudioSelfTest.run(reportURL: url)
+                print("[selftest-audio] allPassed=\(r.allPassed) → \(url.path)")
+                NSApp.terminate(nil)
+            }
+            return
+        }
         appState.openStudioHandler = { [weak self] in
             self?.openStudio()
         }

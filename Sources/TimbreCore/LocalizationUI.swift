@@ -33,6 +33,7 @@ extension TimbreStrings {
         "ui.notch.muted": [.ptBR: "Mudo", .es: "Mudo", .en: "Muted"],
         "ui.notch.eq_on": [.ptBR: "Ativo", .es: "Activo", .en: "On"],
         "ui.notch.eq_off": [.ptBR: "Desligado", .es: "Apagado", .en: "Off"],
+        "ui.status.limited": [.ptBR: "No limite · mais volume distorceria", .es: "En el límite · más volumen distorsionaría", .en: "At the limit · louder would distort"],
         "ui.notch.open_app": [.ptBR: "Abrir %@", .es: "Abrir %@", .en: "Open %@"],
         "ui.notch.expand": [.ptBR: "Expandir", .es: "Expandir", .en: "Expand"],
         "ui.notch.empty_hint": [.ptBR: "Toque algo e o controle aparece aqui.", .es: "Reproduce algo y el control aparece aquí.", .en: "Play something and its control appears here."],

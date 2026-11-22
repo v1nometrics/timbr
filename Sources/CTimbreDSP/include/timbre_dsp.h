@@ -85,7 +85,10 @@ timbre_dsp_config_t timbre_dsp_default_config(double sample_rate, uint32_t max_f
 timbre_dsp_engine_t* timbre_dsp_create(timbre_dsp_config_t config);
 void timbre_dsp_destroy(timbre_dsp_engine_t* engine);
 
-// Non-RT thread: updates active config & filters lock-free via atomic slot swap.
+// Non-RT thread: parameters reach the audio thread through a wait-free triple buffer, so a
+// writer can never overwrite the slot the audio thread is reading, however fast it publishes.
+// Prefer timbre_dsp_update (one publish for config + bands) over the two calls below.
+void timbre_dsp_update(timbre_dsp_engine_t* engine, timbre_dsp_config_t config, const timbre_band_t* bands, uint32_t count);
 void timbre_dsp_update_config(timbre_dsp_engine_t* engine, timbre_dsp_config_t config);
 void timbre_dsp_set_bands(timbre_dsp_engine_t* engine, const timbre_band_t* bands, uint32_t count);
 void timbre_dsp_set_output_gain(timbre_dsp_engine_t* engine, double linear_gain);
@@ -110,6 +113,19 @@ void timbre_dsp_process_interleaved_f32(
     timbre_dsp_engine_t* engine,
     const float* input,
     float* output,
+    uint32_t frame_count
+);
+
+// Any channel layout: reads L/R with a stride (interleaved N channels, or planar with stride 1)
+// and writes L/R with a stride. out_r == NULL writes a mono mix (L+R)/2 into out_l.
+void timbre_dsp_process_strided_f32(
+    timbre_dsp_engine_t* engine,
+    const float* in_l,
+    const float* in_r,
+    uint32_t in_stride,
+    float* out_l,
+    float* out_r,
+    uint32_t out_stride,
     uint32_t frame_count
 );
 
