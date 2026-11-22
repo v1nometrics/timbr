@@ -15,8 +15,9 @@
 
 | Token | Definição | Uso |
 |---|---|---|
-| `notchOpen` | mola, duração 0,38 s, bounce 0,12 | Repouso/compacto → espiada, expandido, HUD. O leve bounce é a assinatura da Dynamic Island. |
-| `notchClose` | mola, 0,30 s, bounce 0 | Fechar. Mais rápido que abrir (assimetria: o sistema responde rápido). |
+| `notchOpen` | mola, duração 0,42 s, bounce 0,2 | Repouso/compacto → espiada, expandido, HUD. O bounce é a assinatura da Dynamic Island (DynamicNotchKit usa `.bouncy(0,4)`; boring.notch, amortecimento 0,8). |
+| `notchPop` | mola, 0,26 s, bounce 0,35 | Hover sobre o notch fechado: cresce 5 pt para os lados e 3 pt para baixo, na hora |
+| `notchClose` | mola, 0,34 s, bounce 0 | Fechar. Mais rápido que abrir (assimetria: o sistema responde rápido). |
 | `morph` | mola, 0,42 s, bounce 0 | Mudanças de layout grandes |
 | `smooth` | mola, 0,36 s, bounce 0 | Entrada/saída de linhas no mixer do notch |
 | `snappy` | mola, 0,24 s, bounce 0 | Switch, segmentado, polegar, alças da curva |
@@ -26,14 +27,18 @@
 
 ## 3. Coreografia do notch
 
-1. **A janela não anima nem muda de tamanho.** Canvas fixo; só a `NotchShape` (6 medidas animáveis) se move.
-2. **Forma e conteúdo juntos, sem atraso artificial.** O conteúdo do corpo entra com opacidade e 6 pt de deslocamento em 200 ms `easeOut` enquanto a mola da forma corre; sai em 80 ms.
-3. **Um ícone persistente** (`focusIcon`) muda de posição e tamanho com a mesma mola. Nada de copiar e cruzar.
-4. **Fechar segue o ponteiro** (`dismissProgress`): `interactiveSpring(response: 0.16, damping: 0.86)` a cada movimento; curva elástica `1 − (1 − d)^1.8`; ao passar o limite, `notchClose` assume a partir do valor atual.
-5. **A origem é o hardware.** Toda abertura nasce do notch e volta para ele.
-6. Números com `contentTransition(.numericText)`; ícone de volume com `.symbolEffect(.replace)`.
+Modelo estudado no código dos apps de referência (DynamicNotchKit e NotchDrop, MIT; boring.notch, GPL, só parâmetros):
 
-**Verificação:** `Timbr --demo` executa a coreografia completa (abrir, fechar seguindo o ponteiro, expandir, fechar, HUD). Grave com `screencapture -v -V 9` e inspecione quadro a quadro (folhas de contato com `ffmpeg … tile=3x5`).
+1. **A janela não anima nem muda de tamanho.** Canvas fixo; só a `NotchShape` (5 medidas animáveis: meia-largura esquerda e direita, altura, raio de baixo, ombro) se move.
+2. **Hover em dois tempos.** O pop (`notchPop`) responde no mesmo quadro em que o ponteiro entra. A abertura vem após 150 ms de permanência, para que varrer a barra de menus com o mouse nunca abra o notch por acidente. Abrir por hover dispara um toque háptico leve no trackpad.
+3. **Abre para os lados e para baixo ao mesmo tempo**, colado na borda da tela, com os ombros côncavos crescendo de 7 para 14 pt e o raio de baixo de 10 para 20–24 pt.
+4. **Conteúdo revelado pela própria forma.** Entra com blur 8→0, escala 0,8→1 ancorada no topo e opacidade, numa mola de 0,36 s. Sai em 90 ms, para a forma nunca arrastar conteúdo velho.
+5. **Um ícone persistente** (`focusIcon`) fica sempre na mesma linha, a da barra de menus. Ao abrir, ele só desliza na horizontal da orelha para a asa esquerda. Nada de copiar e cruzar.
+6. **Fechar segue o ponteiro** (`dismissProgress`): `interactiveSpring(response: 0.16, damping: 0.86)` a cada movimento, com curva elástica `1 − (1 − d)^1.8`. Ao passar o limite, `notchClose` assume a partir do valor atual. O limite é de 64 pt na espiada e 104 pt no expandido, mas cai para 30 pt quando o ponteiro está na faixa da barra de menus. Ir para um menu solta a barra quase na hora. A transição entre os dois limites é contínua em y, sem salto.
+7. **A origem é o hardware.** Toda abertura nasce do notch e volta para ele.
+8. Números com `contentTransition(.numericText)`; ícone de volume com `.symbolEffect(.replace)`.
+
+**Verificação:** `Timbr --demo` executa a coreografia completa (pop, abrir, fechar seguindo o ponteiro, expandir, fechar, HUD). Grave com `screencapture -v -V 9` e inspecione quadro a quadro (folhas de contato com `ffmpeg … tile=3x5`).
 
 ## 4. Pressão, hover e arraste
 

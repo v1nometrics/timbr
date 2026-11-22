@@ -18,6 +18,27 @@
 
 
 
+### 2026-11-22 · Notch v2.2 — modelo dos apps de referência (abre para os lados e para baixo)
+
+- **Pesquisa:** leitura do código-fonte de DynamicNotchKit (MIT), NotchDrop (MIT), boring.notch e Atoll (GPL, só parâmetros, nenhum código copiado). Os três têm o mesmo modelo:
+  - a forma é colada na borda e cresce em largura e altura a partir do notch;
+  - os ombros côncavos vão de 6 a 15–19 pt;
+  - a mola de abrir tem bounce entre 0,2 e 0,3, e a de fechar é suave;
+  - o conteúdo entra com blur, escala ancorada no topo e opacidade;
+  - há um "pop" ou estado de hover antes de abrir, e a sombra preta aparece só aberto.
+- **Feito:**
+  - Espiada, expandido e HUD voltaram a abrir para os lados e para baixo, com o conteúdo nas asas ao lado da câmera. O pescoço da v2.1 foi removido.
+  - O ícone do app viaja só na horizontal, da orelha para a asa.
+  - O hover faz o pop na hora e abre após 150 ms de permanência, com toque háptico.
+  - Na faixa da barra de menus, o fechamento por ponteiro solta a barra em 30 pt.
+  - O compacto continua usando só o espaço medido como livre.
+  - Tokens: `notchOpen` 0,42 s/0,2, `notchClose` 0,34 s, `notchPop` novo, ombros 7/14 pt, raio do expandido 24 pt.
+- **Verificado (Comprovado):**
+  - Capturas de espiada, expandido e compacto sobre o Safari.
+  - Vídeo `--demo` inspecionado quadro a quadro: pop, abertura, fechamento seguindo o ponteiro, expansão, fechamento e HUD.
+  - CI inteiro passando.
+- **Não verificado:** uso real com a mão (o `--demo` simula o ponteiro), em especial a sensação dos 150 ms de permanência e do háptico.
+
 ### 2026-11-21 · Notch v2.1 — fluidez, espaço da barra de menus e fechamento que segue o ponteiro
 
 1. **Causas:** ícone duplicado (cópias por estado cruzando opacidade), atraso de 60 ms na entrada do conteúdo, redimensionamento da janela, notch alargando na altura da barra de menus, fechamento só após 300 ms parado.

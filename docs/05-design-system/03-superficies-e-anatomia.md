@@ -18,21 +18,23 @@ O preenchimento é `Color(.sRGB, 0, 0, 0, 1)`: zero absoluto, sem contorno, sem 
 
 O que está sob nosso controle, e foi corrigido na v2.0: (1) não existe mais contorno de 11% de branco, que era o que tornava a borda visível em qualquer tela; (2) o topo é reto e encosta na moldura, sem frestas da barra de menus entre a moldura e a forma; (3) os ombros côncavos continuam a curva do hardware; (4) em repouso não desenhamos nada, só o notch físico aparece.
 
-### 1.2 Pescoço e corpo: o notch nunca disputa a barra de menus
+### 1.2 Forma única que abre para os lados e para baixo
 
-A forma tem duas partes (`NotchShape`, animável em 6 medidas):
+Estudamos o código dos apps de notch abertos mais usados: DynamicNotchKit (base de vários apps), boring.notch e NotchDrop. Todos usam o mesmo modelo, e é o que faz a forma ler como o notch crescendo:
 
 ```
-   ombro ╮                    ╭ ombro                ← altura da barra de menus (H)
-          │   PESCOÇO = notch  │                        largura ≤ notch físico (+ orelhas medidas)
-   ╭──────╯  filete côncavo    ╰──────╮              ← y = H
-   │               CORPO                 │            abaixo da barra de menus
-   ╰─────────────────────────────────────╯           cantos contínuos
+ ╮ombro                                              ombro╭     ← borda da tela (y = 0)
+ │  [ícone] Nome do app   ▓▓▓ câmera ▓▓▓   100 %  [mudo]  │     ← asas, na altura da barra de menus (H)
+ │  ─────────────────────●──────────────                  │     ← corpo
+ ╰────────────────────────────────────────────────────────╯     ← cantos contínuos
 ```
 
-- **Pescoço:** na altura da barra de menus, a forma nunca é mais larga que o notch físico. A única exceção são as orelhas do estado compacto, e só onde a barra está **medida como livre**.
-- **Corpo:** tudo o que é espiada, expandido ou HUD fica **abaixo** da barra de menus. O pescoço **desce 14 pt abaixo da barra** antes de se abrir no corpo, com filetes côncavos de 22 pt e cantos superiores convexos de 18 pt. Essa descida é o que faz o corpo ler como o próprio notch crescendo, e não como um cartão colado sob a barra (erro da v2.1 inicial, corrigido). A descida é proporcional ao quanto o corpo se abre, então o morph a partir do compacto é contínuo. Menus de apps (Chrome, Safari) e ícones de status nunca ficam cobertos.
-- **Ombros** côncavos de 9 pt no topo do pescoço continuam a curva do hardware.
+- **Uma forma só**, colada na borda da tela. Ela cresce para os lados e para baixo a partir do notch físico, nos dois eixos ao mesmo tempo.
+- **Asas:** na altura da barra de menus, à esquerda e à direita da câmera, fica o conteúdo mais importante: quem toca (ícone e nome) e quanto (volume) ou para onde (saída). Abaixo fica o controle. É o mesmo arranjo do boring.notch aberto e das atividades compactas do DynamicNotchKit.
+- **Ombros** côncavos no topo continuam a curva do hardware: 7 pt fechado, 14 pt aberto (os apps de referência usam 6 → 15/19 pt).
+- **Sombra preta suave só enquanto aberto** (raio 14, y 6, 50%). Ela dá a profundidade de "ilha" sobre conteúdo claro; sobre conteúdo escuro some.
+
+**Por que abandonamos o "pescoço" da v2.1.** Na v2.1 os estados abertos desciam só para baixo, sem tocar a barra. O dono do produto testou e achou estranho: parecia um cartão pendurado, não o notch crescendo. Nenhum app de referência faz isso. O que resolve a disputa com os menus é separar os estados persistentes dos transitórios (§1.3 e §1.5), não deformar a abertura.
 
 ### 1.3 Orelhas medidas (divisão de espaço com a barra de menus)
 
@@ -53,20 +55,20 @@ A forma tem duas partes (`NotchShape`, animável em 6 medidas):
 
 `W` e `H` são a largura e a altura do notch físico.
 
-| Estado | Pescoço | Corpo (largura × profundidade abaixo da barra) | Raio |
-|---|---|---|---|
-| Repouso | W | — (só o hardware, nada desenhado) | — |
-| Compacto | W + orelhas medidas | — (ou queixo W × 20) | 10 / 12 |
-| HUD | W | 248 × 34: ícone de volume, barra, valor | 17 |
-| Espiada | W | 360 × 66: ícone, nome, volume, fader | 22 |
-| Expandido | W | 444 × (cabeçalho 30 + foco 74 + 34 por fonte até 3 + alerta 44 + rodapé 46) | 26 |
+| Estado | Largura | Altura total | Raio de baixo / ombro | Conteúdo |
+|---|---|---|---|---|
+| Repouso | W | H | 10 / 7 | nada desenhado (só o hardware); no hover aparece +5 pt de cada lado e +3 pt para baixo |
+| Compacto | W + orelhas medidas | H (ou H + 20 de queixo) | 10 / 7 | ícone e medidor nas orelhas livres |
+| HUD | W + 2 × 58 | H + 18 | 14 / 11 | asas: ícone e valor; queixo: barra de nível |
+| Espiada | W + 2 × 128 | H + 44 | 20 / 14 | asas: ícone, nome, volume, mudo; abaixo: fader |
+| Expandido | máx(W + 2 × 140, 464) | H + 8 + foco 66 + 34 por fonte (até 3) + alerta 44 + rodapé 46 | 24 / 14 | asas: app e saída; abaixo: volume, fader, outras fontes, rodapé |
 
 A janela tem **tamanho fixo** (cabe o maior estado) e nunca é redimensionada. Só a forma se move. Os cliques atravessam a janela fora da forma (`ignoresMouseEvents` atualizado a cada movimento do ponteiro enquanto aberta).
 
 ### 1.5 Interação
 
-- **Abrir:** hover de 70 ms sobre o notch (ou sobre as orelhas) abre a espiada; clique abre o expandido. Detecção por `NSTrackingArea`, sem polling.
-- **Fechar acompanhando o ponteiro:** enquanto aberto, a distância do ponteiro até a forma dirige um progresso contínuo de 0 a 1 (espiada: 70 pt; expandido: 110 pt), com curva elástica. A forma encolhe em direção ao estado fechado, o conteúdo desfoca (até 6 pt) e some, e o ícone viaja de volta para a orelha, tudo em tempo real. Se o ponteiro volta, tudo volta. Passando o limite, fecha com a mola `notchClose`, partindo exatamente de onde estava (sem salto).
+- **Abrir:** o hover sobre o notch (ou sobre as orelhas) faz o pop na hora. Se o ponteiro fica 150 ms, abre a espiada, com um toque háptico leve. Passar rápido pela barra não abre nada. Clique abre o expandido. Detecção por `NSTrackingArea`, sem polling.
+- **Fechar acompanhando o ponteiro:** enquanto aberto, a distância do ponteiro até a forma dirige um progresso contínuo de 0 a 1 (espiada: 64 pt; expandido: 104 pt; **30 pt quando o ponteiro está na faixa da barra de menus**, para que ir até um menu coberto o libere quase na hora), com curva elástica. A forma encolhe em direção ao estado fechado, o conteúdo desfoca (até 6 pt) e some, e o ícone viaja de volta para a orelha, tudo em tempo real. Se o ponteiro volta, tudo volta. Passando o limite, fecha com a mola `notchClose`, partindo exatamente de onde estava (sem salto).
 - **Expandido por clique ou atalho:** só passa a seguir o ponteiro depois que ele entra na forma uma vez; abrir pelo teclado não fecha sozinho.
 - **Um único ícone viaja** entre orelha, espiada e expandido; os blocos de conteúdo reservam o espaço dele. Nunca há duas cópias se cruzando.
 - Clique fora ou `Esc` fecham. O monitoramento de movimento só existe enquanto aberto (custo zero em repouso).

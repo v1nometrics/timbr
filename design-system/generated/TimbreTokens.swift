@@ -141,9 +141,10 @@ public enum TimbreMotion {
     public static let snappy = Animation.spring(duration: 0.24, bounce: 0.0)
     public static let smooth = Animation.spring(duration: 0.36, bounce: 0.0)
     public static let morph = Animation.spring(duration: 0.42, bounce: 0.0)
-    public static let notchOpen = Animation.spring(duration: 0.38, bounce: 0.12)
-    public static let notchClose = Animation.spring(duration: 0.3, bounce: 0.0)
+    public static let notchOpen = Animation.spring(duration: 0.42, bounce: 0.2)
+    public static let notchClose = Animation.spring(duration: 0.34, bounce: 0.0)
     public static let responsive = Animation.interpolatingSpring(stiffness: 520, damping: 44)
+    public static let notchPop = Animation.spring(duration: 0.26, bounce: 0.35)
     public static let staggerItem: Double = 0.035
     public static let staggerMaxTotal: Double = 0.35
 }
@@ -167,9 +168,10 @@ public enum TimbreRadius {
     public static let field: CGFloat = 8
     public static let card: CGFloat = 12
     public static let panel: CGFloat = 16
-    public static let notchExpanded: CGFloat = 26
-    public static let notchShoulder: CGFloat = 9
+    public static let notchExpanded: CGFloat = 24
+    public static let notchShoulder: CGFloat = 7
     public static let pill: CGFloat = 9999
+    public static let notchShoulderOpen: CGFloat = 14
 }
 
 public struct TimbreTypeSpec: Sendable {

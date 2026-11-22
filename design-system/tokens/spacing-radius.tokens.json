@@ -64,15 +64,19 @@
     },
     "notchExpanded": {
       "$type": "dimension",
-      "$value": "26px"
+      "$value": "24px"
     },
     "notchShoulder": {
       "$type": "dimension",
-      "$value": "9px"
+      "$value": "7px"
     },
     "pill": {
       "$type": "dimension",
       "$value": "9999px"
+    },
+    "notchShoulderOpen": {
+      "$type": "dimension",
+      "$value": "14px"
     }
   },
   "borderWidth": {

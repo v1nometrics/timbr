@@ -42,9 +42,10 @@
   --timbre-radius-field: 8px;
   --timbre-radius-card: 12px;
   --timbre-radius-panel: 16px;
-  --timbre-radius-notchExpanded: 26px;
-  --timbre-radius-notchShoulder: 9px;
+  --timbre-radius-notchExpanded: 24px;
+  --timbre-radius-notchShoulder: 7px;
   --timbre-radius-pill: 9999px;
+  --timbre-radius-notchShoulderOpen: 14px;
   --timbre-border-hairline: 0.5px;
   --timbre-border-default: 1px;
   --timbre-border-hairlineNotch: 0px;

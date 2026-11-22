@@ -1,15 +1,16 @@
 // SPDX-License-Identifier: MPL-2.0
 // The notch surface (docs/05-design-system/03-superficies-e-anatomia.md §1).
 //
-// Rules that make it read as hardware and never fight the menu bar:
-//   1. Fill is exactly sRGB 0,0,0 — no stroke, no shadow, no blur, no alpha.
-//   2. NECK + BODY: at menu-bar height the shape is never wider than the physical notch
-//      (plus ears only where the menu bar is measured free). Everything else hangs BELOW the
-//      menu bar in a body joined to the notch by concave fillets — menus are never covered.
-//   3. The window never resizes; one animatable shape morphs inside a fixed canvas.
-//   4. One persistent app icon travels between states (no duplicate cross-fading copies).
-//   5. Hover is event-driven; closing follows the pointer continuously (rubber-band),
-//      reverses if it comes back and commits past a threshold, carrying the motion.
+// Model studied from the reference open-source notch apps (DynamicNotchKit and NotchDrop, MIT;
+// boring.notch, GPL — parameters only, no code copied):
+//   1. Fill is exactly sRGB 0,0,0 with no stroke; a soft black shadow only while open.
+//   2. One shape, flush with the screen edge, grows SIDEWAYS AND DOWN from the hardware notch;
+//      content flanks the camera in "wings" at menu-bar height.
+//   3. The persistent state (compact) only uses menu-bar space measured as free; open states are
+//      transient and release the menu bar as soon as the pointer heads for it.
+//   4. The window never resizes; one animatable shape morphs inside a fixed canvas.
+//   5. Hover pops the notch immediately, opens after a short dwell (no accidental opens when
+//      sweeping the menu bar), and closing follows the pointer continuously.
 import SwiftUI
 import AppKit
 import Combine
@@ -108,17 +109,26 @@ enum MenuBarSpace {
 
 // MARK: - Layout spec
 
-/// Neck = the part at menu-bar height (extents from the notch centre).
-/// Body = the part below the menu bar. `h` = total height from the screen edge.
+/// The whole shape is described by five animatable numbers, measured from the notch centre:
+/// left/right half-widths, total height from the screen edge, bottom corner radius and the
+/// concave top "shoulder" radius that blends the shape into the screen edge.
 struct NotchSpec: Equatable {
-    var nL: CGFloat, nR: CGFloat, bL: CGFloat, bR: CGFloat, h: CGFloat, r: CGFloat
+    var l: CGFloat, r: CGFloat, h: CGFloat, bottom: CGFloat, shoulder: CGFloat
 
     func lerp(to o: NotchSpec, _ t: CGFloat) -> NotchSpec {
         func m(_ a: CGFloat, _ b: CGFloat) -> CGFloat { a + (b - a) * t }
-        return NotchSpec(nL: m(nL, o.nL), nR: m(nR, o.nR), bL: m(bL, o.bL), bR: m(bR, o.bR), h: m(h, o.h), r: m(r, o.r))
+        return NotchSpec(l: m(l, o.l), r: m(r, o.r), h: m(h, o.h), bottom: m(bottom, o.bottom), shoulder: m(shoulder, o.shoulder))
     }
+
+    /// Hover "pop": the notch breathes a few points before it commits to opening.
+    var popped: NotchSpec { NotchSpec(l: l + 5, r: r + 5, h: h + 3, bottom: bottom + 2, shoulder: shoulder) }
 }
 
+/// Model shared by every reference notch app (DynamicNotchKit, boring.notch, NotchDrop):
+/// the open notch grows sideways AND down from the hardware, flush with the screen edge,
+/// content flanking the camera in the "wings" at menu-bar height. The persistent state
+/// (compact) only ever uses menu-bar space measured as free; open states are transient,
+/// user-initiated, and release the menu bar as soon as the pointer heads for it.
 struct NotchLayout {
     let g: NotchScreenGeometry
     let ears: (left: CGFloat, right: CGFloat)
@@ -127,113 +137,86 @@ struct NotchLayout {
     var useChin: Bool { ears.left == 0 && ears.right == 0 }
 
     static let chinHeight: CGFloat = 20
-    /// The neck continues this far below the menu bar before flaring into the body,
-    /// so the body reads as the notch itself growing, not a card stuck under the menu bar.
-    static let drop: CGFloat = 14
-    static let peekHalf: CGFloat = 180
-    static let expandedHalf: CGFloat = 222
-    static let hudHalf: CGFloat = 124
+    static let peekWing: CGFloat = 128
+    static let expandedWing: CGFloat = 140
+    static let hudWing: CGFloat = 58
+    static let peekDepth: CGFloat = 44
+    static let hudDepth: CGFloat = 18
+    static let shadowPad: CGFloat = 28
 
-    static func expandedBodyHeight(rows: Int, hasAlert: Bool, hasFocus: Bool) -> CGFloat {
-        10 + 30 + 6 + (hasFocus ? 74 : 48) + CGFloat(rows) * 34 + (hasAlert ? 44 : 0) + 46 + 4
+    static func expandedDepth(rows: Int, hasAlert: Bool, hasFocus: Bool) -> CGFloat {
+        8 + (hasFocus ? 66 : 46) + CGFloat(rows) * 34 + (hasAlert ? 44 : 0) + 46 + 2
     }
 
+    var peekHalf: CGFloat { half + Self.peekWing }
+    var expandedHalf: CGFloat { max(half + Self.expandedWing, 232) }
+    var hudHalf: CGFloat { half + Self.hudWing }
+    var restRadius: CGFloat { min(10, H / 3) }
+
     func spec(_ state: NotchState, rows: Int = 0, hasAlert: Bool = false, hasFocus: Bool = true) -> NotchSpec {
-        let rest = NotchSpec(nL: half, nR: half, bL: half, bR: half, h: H, r: min(10, H / 2))
+        let closedS = TimbreRadius.notchShoulder, openS = TimbreRadius.notchShoulderOpen
         switch state {
         case .resting:
-            return rest
+            return NotchSpec(l: half, r: half, h: H, bottom: restRadius, shoulder: closedS)
         case .compact:
-            if useChin { return NotchSpec(nL: half, nR: half, bL: half, bR: half, h: H + Self.chinHeight, r: 12) }
-            let l = half + ears.left, r = half + ears.right
-            return NotchSpec(nL: l, nR: r, bL: l, bR: r, h: H, r: min(10, H / 2 - 1))
+            if useChin { return NotchSpec(l: half, r: half, h: H + Self.chinHeight, bottom: 12, shoulder: closedS) }
+            return NotchSpec(l: half + ears.left, r: half + ears.right, h: H, bottom: restRadius, shoulder: closedS)
         case .hud:
-            let b = max(Self.hudHalf, half + 36)
-            return NotchSpec(nL: half, nR: half, bL: b, bR: b, h: H + Self.drop + 34, r: 17)
+            return NotchSpec(l: hudHalf, r: hudHalf, h: H + Self.hudDepth, bottom: 14, shoulder: 11)
         case .peek:
-            let b = max(Self.peekHalf, half + 40)
-            return NotchSpec(nL: half, nR: half, bL: b, bR: b, h: H + Self.drop + 64, r: 22)
+            return NotchSpec(l: peekHalf, r: peekHalf, h: H + Self.peekDepth, bottom: 20, shoulder: openS)
         case .expanded:
-            let b = max(Self.expandedHalf, half + 40)
-            return NotchSpec(nL: half, nR: half, bL: b, bR: b, h: H + Self.drop + Self.expandedBodyHeight(rows: rows, hasAlert: hasAlert, hasFocus: hasFocus), r: 26)
+            return NotchSpec(l: expandedHalf, r: expandedHalf,
+                             h: H + Self.expandedDepth(rows: rows, hasAlert: hasAlert, hasFocus: hasFocus),
+                             bottom: TimbreRadius.notchExpanded, shoulder: openS)
         }
     }
 
-    /// Fixed canvas: large enough for every state, so the window never resizes.
+    /// Fixed canvas: fits the largest state plus its shadow, so the window never resizes.
     var canvas: CGSize {
-        CGSize(width: max(Self.expandedHalf, half + 40, half + MenuBarSpace.earMax) * 2 + 40,
-               height: H + Self.drop + Self.expandedBodyHeight(rows: 3, hasAlert: true, hasFocus: true) + 12)
+        CGSize(width: (expandedHalf + TimbreRadius.notchShoulderOpen + Self.shadowPad) * 2,
+               height: H + Self.expandedDepth(rows: 3, hasAlert: true, hasFocus: true) + Self.shadowPad)
     }
 }
 
 // MARK: - Shape
 
-/// Shoulders (concave) at the screen edge → neck → concave fillets → body → continuous corners.
+/// Concave shoulders at the screen edge → straight sides → continuous bottom corners.
+/// Without a hardware notch it becomes a floating continuous pill.
 struct NotchShape: Shape {
     var spec: NotchSpec
-    var neckHeight: CGFloat
-    var shoulder: CGFloat
-    var drop: CGFloat = NotchLayout.drop
-    var fillet: CGFloat = 22
-    var bodyTopRadius: CGFloat = 18
+    var hardware: Bool
 
-    var animatableData: AnimatablePair<AnimatablePair<AnimatablePair<CGFloat, CGFloat>, AnimatablePair<CGFloat, CGFloat>>, AnimatablePair<CGFloat, CGFloat>> {
-        get { AnimatablePair(AnimatablePair(AnimatablePair(spec.nL, spec.nR), AnimatablePair(spec.bL, spec.bR)), AnimatablePair(spec.h, spec.r)) }
+    var animatableData: AnimatablePair<AnimatablePair<CGFloat, CGFloat>, AnimatablePair<CGFloat, AnimatablePair<CGFloat, CGFloat>>> {
+        get { AnimatablePair(AnimatablePair(spec.l, spec.r), AnimatablePair(spec.h, AnimatablePair(spec.bottom, spec.shoulder))) }
         set {
-            spec.nL = newValue.first.first.first; spec.nR = newValue.first.first.second
-            spec.bL = newValue.first.second.first; spec.bR = newValue.first.second.second
-            spec.h = newValue.second.first; spec.r = newValue.second.second
+            spec.l = newValue.first.first; spec.r = newValue.first.second
+            spec.h = newValue.second.first
+            spec.bottom = newValue.second.second.first; spec.shoulder = newValue.second.second.second
         }
     }
 
     func path(in rect: CGRect) -> Path {
         let cx = rect.midX, top = rect.minY
-        let menuH = neckHeight
-        let h = max(spec.h, menuH)
-        let nL = spec.nL, nR = spec.nR
-        let bL = max(spec.bL, nL), bR = max(spec.bR, nR)
-        let s = shoulder
+        let l = max(0, spec.l), r = max(0, spec.r), h = max(1, spec.h)
+        guard hardware else {
+            return Path(roundedRect: CGRect(x: cx - l, y: top, width: l + r, height: h),
+                        cornerRadius: min(spec.bottom, h / 2), style: .continuous)
+        }
+        let s = max(0, min(spec.shoulder, h / 2))
+        let b = max(0, min(spec.bottom, h - s, (l + r) / 2))
         let bottom = top + h
-        let flares = (bL - nL) > 0.5 || (bR - nR) > 0.5
-        // Junction height: the neck drops below the menu bar (scaled by how far the body flares).
-        let flareAmount = min(1, max(bL - nL, bR - nR) / 40)
-        let H = menuH + (flares ? drop * flareAmount : 0)
-        let bodyDepth = max(0, h - H)
-        let r = min(spec.r, (bL + bR) / 2, max(2, h - s) * 0.5)
-        _ = flares
-
-        // No hardware notch: a floating continuous pill.
-        guard s > 0 else {
-            return Path(roundedRect: CGRect(x: cx - bL, y: top, width: bL + bR, height: h), cornerRadius: min(r, h / 2), style: .continuous)
-        }
-
-        let flareL = bL - nL, flareR = bR - nR
-        let fL = min(fillet, flareL / 2, H - s), fR = min(fillet, flareR / 2, H - s)
-        let tL = min(bodyTopRadius, flareL / 2, bodyDepth / 2), tR = min(bodyTopRadius, flareR / 2, bodyDepth / 2)
-        let rr = min(r, bodyDepth > 1 ? bodyDepth - max(tL, tR) : r)
-
         var p = Path()
-        // Left shoulder.
-        p.move(to: CGPoint(x: cx - nL - s, y: top))
-        p.addQuadCurve(to: CGPoint(x: cx - nL, y: top + s), control: CGPoint(x: cx - nL, y: top))
-        if flareL > 0.5 {
-            p.addLine(to: CGPoint(x: cx - nL, y: top + H - fL))
-            p.addQuadCurve(to: CGPoint(x: cx - nL - fL, y: top + H), control: CGPoint(x: cx - nL, y: top + H))
-            p.addLine(to: CGPoint(x: cx - bL + tL, y: top + H))
-            p.addQuadCurve(to: CGPoint(x: cx - bL, y: top + H + tL), control: CGPoint(x: cx - bL, y: top + H))
-        }
-        p.addLine(to: CGPoint(x: cx - bL, y: bottom - rr))
-        p.addCurve(to: CGPoint(x: cx - bL + rr, y: bottom), control1: CGPoint(x: cx - bL, y: bottom - rr * 0.38), control2: CGPoint(x: cx - bL + rr * 0.38, y: bottom))
-        p.addLine(to: CGPoint(x: cx + bR - rr, y: bottom))
-        p.addCurve(to: CGPoint(x: cx + bR, y: bottom - rr), control1: CGPoint(x: cx + bR - rr * 0.38, y: bottom), control2: CGPoint(x: cx + bR, y: bottom - rr * 0.38))
-        if flareR > 0.5 {
-            p.addLine(to: CGPoint(x: cx + bR, y: top + H + tR))
-            p.addQuadCurve(to: CGPoint(x: cx + bR - tR, y: top + H), control: CGPoint(x: cx + bR, y: top + H))
-            p.addLine(to: CGPoint(x: cx + nR + fR, y: top + H))
-            p.addQuadCurve(to: CGPoint(x: cx + nR, y: top + H - fR), control: CGPoint(x: cx + nR, y: top + H))
-        }
-        p.addLine(to: CGPoint(x: cx + nR, y: top + s))
-        p.addQuadCurve(to: CGPoint(x: cx + nR + s, y: top), control: CGPoint(x: cx + nR, y: top))
+        p.move(to: CGPoint(x: cx - l - s, y: top))
+        p.addQuadCurve(to: CGPoint(x: cx - l, y: top + s), control: CGPoint(x: cx - l, y: top))
+        p.addLine(to: CGPoint(x: cx - l, y: bottom - b))
+        p.addCurve(to: CGPoint(x: cx - l + b, y: bottom),
+                   control1: CGPoint(x: cx - l, y: bottom - b * 0.42), control2: CGPoint(x: cx - l + b * 0.42, y: bottom))
+        p.addLine(to: CGPoint(x: cx + r - b, y: bottom))
+        p.addCurve(to: CGPoint(x: cx + r, y: bottom - b),
+                   control1: CGPoint(x: cx + r - b * 0.42, y: bottom), control2: CGPoint(x: cx + r, y: bottom - b * 0.42))
+        p.addLine(to: CGPoint(x: cx + r, y: top + s))
+        p.addQuadCurve(to: CGPoint(x: cx + r + s, y: top), control: CGPoint(x: cx + r, y: top))
         p.closeSubpath()
         return p
     }
@@ -246,6 +229,8 @@ struct NotchShape: Shape {
 final class NotchInteraction: ObservableObject {
     /// 0 = fully open, 1 = fully collapsed; driven continuously by pointer distance.
     @Published var dismissProgress: CGFloat = 0
+    /// Pointer is over the closed notch and the dwell timer is running.
+    @Published var hovering = false
     @Published var ears: (left: CGFloat, right: CGFloat) = (0, 0)
     @Published var geometry: NotchScreenGeometry = .measure()
 }
@@ -279,6 +264,10 @@ private final class NotchSensorView: NSView {
 
 @MainActor
 public final class NotchPanelController {
+    /// Dwell before a hover opens the notch. Long enough that sweeping the pointer across the
+    /// menu bar never opens it by accident; the hover "pop" gives feedback before that.
+    private static let dwell: TimeInterval = 0.15
+
     private var panel: NonActivatingNotchPanel?
     private var sensor: NSPanel?
     private weak var appState: AppState?
@@ -289,7 +278,7 @@ public final class NotchPanelController {
     private var moveMonitors: [Any] = []
     private var hoverWork: DispatchWorkItem?
     private var earTimer: Timer?
-    /// Expanded opened by click/shortcut only starts following the pointer after it has been inside once.
+    /// Open states only start following the pointer once it has been inside the shape.
     private var armed = false
     private var lastState: NotchState = .resting
 
@@ -334,7 +323,7 @@ public final class NotchPanelController {
         s.collectionBehavior = [.canJoinAllSpaces, .stationary, .fullScreenAuxiliary, .ignoresCycle]
         let v = NotchSensorView()
         v.onEnter = { [weak self] in self?.sensorEntered() }
-        v.onExit = { [weak self] in self?.hoverWork?.cancel() }
+        v.onExit = { [weak self] in self?.sensorExited() }
         v.onClick = { [weak self] in self?.open(.expanded) }
         s.contentView = v
         sensor = s
@@ -394,6 +383,7 @@ public final class NotchPanelController {
         panel.allowKeyFocus = state == .expanded
         if interactive {
             sensor.orderOut(nil)
+            if interaction.hovering { interaction.hovering = false }
             startFollowing()
             if state == .expanded, lastState != .expanded {
                 armed = pointerInsideShape(state: .expanded, margin: 2)
@@ -430,18 +420,32 @@ public final class NotchPanelController {
         sensor.setFrame(CGRect(x: x, y: g.screenFrame.maxY - hgt, width: g.notchWidth + left + right, height: hgt), display: false)
     }
 
+    // MARK: Hover → pop → open
+
     private func sensorEntered() {
         hoverWork?.cancel()
-        let work = DispatchWorkItem { [weak self] in self?.open(.peek) }
+        guard let s = appState?.notchState, s == .resting || s == .compact else { return }
+        withAnimation(TimbreMotion.notchPop) { interaction.hovering = true }
+        let work = DispatchWorkItem { [weak self] in self?.open(.peek, haptic: true) }
         hoverWork = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.07, execute: work)
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.dwell, execute: work)
     }
 
-    private func open(_ state: NotchState) {
+    private func sensorExited() {
+        hoverWork?.cancel()
+        if interaction.hovering { withAnimation(TimbreMotion.notchClose) { interaction.hovering = false } }
+    }
+
+    private func open(_ state: NotchState, haptic: Bool = false) {
         hoverWork?.cancel()
         guard let appState, appState.notchEnabled, !appState.menuBarOnlyMode else { return }
         if state == .peek, !(appState.notchState == .resting || appState.notchState == .compact) { return }
-        withAnimation(TimbreMotion.notchOpen) { appState.notchState = state }
+        if haptic { NSHapticFeedbackManager.defaultPerformer.perform(.levelChange, performanceTime: .now) }
+        withAnimation(TimbreMotion.notchOpen) {
+            interaction.hovering = false
+            interaction.dismissProgress = 0
+            appState.notchState = state
+        }
     }
 
     private func close() {
@@ -473,22 +477,18 @@ public final class NotchPanelController {
         moveMonitors.removeAll()
     }
 
-    private func screenRects(for state: NotchState) -> [CGRect] {
-        guard let appState else { return [] }
+    private func screenRect(for state: NotchState) -> CGRect {
+        guard let appState else { return .zero }
         let s = layoutModel.spec(state, rows: NotchOverlayView.listRows(appState), hasAlert: !appState.guardianAlerts.isEmpty, hasFocus: appState.focusSource != nil)
         let topY = g.screenFrame.maxY - (g.hasPhysicalNotch ? 0 : 6)
-        let mid = g.screenFrame.midX
-        let neck = CGRect(x: mid - s.nL, y: topY - g.notchHeight, width: s.nL + s.nR, height: g.notchHeight)
-        let body = CGRect(x: mid - s.bL, y: topY - s.h, width: s.bL + s.bR, height: s.h)
-        return [neck, body]
+        return CGRect(x: g.screenFrame.midX - s.l, y: topY - s.h, width: s.l + s.r, height: s.h)
     }
 
     private func distanceToShape(_ p: CGPoint, state: NotchState) -> CGFloat {
-        screenRects(for: state).map { r -> CGFloat in
-            let dx = max(r.minX - p.x, 0, p.x - r.maxX)
-            let dy = max(r.minY - p.y, 0, p.y - r.maxY)
-            return (dx * dx + dy * dy).squareRoot()
-        }.min() ?? .greatestFiniteMagnitude
+        let r = screenRect(for: state)
+        let dx = max(r.minX - p.x, 0, p.x - r.maxX)
+        let dy = max(r.minY - p.y, 0, p.y - r.maxY)
+        return (dx * dx + dy * dy).squareRoot()
     }
 
     private func pointerInsideShape(state: NotchState, margin: CGFloat) -> Bool {
@@ -505,11 +505,17 @@ public final class NotchPanelController {
         let state = appState.notchState
         guard state == .peek || state == .expanded else { return }
         updateMouseThrough()
-        let d = distanceToShape(NSEvent.mouseLocation, state: state)
+        let pt = NSEvent.mouseLocation
+        let d = distanceToShape(pt, state: state)
         if d <= 0.5 { armed = true }
         guard armed else { return }
-        let range: CGFloat = state == .peek ? 70 : 110
-        let raw = max(0, d - 6) / range
+        // Heading sideways along the menu bar means "I want a menu": release it much sooner.
+        // The blend is continuous in y so the progress never jumps.
+        let bandBottom = g.screenFrame.maxY - g.notchHeight
+        let inBand = min(1, max(0, (pt.y - (bandBottom - 16)) / 16))
+        let normal: CGFloat = state == .peek ? 64 : 104
+        let range = normal + (30 - normal) * inBand
+        let raw = max(0, d - 4) / range
         if raw >= 1 {
             armed = false
             close()
@@ -540,13 +546,14 @@ public final class NotchPanelController {
         }
     }
 
-    /// Design-review choreography (`--demo`): open, pointer-driven collapse, expand, close, HUD.
+    /// Design-review choreography (`--demo`): pop, open, pointer-driven collapse, expand, close, HUD.
     public func runDemo() {
         guard let appState else { return }
         func at(_ t: Double, _ f: @escaping @MainActor () -> Void) {
             DispatchQueue.main.asyncAfter(deadline: .now() + t) { MainActor.assumeIsolated { f() } }
         }
         at(0.6) { appState.notchState = .compact }
+        at(1.4) { withAnimation(TimbreMotion.notchPop) { self.interaction.hovering = true } }
         at(1.6) { self.open(.peek) }
         // Simulated pointer walking away over ~0.7 s, then commit.
         for i in 0...14 {
@@ -574,6 +581,18 @@ public final class NotchPanelController {
     }
 }
 
+// MARK: - Content reveal (blur + scale from the top, as the shape grows)
+
+private struct Reveal: ViewModifier {
+    let p: CGFloat
+    func body(content: Content) -> some View {
+        content
+            .opacity(1 - Double(p))
+            .blur(radius: 8 * p)
+            .scaleEffect(x: 1 - 0.04 * p, y: 1 - 0.2 * p, anchor: .top)
+    }
+}
+
 // MARK: - Overlay view
 
 public struct NotchOverlayView: View {
@@ -589,28 +608,33 @@ public struct NotchOverlayView: View {
     private var focus: AudioSourceDescriptor? { appState.focusSource }
     private var closedState: NotchState { appState.shouldShowCompact ? .compact : .resting }
     private var level: Double? { appState.hasLiveSignal ? min(1, max(0, (appState.telemetry.lufsMomentary + 48) / 40)) : nil }
+    private var H: CGFloat { g.notchHeight }
 
     private func spec(_ s: NotchState) -> NotchSpec {
         layout.spec(s, rows: Self.listRows(appState), hasAlert: !appState.guardianAlerts.isEmpty, hasFocus: focus != nil)
     }
 
+    private static func isOpen(_ s: NotchState) -> Bool { s == .peek || s == .expanded || s == .hud }
+
     public var body: some View {
         let state = appState.notchState
         let p = (state == .peek || state == .expanded) ? interaction.dismissProgress : 0
-        let rendered = spec(state).lerp(to: spec(closedState), p)
+        let closedPose = interaction.hovering ? spec(state).popped : spec(state)
+        let rendered = Self.isOpen(state) ? spec(state).lerp(to: spec(closedState), p) : closedPose
         let canvas = layout.canvas
-        let shape = NotchShape(spec: rendered, neckHeight: g.notchHeight, shoulder: g.hasPhysicalNotch ? TimbreRadius.notchShoulder : 0)
-        let contentOpacity = max(0, 1 - Double(p) * 1.7)
+        let shape = NotchShape(spec: rendered, hardware: g.hasPhysicalNotch)
+        let openAmount = Self.isOpen(state) ? Double(1 - p) : 0
+        let hidden = state == .resting && g.hasPhysicalNotch && !interaction.hovering
 
         ZStack(alignment: .topLeading) {
             shape
                 .fill(Color(.sRGB, red: 0, green: 0, blue: 0, opacity: 1))
-                .opacity(state == .resting && g.hasPhysicalNotch ? 0 : 1)
+                .shadow(color: .black.opacity(0.5 * openAmount), radius: 14, x: 0, y: 6)
+                .opacity(hidden ? 0 : 1)
 
             ZStack(alignment: .topLeading) {
                 content(state, spec: spec(state), canvas: canvas)
-                    .opacity(contentOpacity)
-                    .blur(radius: p * 6)
+                    .modifier(Reveal(p: min(1, p * 1.6)))
                 focusIcon(state, progress: p, canvas: canvas)
             }
             .frame(width: canvas.width, height: canvas.height, alignment: .topLeading)
@@ -625,14 +649,13 @@ public struct NotchOverlayView: View {
     }
 
     private func animation(for s: NotchState) -> Animation {
-        (s == .peek || s == .expanded || s == .hud) ? TimbreMotion.notchOpen : TimbreMotion.notchClose
+        Self.isOpen(s) ? TimbreMotion.notchOpen : TimbreMotion.notchClose
     }
 
     // MARK: Persistent focus icon — one view that travels, never duplicated
 
     private func iconFrame(_ s: NotchState, canvas: CGSize) -> (center: CGPoint, size: CGFloat, visible: Bool) {
         let cx = canvas.width / 2
-        let H = g.notchHeight
         switch s {
         case .resting, .hud:
             return (CGPoint(x: cx - layout.half + 12, y: H / 2), 12, false)
@@ -647,11 +670,9 @@ public struct NotchOverlayView: View {
             if e.right > 0 { return (CGPoint(x: cx + layout.half + (e.right >= 40 ? 13 : e.right / 2), y: H / 2), 16, true) }
             return (CGPoint(x: cx - layout.half + 12, y: H / 2), 12, false)
         case .peek:
-            let x0 = cx - spec(.peek).bL
-            return (CGPoint(x: x0 + 16 + 10, y: H + NotchLayout.drop + 12 + 11), 20, true)
+            return (CGPoint(x: cx - spec(.peek).l + 16 + 9, y: H / 2), 18, true)
         case .expanded:
-            let x0 = cx - spec(.expanded).bL
-            return (CGPoint(x: x0 + 18 + 15, y: H + NotchLayout.drop + 10 + 30 + 6 + 15), 30, true)
+            return (CGPoint(x: cx - spec(.expanded).l + 18 + 10, y: H / 2), 20, true)
         }
     }
 
@@ -676,7 +697,6 @@ public struct NotchOverlayView: View {
     @ViewBuilder
     private func content(_ s: NotchState, spec sp: NotchSpec, canvas: CGSize) -> some View {
         let cx = canvas.width / 2
-        let H = g.notchHeight + NotchLayout.drop
         switch s {
         case .resting:
             EmptyView()
@@ -684,32 +704,46 @@ public struct NotchOverlayView: View {
             compact(canvas: canvas)
                 .transition(.opacity.animation(.easeOut(duration: 0.12)))
         case .hud:
-            hud.frame(width: sp.bL + sp.bR, height: sp.h - H)
-                .offset(x: cx - sp.bL, y: H)
+            hud(wing: sp.l - layout.half).frame(width: sp.l + sp.r, height: sp.h, alignment: .top)
+                .offset(x: cx - sp.l)
                 .transition(bodyTransition)
         case .peek:
-            peek.frame(width: sp.bL + sp.bR, height: sp.h - H, alignment: .top)
-                .offset(x: cx - sp.bL, y: H)
+            peek(wing: sp.l - layout.half).frame(width: sp.l + sp.r, height: sp.h, alignment: .top)
+                .offset(x: cx - sp.l)
                 .transition(bodyTransition)
         case .expanded:
-            expanded.frame(width: sp.bL + sp.bR, height: sp.h - H, alignment: .top)
-                .offset(x: cx - sp.bL, y: H)
+            expanded(wing: sp.l - layout.half).frame(width: sp.l + sp.r, height: sp.h, alignment: .top)
+                .offset(x: cx - sp.l)
                 .transition(bodyTransition)
         }
     }
 
-    /// Body content: appears as the shape lands (no artificial delay), leaves instantly.
+    /// Content rides the shape's own spring in (blur → sharp, scaled from the top edge)
+    /// and leaves almost instantly, so the shape is never seen dragging stale content.
     private var bodyTransition: AnyTransition {
         .asymmetric(
-            insertion: .opacity.combined(with: .offset(y: -6)).animation(.easeOut(duration: 0.2)),
-            removal: .opacity.animation(.easeOut(duration: 0.08))
+            insertion: .modifier(active: Reveal(p: 1), identity: Reveal(p: 0)).animation(.spring(duration: 0.36, bounce: 0)),
+            removal: .opacity.animation(.easeOut(duration: 0.09))
         )
+    }
+
+    /// One row at menu-bar height split by the camera: left wing, notch gap, right wing.
+    private func wingRow<L: View, R: View>(wing: CGFloat, @ViewBuilder left: () -> L, @ViewBuilder right: () -> R) -> some View {
+        HStack(spacing: 0) {
+            HStack(spacing: 8) { left() }
+                .padding(.leading, 16).padding(.trailing, 10)
+                .frame(width: wing, alignment: .leading)
+            Color.clear.frame(width: layout.half * 2)
+            HStack(spacing: 8) { right() }
+                .padding(.leading, 10).padding(.trailing, 14)
+                .frame(width: wing, alignment: .trailing)
+        }
+        .frame(height: H)
     }
 
     // Compact — ears in measured free menu-bar space, or a chin under the notch when there is none.
     private func compact(canvas: CGSize) -> some View {
         let cx = canvas.width / 2
-        let H = g.notchHeight
         let indicator = Group {
             if let alert = appState.guardianAlerts.first {
                 Circle().fill(alert.severity == .info ? c.semantic_info : c.semantic_warning).frame(width: 6, height: 6)
@@ -734,15 +768,24 @@ public struct NotchOverlayView: View {
         .accessibilityLabel(focus?.name ?? appState.t("notch.empty_playing"))
     }
 
-    // HUD — hangs under the notch; never widens the menu-bar part.
-    private var hud: some View {
+    // HUD — icon and value flank the camera; the level runs in a thin chin below.
+    private func hud(wing: CGFloat) -> some View {
         let v = min(max(appState.hudValue, 0), 1)
-        return HStack(spacing: 12) {
-            Image(systemName: appState.hudMuted ? "speaker.slash.fill" : (v < 0.01 ? "speaker.fill" : (v < 0.34 ? "speaker.wave.1.fill" : (v < 0.67 ? "speaker.wave.2.fill" : "speaker.wave.3.fill"))))
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(appState.hudMuted ? c.semantic_warning : c.ink_primary)
-                .frame(width: 18)
-                .contentTransition(.symbolEffect(.replace))
+        let tint = appState.hudMuted ? c.semantic_warning : c.ink_primary
+        return VStack(spacing: 0) {
+            wingRow(wing: wing) {
+                Image(systemName: appState.hudMuted ? "speaker.slash.fill" : (v < 0.01 ? "speaker.fill" : (v < 0.34 ? "speaker.wave.1.fill" : (v < 0.67 ? "speaker.wave.2.fill" : "speaker.wave.3.fill"))))
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(tint)
+                    .contentTransition(.symbolEffect(.replace))
+                Spacer(minLength: 0)
+            } right: {
+                Text(appState.hudMuted ? appState.t("ui.notch.muted") : Fmt.percent(v))
+                    .type(TimbreTypography.monoValue).fontWeight(.medium)
+                    .foregroundStyle(tint)
+                    .contentTransition(.numericText(value: v))
+                    .lineLimit(1)
+            }
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
                     Capsule().fill(c.bg_track)
@@ -750,61 +793,66 @@ public struct NotchOverlayView: View {
                 }
             }
             .frame(height: 4)
+            .padding(.horizontal, 18)
+            .padding(.top, 3)
             .animation(.linear(duration: 0.06), value: v)
-            Text(appState.hudMuted ? appState.t("ui.notch.muted") : Fmt.percent(v))
-                .type(TimbreTypography.monoValue).fontWeight(.medium)
-                .foregroundStyle(appState.hudMuted ? c.semantic_warning : c.ink_primary)
-                .contentTransition(.numericText(value: v))
-                .frame(width: 34, alignment: .trailing)
+            Spacer(minLength: 0)
         }
-        .padding(.horizontal, 18)
-        .frame(maxHeight: .infinity)
-        .padding(.bottom, 2)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(appState.hudTitle) \(Fmt.percent(v))%")
     }
 
-    // Peek — the one control you came for.
-    private var peek: some View {
-        VStack(spacing: 8) {
-            HStack(spacing: 8) {
-                Color.clear.frame(width: 20, height: 22)   // slot for the travelling icon
-                if let f = focus {
-                    Text(f.name).type(TimbreTypography.notchTitle).foregroundStyle(c.ink_primary).lineLimit(1)
-                    Spacer(minLength: 8)
-                    if !f.isVoIPExcluded {
-                        HStack(alignment: .firstTextBaseline, spacing: 1) {
-                            Text(f.isMuted ? "—" : Fmt.percent(f.volume)).type(TimbreTypography.monoValue).fontWeight(.medium)
-                                .foregroundStyle(f.volume > 1 && !f.isMuted ? c.semantic_warning : c.ink_primary)
-                                .contentTransition(.numericText(value: f.volume))
-                            Text("%").type(TimbreTypography.monoSmall).foregroundStyle(c.ink_muted)
-                        }
+    // Peek — who is playing and how loud, flanking the camera; one fader below.
+    private func peek(wing: CGFloat) -> some View {
+        VStack(spacing: 0) {
+            wingRow(wing: wing) {
+                Color.clear.frame(width: 18, height: 18)   // slot for the travelling icon
+                Text(focus?.name ?? appState.t("notch.empty_playing"))
+                    .type(focus == nil ? TimbreTypography.small : TimbreTypography.notchTitle)
+                    .foregroundStyle(focus == nil ? c.ink_muted : c.ink_primary)
+                    .lineLimit(1)
+                Spacer(minLength: 0)
+            } right: {
+                if let f = focus, !f.isVoIPExcluded {
+                    Spacer(minLength: 0)
+                    valueLabel(f, big: false)
+                    IconButton(symbol: f.isMuted ? "speaker.slash.fill" : "speaker.wave.2.fill", size: 22, active: f.isMuted, activeColor: c.semantic_warning, help: appState.t("ui.mute")) {
+                        appState.toggleSourceMute(bundleID: f.bundleID)
                     }
-                } else {
-                    Text(appState.t("notch.empty_playing")).type(TimbreTypography.small).foregroundStyle(c.ink_muted)
-                    Spacer()
                 }
             }
-            .frame(height: 22)
             if let f = focus, !f.isVoIPExcluded {
                 TFader(value: volumeBinding(f), range: 0...2, unity: 1, tint: c.ink_primary, height: 20, label: f.name, valueText: Fmt.percent(f.volume), unityPosition: 0.75)
+                    .padding(.horizontal, 18)
+                    .frame(height: 30)
+            } else {
+                Text(appState.t("ui.notch.empty_hint")).type(TimbreTypography.caption).foregroundStyle(c.ink_muted)
+                    .lineLimit(1)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 18)
+                    .frame(height: 30)
             }
+            Spacer(minLength: 0)
         }
-        .padding(.horizontal, 16)
-        .padding(.top, 12)
     }
 
-    // Expanded — mixer in a breath.
-    private var expanded: some View {
+    // Expanded — the mixer in a breath. Wings: who is playing · where it goes.
+    private func expanded(wing: CGFloat) -> some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 8) {
-                HStack(alignment: .firstTextBaseline, spacing: 0) {
-                    Text("timbr").font(.system(size: 13, weight: .semibold)).tracking(-0.3)
-                    Text(".").font(.system(size: 13, weight: .semibold)).foregroundStyle(c.accent_base)
+            wingRow(wing: wing) {
+                if let f = focus {
+                    Color.clear.frame(width: 20, height: 20)   // slot for the travelling icon
+                    Text(f.name).type(TimbreTypography.notchTitle).foregroundStyle(c.ink_primary).lineLimit(1)
+                } else {
+                    HStack(alignment: .firstTextBaseline, spacing: 0) {
+                        Text("timbr").font(.system(size: 13, weight: .semibold)).tracking(-0.3)
+                        Text(".").font(.system(size: 13, weight: .semibold)).foregroundStyle(c.accent_base)
+                    }
+                    .foregroundStyle(c.ink_primary)
                 }
-                .foregroundStyle(c.ink_primary)
-                Circle().fill(appState.isProcessingBypassed ? c.ink_muted : (appState.pathIsNative ? c.semantic_positive : c.accent_base)).frame(width: 5, height: 5)
-                Spacer()
+                Spacer(minLength: 0)
+            } right: {
+                Spacer(minLength: 0)
                 MenuChip(title: appState.activeOutputDevice?.name ?? "—", symbol: appState.activeOutputDevice?.glyph) {
                     ForEach(appState.outputDevices) { dev in
                         Button { appState.selectDefaultOutput(dev) } label: {
@@ -812,12 +860,10 @@ public struct NotchOverlayView: View {
                         }
                     }
                 }
+                .frame(maxWidth: wing - 24, alignment: .trailing)
             }
-            .frame(height: 30)
-            .padding(.horizontal, 18)
-            .padding(.top, 10)
 
-            Color.clear.frame(height: 6)
+            Color.clear.frame(height: 8)
 
             if let f = focus {
                 focusBlock(f).padding(.horizontal, 18)
@@ -826,7 +872,7 @@ public struct NotchOverlayView: View {
                     Text(appState.t("notch.empty_playing")).type(TimbreTypography.small).foregroundStyle(c.ink_secondary)
                     Text(appState.t("ui.notch.empty_hint")).type(TimbreTypography.caption).foregroundStyle(c.ink_muted)
                 }
-                .frame(height: 48, alignment: .center)
+                .frame(height: 46, alignment: .center)
                 .padding(.horizontal, 18)
             }
 
@@ -843,23 +889,24 @@ public struct NotchOverlayView: View {
         }
     }
 
+    private func valueLabel(_ f: AudioSourceDescriptor, big: Bool) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 1) {
+            Text(f.isMuted ? "—" : Fmt.percent(f.volume))
+                .type(big ? TimbreTypography.notchValue : TimbreTypography.monoValue)
+                .fontWeight(.medium)
+                .foregroundStyle(f.volume > 1 && !f.isMuted ? c.semantic_warning : c.ink_primary)
+                .contentTransition(.numericText(value: f.volume))
+            Text("%").type(TimbreTypography.monoSmall).foregroundStyle(c.ink_muted)
+        }
+    }
+
     private func focusBlock(_ f: AudioSourceDescriptor) -> some View {
         VStack(spacing: 10) {
-            HStack(spacing: 12) {
-                Color.clear.frame(width: 30, height: 30)   // slot for the travelling icon
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(f.name).type(TimbreTypography.notchTitle).foregroundStyle(c.ink_primary).lineLimit(1)
-                    Text(f.isVoIPExcluded ? appState.t("mixer.voip_ignored") : (f.isPlaying ? appState.t("ui.notch.playing") : appState.t("ui.notch.paused")) + " · " + Fmt.volumeDB(f.isMuted ? 0 : f.volume) + " dB")
-                        .type(TimbreTypography.caption).foregroundStyle(c.ink_muted)
-                }
+            HStack(alignment: .center, spacing: 12) {
+                Text(f.isVoIPExcluded ? appState.t("mixer.voip_ignored") : (f.isPlaying ? appState.t("ui.notch.playing") : appState.t("ui.notch.paused")) + " · " + Fmt.volumeDB(f.isMuted ? 0 : f.volume) + " dB")
+                    .type(TimbreTypography.caption).foregroundStyle(c.ink_muted).lineLimit(1)
                 Spacer(minLength: 0)
-                HStack(alignment: .firstTextBaseline, spacing: 1) {
-                    Text(f.isMuted ? "—" : Fmt.percent(f.volume))
-                        .type(TimbreTypography.notchValue)
-                        .foregroundStyle(f.volume > 1 && !f.isMuted ? c.semantic_warning : c.ink_primary)
-                        .contentTransition(.numericText(value: f.volume))
-                    Text("%").type(TimbreTypography.monoSmall).foregroundStyle(c.ink_muted)
-                }
+                if !f.isVoIPExcluded { valueLabel(f, big: true) }
                 IconButton(symbol: f.isMuted ? "speaker.slash.fill" : "speaker.wave.2.fill", size: 26, active: f.isMuted, activeColor: c.semantic_warning, help: appState.t("ui.mute")) {
                     appState.toggleSourceMute(bundleID: f.bundleID)
                 }
@@ -870,7 +917,7 @@ public struct NotchOverlayView: View {
                 TFader(value: volumeBinding(f), range: 0...2, unity: 1, tint: c.ink_primary, label: f.name, valueText: Fmt.percent(f.volume), unityPosition: 0.75)
             }
         }
-        .frame(height: 74, alignment: .top)
+        .frame(height: 66, alignment: .top)
     }
 
     private func sourceRow(_ src: AudioSourceDescriptor) -> some View {
