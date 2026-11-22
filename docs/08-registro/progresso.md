@@ -18,6 +18,17 @@
 
 
 
+### 2026-11-23 · Volume geral (master) no notch
+
+- **Relato:** não faz sentido controlar o volume de cada app sem controlar o geral. Com a saída muda, mexer no notch não mudava nada, e o notch não trazia o som de volta.
+- **Feito:**
+  - `activeOutputMuted` publicado e atualizado por refresh, teclas de mídia e ações.
+  - Faixa "Geral" no expandido (fader do hardware e mudo).
+  - Mudo também no controle de saída dos estados vazios.
+  - Na espiada, "Saída sem som" ou "Saída em 0%" com "Ativar som": tira o mudo e, se estiver em 0%, leva a 25%.
+  - Reativação automática do master ao aumentar o volume de um app, tirar um app do mudo ou subir o fader geral.
+- **Verificado:** saída mutada com `osascript`, capturas da espiada (aviso e botão) e do expandido (faixa Geral mutada); CI.
+
 ### 2026-11-23 · Ícone da barra de menus só quando necessário
 
 - **Pedido:** não faz sentido ter o timbr. na barra de menus se ele já está no notch.

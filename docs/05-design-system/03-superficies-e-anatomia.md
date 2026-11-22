@@ -36,6 +36,11 @@ Estudamos o código dos apps de notch abertos mais usados: DynamicNotchKit (base
 
 **Por que abandonamos o "pescoço" da v2.1.** Na v2.1 os estados abertos desciam só para baixo, sem tocar a barra. O dono do produto testou e achou estranho: parecia um cartão pendurado, não o notch crescendo. Nenhum app de referência faz isso. O que resolve a disputa com os menus é separar os estados persistentes dos transitórios (§1.3 e §1.5), não deformar a abertura.
 
+**Master (Geral):** o volume por app só faz sentido com o volume geral à mão. O expandido tem a faixa "Geral", depois das fontes e separada por uma linha, como o master de uma mesa: volume do hardware da saída e mudo.
+
+- Se o master está mudo ou em 0%, a espiada mostra "Saída sem som" ou "Saída em 0%" com o botão "Ativar som".
+- Aumentar o volume de um app, tirar um app do mudo ou subir o fader geral reativa o som da saída, como no macOS. Sem isso, os controles por app mexeriam sem produzir som.
+
 **Regra das asas:** na altura da câmera só cabem itens curtos (ícone, uma palavra, um número). Nome de dispositivo, frase ou botão com texto nunca vão para a asa: o texto é cortado ou invade a área da câmera. Esses itens vão para a linha abaixo, onde há largura.
 
 ### 1.3 Orelhas medidas (divisão de espaço com a barra de menus)

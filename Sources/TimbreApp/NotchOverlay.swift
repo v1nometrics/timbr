@@ -150,7 +150,8 @@ struct NotchLayout {
     }
 
     static func expandedDepth(rows: Int, hasAlert: Bool, hasFocus: Bool) -> CGFloat {
-        8 + (hasFocus ? 66 : 46) + CGFloat(rows) * 34 + (hasAlert ? 44 : 0) + 46 + 2
+        // focus block + other sources + master row (only with a focus; the empty state has the output fader) + alert + footer
+        8 + (hasFocus ? 66 + 36 : 46) + CGFloat(rows) * 34 + (hasAlert ? 44 : 0) + 46 + 2
     }
 
     var peekHalf: CGFloat { half + Self.peekWing }
@@ -650,7 +651,7 @@ public struct NotchOverlayView: View {
         return Array(s.mixerSources.filter { $0.isPlaying && $0.bundleID != focusID }.prefix(3))
     }
     static func rows(for state: NotchState, _ s: AppState) -> Int {
-        state == .peek ? otherPlaying(s).count : listRows(s)
+        state == .peek ? otherPlaying(s).count + (s.focusSource != nil && s.outputSilenced ? 1 : 0) : listRows(s)
     }
 
     private var g: NotchScreenGeometry { interaction.geometry }
@@ -694,6 +695,7 @@ public struct NotchOverlayView: View {
         .animation(reduceMotion ? .easeOut(duration: 0.12) : animation(for: state), value: state)
         .animation(TimbreMotion.smooth, value: Self.listRows(appState))
         .animation(TimbreMotion.smooth, value: Self.otherPlaying(appState).map(\.bundleID))
+        .animation(TimbreMotion.smooth, value: appState.outputSilenced)
         .animation(TimbreMotion.smooth, value: appState.guardianAlerts.count)
         .surface(.notch)
         .preferredColorScheme(.dark)
@@ -913,13 +915,72 @@ public struct NotchOverlayView: View {
     @ViewBuilder
     private var outputControl: some View {
         if let dev = appState.activeOutputDevice, let v = appState.activeOutputVolume {
-            TFader(value: Binding(get: { v }, set: { appState.setOutputVolume(dev, value: $0, showHUD: false) }),
-                   range: 0...1, tint: c.ink_primary, height: 20, label: dev.name, valueText: Fmt.percent(v))
+            HStack(spacing: 10) {
+                TFader(value: Binding(get: { appState.activeOutputMuted ? 0 : v }, set: { appState.setOutputVolume(dev, value: $0, showHUD: false) }),
+                       range: 0...1, tint: c.ink_primary, height: 20, label: dev.name, valueText: Fmt.percent(v))
+                masterMuteButton(dev)
+            }
         } else {
             Text(appState.t("ui.notch.device_volume_fixed")).type(TimbreTypography.caption).foregroundStyle(c.ink_muted)
                 .lineLimit(1)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
+    }
+
+    // MARK: Master (the output device)
+
+    @ViewBuilder
+    private func masterMuteButton(_ dev: AudioDeviceDescriptor) -> some View {
+        if dev.isHWMuteSettable {
+            IconButton(symbol: appState.activeOutputMuted ? "speaker.slash.fill" : "speaker.wave.2.fill", size: 22,
+                       active: appState.activeOutputMuted, activeColor: c.semantic_warning, help: appState.t("ui.mute")) {
+                appState.toggleOutputMute()
+            }
+        }
+    }
+
+    /// The master strip: every per-app fader above feeds this one. Separated by a hairline, like a console.
+    private var masterRow: some View {
+        let dev = appState.activeOutputDevice
+        let muted = appState.activeOutputMuted
+        return HStack(spacing: 10) {
+            Image(systemName: muted ? "speaker.slash.fill" : (dev?.glyph ?? "speaker.wave.2"))
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(muted ? c.semantic_warning : c.ink_secondary)
+                .frame(width: 16)
+            Text(appState.t("ui.notch.master")).type(TimbreTypography.caption).fontWeight(.medium)
+                .foregroundStyle(c.ink_primary).frame(width: 96, alignment: .leading)
+                .help(dev?.name ?? "")
+            if let dev, let v = appState.activeOutputVolume {
+                TFader(value: Binding(get: { muted ? 0 : v }, set: { appState.setOutputVolume(dev, value: $0, showHUD: false) }),
+                       range: 0...1, tint: c.ink_primary, height: 18, trackHeight: 2, label: dev.name, valueText: Fmt.percent(v))
+                Text(muted ? "—" : Fmt.percent(v)).type(TimbreTypography.monoSmall).foregroundStyle(c.ink_muted).frame(width: 26, alignment: .trailing)
+            } else {
+                Text(appState.t("ui.notch.device_volume_fixed")).type(TimbreTypography.micro).foregroundStyle(c.ink_muted).lineLimit(1)
+                Spacer(minLength: 0)
+            }
+            if let dev, dev.isHWMuteSettable {
+                IconButton(symbol: muted ? "speaker.slash.fill" : "speaker.fill", size: 20, active: muted, activeColor: c.semantic_warning, help: appState.t("ui.mute")) {
+                    appState.toggleOutputMute()
+                }
+            }
+        }
+        .frame(height: 34)
+        .padding(.top, 2)
+        .overlay(alignment: .top) { Hairline() }
+    }
+
+    /// Shown in the peek when nothing can be heard: says why, and fixes it in one click.
+    private var silencedRow: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "speaker.slash.fill").font(.system(size: 11, weight: .semibold)).foregroundStyle(c.semantic_warning)
+            Text(appState.t(appState.activeOutputMuted ? "ui.notch.output_muted" : "ui.notch.output_zero"))
+                .type(TimbreTypography.caption).foregroundStyle(c.ink_primary).lineLimit(1)
+            Spacer(minLength: 0)
+            Button(appState.t("ui.notch.unmute_output")) { appState.restoreOutputAudible() }
+                .buttonStyle(.t(.secondary, compact: true))
+        }
+        .frame(height: 30)
     }
 
     private func sourcePeek(wing: CGFloat) -> some View {
@@ -944,6 +1005,9 @@ public struct NotchOverlayView: View {
                 TFader(value: volumeBinding(f), range: 0...2, unity: 1, tint: c.ink_primary, height: 20, label: f.name, valueText: Fmt.percent(f.volume), unityPosition: 0.75)
                     .padding(.horizontal, 18)
                     .frame(height: 30)
+            }
+            if appState.outputSilenced {
+                silencedRow.padding(.horizontal, 18).padding(.top, 4)
             }
             let others = Self.otherPlaying(appState)
             if !others.isEmpty {
@@ -1038,6 +1102,10 @@ public struct NotchOverlayView: View {
 
             ForEach(appState.mixerSources.filter { $0.bundleID != focus?.bundleID }.prefix(3)) { src in
                 sourceRow(src).padding(.horizontal, 18)
+            }
+
+            if focus != nil {
+                masterRow.padding(.horizontal, 18)
             }
 
             if let alert = appState.guardianAlerts.first {
