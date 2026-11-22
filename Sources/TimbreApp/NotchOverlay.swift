@@ -251,13 +251,19 @@ private final class NonActivatingNotchPanel: NSPanel {
 /// The panel never becomes key on hover, so the very first click must reach SwiftUI controls
 /// (expand-on-tap, faders, mute) instead of being swallowed as a "focus" click.
 private final class FirstMouseHostingView<Content: View>: NSHostingView<Content> {
+    var contextMenu: (() -> NSMenu)?
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+    override func rightMouseDown(with event: NSEvent) {
+        guard let menu = contextMenu?() else { return super.rightMouseDown(with: event) }
+        NSMenu.popUpContextMenu(menu, with: event, for: self)
+    }
 }
 
 private final class NotchSensorView: NSView {
     var onEnter: (() -> Void)?
     var onExit: (() -> Void)?
     var onClick: (() -> Void)?
+    var contextMenu: (() -> NSMenu)?
     private var area: NSTrackingArea?
 
     override func updateTrackingAreas() {
@@ -270,6 +276,10 @@ private final class NotchSensorView: NSView {
     override func mouseEntered(with event: NSEvent) { onEnter?() }
     override func mouseExited(with event: NSEvent) { onExit?() }
     override func mouseDown(with event: NSEvent) { onClick?() }
+    override func rightMouseDown(with event: NSEvent) {
+        guard let menu = contextMenu?() else { return }
+        NSMenu.popUpContextMenu(menu, with: event, for: self)
+    }
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 }
 
@@ -320,6 +330,7 @@ public final class NotchPanelController {
             let host = FirstMouseHostingView(rootView: NotchOverlayView(appState: appState, interaction: interaction))
             host.wantsLayer = true
             host.layer?.backgroundColor = .clear
+            host.contextMenu = { [weak self] in self?.makeContextMenu() ?? NSMenu() }
             p.contentView = host
         }
         panel = p
@@ -336,6 +347,7 @@ public final class NotchPanelController {
         v.onEnter = { [weak self] in self?.sensorEntered() }
         v.onExit = { [weak self] in self?.sensorExited() }
         v.onClick = { [weak self] in self?.open(.expanded) }
+        v.contextMenu = { [weak self] in self?.makeContextMenu() ?? NSMenu() }
         s.contentView = v
         sensor = s
         placePanel()
@@ -429,6 +441,25 @@ public final class NotchPanelController {
         let x = g.screenFrame.midX - g.notchWidth / 2 - left
         let hgt = g.notchHeight + (state == .compact && layoutModel.useChin ? NotchLayout.chinHeight : 0)
         sensor.setFrame(CGRect(x: x, y: g.screenFrame.maxY - hgt, width: g.notchWidth + left + right, height: hgt), display: false)
+    }
+
+    // MARK: Context menu (the notch's own menu: no menu bar icon needed)
+
+    private func makeContextMenu() -> NSMenu {
+        let menu = NSMenu()
+        guard let appState else { return menu }
+        menu.addItem(ClosureMenuItem(appState.t("ui.ctx.open_studio")) { appState.openStudioHandler?() })
+        menu.addItem(ClosureMenuItem(appState.t("ui.ctx.settings")) {
+            appState.selectedTab = .settings
+            appState.openStudioHandler?()
+        })
+        menu.addItem(.separator())
+        let icon = ClosureMenuItem(appState.t("ui.ctx.show_menubar")) { appState.setShowMenuBarIcon(!appState.showMenuBarIcon) }
+        icon.state = appState.showMenuBarIcon ? .on : .off
+        menu.addItem(icon)
+        menu.addItem(.separator())
+        menu.addItem(ClosureMenuItem(appState.t("ui.quit") + " timbr.") { NSApp.terminate(nil) })
+        return menu
     }
 
     // MARK: Hover → pop → open
@@ -1160,4 +1191,16 @@ private struct DimOnPress: ButtonStyle {
             .opacity(configuration.isPressed ? 0.6 : 1)
             .animation(TimbreMotion.pressOut, value: configuration.isPressed)
     }
+}
+
+/// NSMenuItem that runs a closure (target/action without a dedicated responder).
+final class ClosureMenuItem: NSMenuItem {
+    private let handler: () -> Void
+    init(_ title: String, _ handler: @escaping () -> Void) {
+        self.handler = handler
+        super.init(title: title, action: #selector(run), keyEquivalent: "")
+        target = self
+    }
+    required init(coder: NSCoder) { fatalError("init(coder:) is not used") }
+    @objc private func run() { handler() }
 }

@@ -1163,6 +1163,11 @@ private struct SettingsPage: View {
                     TSwitch(isOn: Binding(get: { appState.showCompactActivity }, set: { appState.toggleShowCompact($0) }))
                 }
                 Hairline().padding(.leading, 20)
+                row(appState.t("ui.settings.menubar_icon"), appState.notchScreenAvailable ? appState.t("ui.settings.menubar_icon_sub") : appState.t("ui.settings.menubar_icon_no_notch")) {
+                    TSwitch(isOn: Binding(get: { appState.menuBarIconVisible }, set: { appState.setShowMenuBarIcon($0) }))
+                        .disabled(!appState.notchScreenAvailable || appState.menuBarOnlyMode || !appState.notchEnabled)
+                }
+                Hairline().padding(.leading, 20)
                 row(appState.t("notch.menu_only_badge"), appState.competingNotchApps.isEmpty ? appState.t("ui.settings.menu_only_sub") : String(format: appState.t("ui.settings.competing"), appState.competingNotchApps.joined(separator: ", "))) {
                     TSwitch(isOn: $appState.menuBarOnlyMode)
                 }

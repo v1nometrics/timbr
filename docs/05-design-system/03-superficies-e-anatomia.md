@@ -86,6 +86,8 @@ O notch é **sempre preto absoluto**: não há tema de notch claro nem degradê.
 
 ## 2. Barra de menus
 
+**Visibilidade:** o ícone só aparece quando o notch não é a entrada do app: sem tela com notch, com o notch desligado, no modo só barra de menus, ou quando a pessoa liga a opção em Ajustes. Com o notch ativo, o próprio notch tem menu de contexto (clique direito: Abrir Estúdio, Ajustes…, ícone na barra de menus, Sair).
+
 Painel `MenuBarExtra(.window)` de 348 pt, nas cores do Estúdio (claro ou escuro, conforme o sistema): marca, estado do caminho e saída, switch de processamento; até 5 fontes com fader; lista de saídas com taxa e ✓; botões Abrir Estúdio, A/B neutro e Sair. É o fallback universal (Mac sem notch, outro app de notch ativo, usuário de teclado).
 
 ## 3. Estúdio

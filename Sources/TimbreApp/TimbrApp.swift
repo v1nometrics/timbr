@@ -10,6 +10,7 @@ import TimbreDesignSystem
 public final class AppDelegate: NSObject, NSApplicationDelegate {
     public let appState = AppState()
     private var notchController: NotchPanelController?
+    private var menuBarIcon: MenuBarIconController?
     private var studioWindow: NSWindow?
     private var onboardingWindow: NSWindow?
     private var reviewWindow: NSWindow?
@@ -39,6 +40,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         appState.start()
         notchController = NotchPanelController(appState: appState)
+        menuBarIcon = MenuBarIconController(delegate: self, appState: appState)
         appState.$devices
             .map { devs in devs.first(where: { $0.isDefaultOutput && $0.outputChannels > 0 })?.uid }
             .removeDuplicates()
@@ -84,6 +86,13 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
                 NSApp.terminate(nil)
             }
         }
+    }
+
+    /// Launching the app again (Finder, Spotlight, Dock) while it runs opens the Studio — the way
+    /// back in when there is no menu bar icon.
+    public func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        openStudio()
+        return true
     }
 
     public func applicationWillTerminate(_ notification: Notification) {
@@ -150,12 +159,19 @@ public struct TimbrApp: App {
     public init() {}
 
     public var body: some Scene {
-        MenuBarExtra {
-            MenuBarPanel(delegate: delegate, appState: delegate.appState)
-        } label: {
-            Image(systemName: delegate.appState.isProcessingBypassed ? "waveform.slash" : "waveform")
-                .accessibilityLabel("timbr.")
-        }
-        .menuBarExtraStyle(.window)
+        // The menu bar icon is an AppKit NSStatusItem owned by MenuBarIconController, not a SwiftUI
+        // MenuBarExtra: toggling MenuBarExtra(isInserted:) from app state sent SwiftUI into an endless
+        // main-menu rebuild (measured: 100% CPU, the app never quit). This scene is never shown.
+        Settings { EmptyView() }
+            .commands {
+                // ⌘, opens the Studio's settings page, never the empty Settings scene.
+                CommandGroup(replacing: .appSettings) {
+                    Button(delegate.appState.t("ui.ctx.settings")) {
+                        delegate.appState.selectedTab = .settings
+                        delegate.openStudio()
+                    }
+                    .keyboardShortcut(",")
+                }
+            }
     }
 }

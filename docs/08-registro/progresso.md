@@ -18,6 +18,22 @@
 
 
 
+### 2026-11-23 · Ícone da barra de menus só quando necessário
+
+- **Pedido:** não faz sentido ter o timbr. na barra de menus se ele já está no notch.
+- **Feito:**
+  - O ícone fica oculto por padrão enquanto o notch é a entrada. Ele aparece sozinho sem tela com notch, com o notch desligado ou no modo "só barra de menus". Há a opção "Ícone na barra de menus" em Ajustes.
+  - Clique direito no notch (fechado ou aberto): Abrir Estúdio, Ajustes…, Mostrar ícone na barra de menus, Sair do timbr.
+  - Reabrir o app (Finder, Spotlight, Dock) abre o Estúdio. ⌘, abre os Ajustes do Estúdio.
+- **Defeitos encontrados e corrigidos no caminho (Comprovado):**
+  - `MenuBarExtra(isInserted:)` controlado pelo estado do app deixava o SwiftUI reconstruindo o menu principal em laço: 100% de CPU, e o app de teste nunca fechava (o CI travou). Trocado por `NSStatusItem` + `NSPopover` no AppKit (`MenuBarIconController`).
+  - O macOS tinha guardado `NSStatusItem VisibleCC Item-0 = 0` para o item antigo, e o novo nascia invisível. Agora o item tem `autosaveName` próprio e visibilidade explícita.
+- **Verificado:**
+  - `--smoke-check` fecha em 2 s.
+  - Com a opção ligada, o item nasce visível ao lado do notch (x = 855).
+  - Desligada, não há item.
+  - CI passando.
+
 ### 2026-11-22 · Compatibilidade: superwhisper e Chrome
 
 - Detalhes e evidências em [compatibilidade-apps-2026-11-22.md](compatibilidade-apps-2026-11-22.md).

@@ -3,6 +3,7 @@
 // Macs without a notch and anyone who hides the notch. Designed panel, not a stock NSMenu.
 import SwiftUI
 import AppKit
+import Combine
 import TimbreCore
 import TimbreEngine
 import TimbreDesignSystem
@@ -105,5 +106,64 @@ struct MenuBarPanel: View {
         .frame(width: 348)
         .background(c.bg_canvas)
         .surface(kind)
+    }
+}
+
+/// The menu bar icon (NSStatusItem) and its panel (NSPopover). Present only while the notch is not
+/// the way in — no notch screen, notch off, menu-bar-only mode — or when the person asks for it.
+@MainActor
+final class MenuBarIconController: NSObject {
+    private var item: NSStatusItem?
+    private let popover = NSPopover()
+    private weak var appState: AppState?
+    private var watch: AnyCancellable?
+    private var bypassWatch: AnyCancellable?
+
+    init(delegate: AppDelegate, appState: AppState) {
+        self.appState = appState
+        super.init()
+        popover.behavior = .transient
+        popover.animates = true
+        popover.contentViewController = NSHostingController(rootView: MenuBarPanel(delegate: delegate, appState: appState))
+        watch = Publishers.CombineLatest4(appState.$showMenuBarIcon, appState.$menuBarOnlyMode, appState.$notchEnabled, appState.$notchScreenAvailable)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _, _, _, _ in self?.sync() }
+        bypassWatch = appState.$isProcessingBypassed
+            .receive(on: RunLoop.main)
+            .sink { [weak self] bypassed in self?.setSymbol(bypassed: bypassed) }
+    }
+
+    private func sync() {
+        guard let appState else { return }
+        if appState.menuBarIconVisible {
+            guard item == nil else { return }
+            let it = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+            // Our own visibility rule decides; don't inherit a stale "hidden" state macOS persisted for
+            // the old SwiftUI MenuBarExtra item.
+            it.autosaveName = "timbr.status"
+            it.isVisible = true
+            it.button?.target = self
+            it.button?.action = #selector(toggle(_:))
+            it.button?.setAccessibilityLabel("timbr.")
+            item = it
+            setSymbol(bypassed: appState.isProcessingBypassed)
+        } else if let it = item {
+            popover.performClose(nil)
+            NSStatusBar.system.removeStatusItem(it)
+            item = nil
+        }
+    }
+
+    private func setSymbol(bypassed: Bool) {
+        item?.button?.image = NSImage(systemSymbolName: bypassed ? "waveform.slash" : "waveform", accessibilityDescription: "timbr.")
+    }
+
+    @objc private func toggle(_ sender: NSStatusBarButton) {
+        if popover.isShown {
+            popover.performClose(sender)
+        } else {
+            popover.show(relativeTo: sender.bounds, of: sender, preferredEdge: .minY)
+            popover.contentViewController?.view.window?.makeKey()
+        }
     }
 }

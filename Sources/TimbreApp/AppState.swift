@@ -137,6 +137,15 @@ public final class AppState: ObservableObject {
     @Published public var notchEnabled: Bool = true
     @Published public var showCompactActivity: Bool = true
     @Published public var menuBarOnlyMode: Bool = false
+    /// User preference: also show the icon in the menu bar while the notch is active (default off —
+    /// the notch is the app's home; right-click it for Studio, Settings and Quit).
+    @Published public var showMenuBarIcon: Bool = false
+    /// Some connected screen has a camera housing (notch).
+    @Published public private(set) var notchScreenAvailable: Bool = NSScreen.screens.contains { $0.safeAreaInsets.top > 0 }
+    /// The menu bar icon is needed whenever the notch is not the way in: no notch screen, notch
+    /// turned off, menu-bar-only mode — or the person asked for it.
+    public var menuBarIconVisible: Bool { showMenuBarIcon || menuBarOnlyMode || !notchEnabled || !notchScreenAvailable }
+    private var screenWatch: AnyCancellable?
     @Published public var competingNotchApps: [String] = []
     @Published public var hudTitle: String = ""
     @Published public var hudValue: Double = 0.0
@@ -282,6 +291,7 @@ public final class AppState: ObservableObject {
             self.mutedGuardianPairs = db.loadMutedPairs()
             self.silentStudioMode = (db.getKV("silentStudioMode") == "1")
             self.showCompactActivity = (db.getKV("showCompactActivity") ?? "1") == "1"
+            self.showMenuBarIcon = db.getKV("showMenuBarIcon") == "1"
             self.autoDuckOnCall = (db.getKV("autoDuckOnCall") ?? "1") == "1"
             self.savedPresets = db.loadPresets()
             if let first = self.savedPresets.first {
@@ -312,6 +322,8 @@ public final class AppState: ObservableObject {
             self.ipcPortActive = false
             logEvent(category: "ipc", message: "Extension IPC port 48192 unavailable: \(error.localizedDescription)")
         }
+
+        watchMenuBarIconVisibility()
 
         // Continuity BLE starts only when an Apple accessory is the active output (TCC honesty).
         refreshSystemState()
@@ -1007,6 +1019,20 @@ public final class AppState: ObservableObject {
         silentStudioMode = enabled
         try? store?.setKV("silentStudioMode", value: enabled ? "1" : "0")
         evaluateGuardian()
+    }
+
+    public func setShowMenuBarIcon(_ on: Bool) {
+        showMenuBarIcon = on
+        try? store?.setKV("showMenuBarIcon", value: on ? "1" : "0")
+    }
+
+    /// Keeps `notchScreenAvailable` true to the connected screens (MenuBarIconController reacts to it).
+    private func watchMenuBarIconVisibility() {
+        screenWatch = NotificationCenter.default.publisher(for: NSApplication.didChangeScreenParametersNotification)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.notchScreenAvailable = NSScreen.screens.contains { $0.safeAreaInsets.top > 0 }
+            }
     }
 
     public func toggleShowCompact(_ enabled: Bool) {
