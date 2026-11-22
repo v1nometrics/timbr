@@ -18,6 +18,17 @@
 
 
 
+### 2026-11-22 · Clique no notch
+
+- **Relato:** clicar no notch não fazia nada. A espiada abria no hover e o clique caía numa área sem ação.
+- **Feito:**
+  - Na espiada, clicar fora dos controles abre o expandido.
+  - No expandido, clicar no nome do app (na asa ou nas linhas de fonte) traz o app para a frente, ou o abre se ele foi fechado, e recolhe o notch.
+  - Os nomes clicáveis ganham um realce no hover.
+  - O painel passou a aceitar o primeiro clique.
+  - Textos novos em PT, ES e EN.
+- **Verificado:** build e CI. **Não verificado:** o clique real com a mão, porque o app estava em uso e não movi o mouse.
+
 ### 2026-11-22 · Detecção de fontes simultâneas
 
 - **Relato:** com dois apps tocando, o notch mostrava só um.

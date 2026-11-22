@@ -68,6 +68,11 @@ A janela tem **tamanho fixo** (cabe o maior estado) e nunca é redimensionada. S
 ### 1.5 Interação
 
 - **Abrir:** o hover sobre o notch (ou sobre as orelhas) faz o pop na hora. Se o ponteiro fica 150 ms, abre a espiada, com um toque háptico leve. Passar rápido pela barra não abre nada. Clique abre o expandido. Detecção por `NSTrackingArea`, sem polling.
+- **Clicar:** como tocar na Dynamic Island.
+  - Na espiada, clicar em qualquer lugar fora de um controle a transforma no expandido, com a mesma mola e o ícone viajando.
+  - No expandido, clicar no nome de um app (na asa ou numa linha de fonte) traz esse app para a frente, ou o abre se ele foi fechado, e o notch se recolhe. Um realce suave no hover indica que o nome é clicável.
+  - Clicar no notch fechado abre direto o expandido.
+  - O painel aceita o primeiro clique: não é preciso "focar" antes.
 - **Fechar acompanhando o ponteiro:** enquanto aberto, a distância do ponteiro até a forma dirige um progresso contínuo de 0 a 1 (espiada: 64 pt; expandido: 104 pt; **30 pt quando o ponteiro está na faixa da barra de menus**, para que ir até um menu coberto o libere quase na hora), com curva elástica. A forma encolhe em direção ao estado fechado, o conteúdo desfoca (até 6 pt) e some, e o ícone viaja de volta para a orelha, tudo em tempo real. Se o ponteiro volta, tudo volta. Passando o limite, fecha com a mola `notchClose`, partindo exatamente de onde estava (sem salto).
 - **Expandido por clique ou atalho:** só passa a seguir o ponteiro depois que ele entra na forma uma vez; abrir pelo teclado não fecha sozinho.
 - **Um único ícone viaja** entre orelha, espiada e expandido; os blocos de conteúdo reservam o espaço dele. Nunca há duas cópias se cruzando.

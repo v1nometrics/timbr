@@ -248,6 +248,12 @@ private final class NonActivatingNotchPanel: NSPanel {
     override var canBecomeMain: Bool { false }
 }
 
+/// The panel never becomes key on hover, so the very first click must reach SwiftUI controls
+/// (expand-on-tap, faders, mute) instead of being swallowed as a "focus" click.
+private final class FirstMouseHostingView<Content: View>: NSHostingView<Content> {
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+}
+
 private final class NotchSensorView: NSView {
     var onEnter: (() -> Void)?
     var onExit: (() -> Void)?
@@ -311,7 +317,7 @@ public final class NotchPanelController {
         p.collectionBehavior = [.canJoinAllSpaces, .stationary, .fullScreenAuxiliary, .ignoresCycle]
         p.ignoresMouseEvents = true
         if let appState {
-            let host = NSHostingView(rootView: NotchOverlayView(appState: appState, interaction: interaction))
+            let host = FirstMouseHostingView(rootView: NotchOverlayView(appState: appState, interaction: interaction))
             host.wantsLayer = true
             host.layer?.backgroundColor = .clear
             p.contentView = host
@@ -866,6 +872,29 @@ public struct NotchOverlayView: View {
             }
             Spacer(minLength: 0)
         }
+        // Click anywhere that is not a control → grow into the full mixer (Dynamic Island tap).
+        .contentShape(Rectangle())
+        .onTapGesture { expandFromPeek() }
+        .accessibilityAction(named: appState.t("ui.notch.expand")) { expandFromPeek() }
+    }
+
+    private func expandFromPeek() {
+        withAnimation(reduceMotion ? .easeOut(duration: 0.12) : TimbreMotion.notchOpen) {
+            appState.notchState = .expanded
+        }
+    }
+
+    /// Bring the app that owns this audio to the front (launch it if it has quit), then fold away.
+    private func bringToFront(_ src: AudioSourceDescriptor) {
+        let running = NSRunningApplication.runningApplications(withBundleIdentifier: src.bundleID)
+        if let app = running.first(where: { $0.activationPolicy == .regular }) ?? running.first {
+            app.activate()
+        } else if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: src.bundleID) {
+            NSWorkspace.shared.openApplication(at: url, configuration: NSWorkspace.OpenConfiguration())
+        }
+        withAnimation(TimbreMotion.notchClose) {
+            appState.notchState = appState.shouldShowCompact ? .compact : .resting
+        }
     }
 
     // Expanded — the mixer in a breath. Wings: who is playing · where it goes.
@@ -873,8 +902,12 @@ public struct NotchOverlayView: View {
         VStack(alignment: .leading, spacing: 0) {
             wingRow(wing: wing) {
                 if let f = focus {
-                    Color.clear.frame(width: 20, height: 20)   // slot for the travelling icon
-                    Text(f.name).type(TimbreTypography.notchTitle).foregroundStyle(c.ink_primary).lineLimit(1)
+                    HoverLink(help: String(format: appState.t("ui.notch.open_app"), f.name)) { bringToFront(f) } label: {
+                        HStack(spacing: 8) {
+                            Color.clear.frame(width: 20, height: 20)   // slot for the travelling icon
+                            Text(f.name).type(TimbreTypography.notchTitle).foregroundStyle(c.ink_primary).lineLimit(1)
+                        }
+                    }
                 } else {
                     HStack(alignment: .firstTextBaseline, spacing: 0) {
                         Text("timbr").font(.system(size: 13, weight: .semibold)).tracking(-0.3)
@@ -954,8 +987,12 @@ public struct NotchOverlayView: View {
 
     private func sourceRow(_ src: AudioSourceDescriptor) -> some View {
         HStack(spacing: 10) {
-            AppIcon(bundleID: src.bundleID, name: src.name, size: 16)
-            Text(src.name).type(TimbreTypography.caption).foregroundStyle(src.isPlaying ? c.ink_primary : c.ink_secondary).lineLimit(1).frame(width: 96, alignment: .leading)
+            HoverLink(help: String(format: appState.t("ui.notch.open_app"), src.name)) { bringToFront(src) } label: {
+                HStack(spacing: 10) {
+                    AppIcon(bundleID: src.bundleID, name: src.name, size: 16)
+                    Text(src.name).type(TimbreTypography.caption).foregroundStyle(src.isPlaying ? c.ink_primary : c.ink_secondary).lineLimit(1).frame(width: 96, alignment: .leading)
+                }
+            }
             if src.isVoIPExcluded {
                 Text(appState.t("mixer.voip_ignored")).type(TimbreTypography.micro).foregroundStyle(c.ink_muted)
                 Spacer(minLength: 0)
@@ -1023,5 +1060,39 @@ public struct NotchOverlayView: View {
 
     private func volumeBinding(_ src: AudioSourceDescriptor) -> Binding<Double> {
         Binding(get: { src.isMuted ? 0 : src.volume }, set: { appState.setSourceVolume(bundleID: src.bundleID, volume: $0) })
+    }
+}
+
+/// A quiet link: no chrome at rest, a soft plate on hover that bleeds outside the label so the
+/// layout (and the travelling icon's slot) never shifts.
+private struct HoverLink<Label: View>: View {
+    let help: String
+    let action: () -> Void
+    @ViewBuilder let label: () -> Label
+    @State private var hover = false
+
+    var body: some View {
+        Button(action: action) {
+            label()
+                .background(
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(TimbreColors.notch.bg_hover.opacity(hover ? 1 : 0))
+                        .padding(.horizontal, -6).padding(.vertical, -4)
+                )
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(DimOnPress())
+        .onHover { h in withAnimation(TimbreMotion.snappy) { hover = h } }
+        .help(help)
+        .accessibilityLabel(help)
+    }
+}
+
+/// Press feedback that does not scale (the travelling icon lives in another layer and must stay aligned).
+private struct DimOnPress: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .opacity(configuration.isPressed ? 0.6 : 1)
+            .animation(TimbreMotion.pressOut, value: configuration.isPressed)
     }
 }
