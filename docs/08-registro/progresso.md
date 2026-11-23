@@ -31,6 +31,13 @@
 
 ## Histórico Consolidado
 
+### 2026-11-23 · Introdução: rodapé cortado no passo de permissões
+
+- **Relato:** no passo "Permissões no momento certo", os botões Voltar / Continuar apareciam cortados na base da janela.
+- **Causa (Comprovado, captura):** a janela tinha altura fixa de 520 pt e o passo, com três cartões e o texto de apoio, é mais alto que isso.
+- **Correção (`OnboardingWindow`):** janela de 640 pt, passo dentro de um `ScrollView` e rodapé fixo fora dele, então um idioma mais longo ou texto maior nunca empurra os botões para fora. Flag de revisão `--onboarding-step <0-3>`.
+- **Verificado:** captura real do passo 3 em PT (botões inteiros) e `./scripts/ci_check.sh` verde.
+
 ### 2026-11-23 · Correção definitiva do notch ao sair da tela cheia do Chrome (zero queixo sobre abas)
 
 - **Relato:** ao sair da tela cheia do Chrome (e com Chrome no desktop), o notch descia 20 pt sobre a barra de abas cobrindo o topo das guias abertas e interceptando cliques.

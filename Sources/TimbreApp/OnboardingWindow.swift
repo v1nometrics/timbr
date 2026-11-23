@@ -14,7 +14,12 @@ public enum OnboardingStep: Int, CaseIterable, Identifiable {
 
 public struct OnboardingWindow: View {
     @ObservedObject var appState: AppState
-    @State private var step: OnboardingStep = .welcome
+    @State private var step: OnboardingStep = {
+        // Design review: `--onboarding-step 2` opens straight on that step.
+        let a = ProcessInfo.processInfo.arguments
+        if let i = a.firstIndex(of: "--onboarding-step"), i + 1 < a.count, let n = Int(a[i + 1]), let s = OnboardingStep(rawValue: n) { return s }
+        return .welcome
+    }()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     public init(appState: AppState) {
@@ -22,6 +27,9 @@ public struct OnboardingWindow: View {
     }
 
     private var colors: TimbreColors { .dark }
+
+    /// Tall enough for the permissions step (three cards + hint) without scrolling at default text size.
+    public static let windowHeight: CGFloat = 640
 
     public var body: some View {
         ZStack {
@@ -32,17 +40,22 @@ public struct OnboardingWindow: View {
                     .padding(.horizontal, TimbreSpacing.s8)
                     .padding(.top, TimbreSpacing.s8)
 
-                stepContent
-                    .padding(.horizontal, TimbreSpacing.s8)
-                    .padding(.vertical, TimbreSpacing.s6)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                // The footer is pinned; only the step scrolls. A longer language (ES/PT) or a taller
+                // step can never push "Voltar / Continuar" out of the window.
+                ScrollView(.vertical, showsIndicators: false) {
+                    stepContent
+                        .padding(.horizontal, TimbreSpacing.s8)
+                        .padding(.vertical, TimbreSpacing.s6)
+                        .frame(maxWidth: .infinity, alignment: .topLeading)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
 
                 footer
                     .padding(.horizontal, TimbreSpacing.s8)
                     .padding(.bottom, TimbreSpacing.s8)
             }
         }
-        .frame(width: 720, height: 520)
+        .frame(width: 720, height: OnboardingWindow.windowHeight)
         .tint(colors.accent_base)
         .surface(.dark)
         .preferredColorScheme(.dark)

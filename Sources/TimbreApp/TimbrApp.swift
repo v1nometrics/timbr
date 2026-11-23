@@ -134,7 +134,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
             win.styleMask = [.titled, .closable, .fullSizeContentView]
             win.titlebarAppearsTransparent = true
             win.titleVisibility = .hidden
-            win.setContentSize(NSSize(width: 720, height: 520))
+            win.setContentSize(NSSize(width: 720, height: OnboardingWindow.windowHeight))
             win.center()
             win.isReleasedWhenClosed = false
             win.isMovableByWindowBackground = true
