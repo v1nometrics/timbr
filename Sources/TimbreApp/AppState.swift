@@ -2,6 +2,7 @@
 import Foundation
 import AppKit
 import Carbon
+import CoreAudio
 import Combine
 import TimbreCore
 import TimbreEngine
@@ -243,6 +244,10 @@ public final class AppState: ObservableObject {
     /// Fast, cheap re-read of "who is playing" while something plays (see `startPlaybackWatch`).
     private var playbackWatchTimer: Timer?
     private var silenceTracker = SilenceTracker()
+    /// The Core Audio objects of every source that is playing, translated once per refresh. The 250 ms
+    /// watch only re-reads their output flag: translating PIDs on every tick was the single heaviest
+    /// thing the app did (about 3 % of the main thread parked, 5 % playing; measured with `sample`).
+    private var playbackProbe: [[AudioObjectID]] = []
     /// Apps whose own measured signal has been silent for a second: they paused, whatever Core Audio
     /// still says for the next 2–7 s. Only filled while a tap is measuring them.
     @Published public private(set) var tapSilentBundles: Set<String> = []
@@ -786,6 +791,9 @@ public final class AppState: ObservableObject {
     /// so polling is the only way to notice it. Cheap (a few property reads); stops when nothing plays.
     private func updatePlaybackWatch() {
         let active = sources.contains(where: \.isPlaying)
+        playbackProbe = active
+            ? sources.filter { $0.isPlaying && !$0.pids.isEmpty }.map { ProcessTapEngine.translatePIDsToProcessObjects($0.pids) }.filter { !$0.isEmpty }
+            : []
         if active, playbackWatchTimer == nil {
             let t = Timer(timeInterval: 0.25, repeats: true) { [weak self] _ in
                 Task { @MainActor in self?.pollPlayback() }
@@ -803,7 +811,7 @@ public final class AppState: ObservableObject {
         guard !Self.isAuxiliaryInstance else { return }
         // Only "did a source that was playing stop?" is asked here: a few property reads. Starts come
         // from the process monitor's events, so nothing needs a full re-enumeration four times a second.
-        let stopped = sources.contains { $0.isPlaying && !$0.pids.isEmpty && !ProcessTapEngine.isAnyProcessOutputting(pids: $0.pids) }
+        let stopped = playbackProbe.contains { !ProcessTapEngine.isAnyObjectOutputting($0) }
         if stopped { refreshSystemState() }
     }
 

@@ -52,6 +52,7 @@ swift_lines = [
     "// GENERATED FILE - DO NOT EDIT BY HAND (ADR-0012)",
     "// Source: design-system/tokens/*.tokens.json",
     "import SwiftUI",
+    "import AppKit",
     "",
     "public enum TimbreSurface: String, CaseIterable, Sendable {",
     "    case light, dark, notch",
@@ -81,18 +82,41 @@ swift_lines.append("}")
 swift_lines.append("")
 
 # Motion
+# Every animation token honours System Settings > Accessibility > Display > Reduce motion at the moment
+# it starts (computed, not stored): geometry springs and curves become a 120 ms fade, staggers vanish.
+# Pointer-following springs are exempt: tracking a finger is direct manipulation, not decoration.
 swift_lines.append("public enum TimbreMotion {")
+swift_lines.append("    /// Tests and design review (`--reduce-motion`) can force the setting.")
+swift_lines.append("    nonisolated(unsafe) public static var reducedOverride: Bool?")
+swift_lines.append("    public static var reduced: Bool { reducedOverride ?? NSWorkspace.shared.accessibilityDisplayShouldReduceMotion }")
+swift_lines.append("    private static let reducedFade = Animation.easeOut(duration: 0.12)")
+swift_lines.append("    /// The animation every decorative token collapses into under Reduce Motion (for tests).")
+swift_lines.append("    public static var reducedFadeForTests: Animation { reducedFade }")
 for cname, cdata in motion["curve"].items():
-    a, b, c, d = cdata["$value"]
-    dur = 0.18 if cname == "exit" else (0.14 if cname == "pressOut" else 0.24)
-    swift_lines.append(f"    public static let {cname} = Animation.timingCurve({a}, {b}, {c}, {d}, duration: {dur})")
+    a_, b_, c_, d_ = cdata["$value"]
+    # docs/05-design-system/02-motion-e-fisica.md §6: ease-in is forbidden on UI (it is slow exactly when the eye is watching).
+    # An ease-in has both control points on the floor: (x1, 0, x2, y2 <= 0.2).
+    if b_ == 0 and d_ <= 0.2:
+        raise SystemExit(f"motion curve '{cname}' is an ease-in ({a_}, {b_}, {c_}, {d_}); use an ease-out or an ease-in-out")
+    dur = motion["curveDurationSeconds"][cname]
+    swift_lines.append(f"    public static var {cname}: Animation {{ reduced ? reducedFade : Animation.timingCurve({a_}, {b_}, {c_}, {d_}, duration: {dur}) }}")
+for lname, ldur in motion["linear"].items():
+    swift_lines.append(f"    /// Constant motion (live meters): linear on purpose, and short enough to track the data.")
+    swift_lines.append(f"    public static var {lname}: Animation {{ reduced ? Animation.linear(duration: 0.0) : Animation.linear(duration: {ldur}) }}")
 for sname, sdata in motion["spring"].items():
+    follows = sdata.get("followsPointer", False)
     if "duration" in sdata:
-        swift_lines.append(f"    public static let {sname} = Animation.spring(duration: {sdata['duration']}, bounce: {sdata['bounce']})")
+        body = f"Animation.spring(duration: {sdata['duration']}, bounce: {sdata['bounce']})"
+    elif "response" in sdata:
+        body = f"Animation.interactiveSpring(response: {sdata['response']}, dampingFraction: {sdata['damping']})"
     else:
-        swift_lines.append(f"    public static let {sname} = Animation.interpolatingSpring(stiffness: {sdata['stiffness']}, damping: {sdata['damping']})")
-swift_lines.append(f"    public static let staggerItem: Double = {motion['stagger']['itemSeconds']}")
-swift_lines.append(f"    public static let staggerMaxTotal: Double = {motion['stagger']['maxTotalSeconds']}")
+        body = f"Animation.interpolatingSpring(stiffness: {sdata['stiffness']}, damping: {sdata['damping']})"
+    if follows:
+        swift_lines.append(f"    public static var {sname}: Animation {{ {body} }}")
+    else:
+        swift_lines.append(f"    public static var {sname}: Animation {{ reduced ? reducedFade : {body} }}")
+swift_lines.append(f"    public static var staggerItem: Double {{ reduced ? 0 : {motion['stagger']['itemSeconds']} }}")
+swift_lines.append(f"    public static var staggerMaxTotal: Double {{ reduced ? 0 : {motion['stagger']['maxTotalSeconds']} }}")
 swift_lines.append("}")
 swift_lines.append("")
 

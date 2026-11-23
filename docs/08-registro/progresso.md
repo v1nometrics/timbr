@@ -34,6 +34,14 @@
 
 ## Histórico Consolidado
 
+### 2026-11-23 · Auditoria de animações de ponta a ponta
+
+- **Pedido:** revisar e refinar todas as animações do app.
+- **Método e resultado:** [registro da auditoria](auditoria-animacoes-2026-11-23.md). Seis achados: o token `exit` era um ease-in (agora o gerador recusa qualquer um); "Reduzir movimento" só era respeitado em poucos lugares (agora todos os tokens o respeitam, com teste no CI); doze valores soltos viraram tokens; o vigia de pausa que eu tinha feito era o item mais caro do app (5,0% da thread principal, agora 1,3%); a faixa de aviso e as linhas do mixer ganharam transição.
+- **O que a auditoria desmentiu:** a suspeita de que a telemetria de 30 Hz pesava na interface (o perfil não mostrou custo, então não mexi).
+- **Verificado:** `./scripts/ci_check.sh` verde (inclui o novo `TimbreTokensTests`), perfil antes e depois, reação do notch ao parar o som sem regressão.
+- **Limite:** o efeito visual de "Reduzir movimento" não foi medido por captura; vale ver ao vivo com `--reduce-motion`.
+
 ### 2026-11-23 · Explicação das bandas do equalizador num botão discreto
 
 - **Pedido:** tirar o texto que aparecia ao passar o mouse nas categorias do equalizador e usar um botãozinho de informação no canto superior direito.

@@ -726,7 +726,7 @@ struct MiniMeter: View {
             }
         }
         .frame(height: 14)
-        .animation(.linear(duration: 0.09), value: level)
+        .animation(TimbreMotion.meter, value: level)
         .accessibilityHidden(true)
     }
 }
@@ -745,7 +745,7 @@ struct LevelBar: View {
             }
         }
         .frame(height: 3)
-        .animation(.linear(duration: 0.08), value: dbfs)
+        .animation(TimbreMotion.meter, value: dbfs)
     }
 }
 
@@ -991,7 +991,7 @@ struct TLevelMeter: View {
             }
         }
         .frame(height: height)
-        .animation(.linear(duration: 0.07), value: peakDB)
+        .animation(TimbreMotion.meter, value: peakDB)
     }
 }
 

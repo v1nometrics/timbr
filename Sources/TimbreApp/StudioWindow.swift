@@ -37,11 +37,13 @@ public struct StudioWindow: View {
                     if let banner = appState.statusBanner {
                         BannerView(text: banner) { appState.statusBanner = nil }
                             .padding(.bottom, TimbreSpacing.s5)
+                            .transition(.opacity.combined(with: .offset(y: -8)))
                     }
                     page
                         .id(appState.selectedTab)
                         .transition(.opacity)
                 }
+                .animation(TimbreMotion.standard, value: appState.statusBanner != nil)   // the page slides down with it
                 .padding(.horizontal, 40)
                 .padding(.top, 44)
                 .padding(.bottom, 56)
@@ -51,7 +53,7 @@ public struct StudioWindow: View {
             .scrollIndicators(.automatic)
             .background(c.bg_canvas)
         }
-        .animation(.easeOut(duration: 0.14), value: appState.selectedTab)
+        .animation(TimbreMotion.tab, value: appState.selectedTab)
         .surface(kind)
         .preferredColorScheme(appearance == "light" ? .light : (appearance == "dark" ? .dark : nil))
         .frame(minWidth: 980, minHeight: 640)
@@ -529,14 +531,18 @@ private struct MixerPage: View {
                 EmptyStateView(title: appState.t("notch.empty_playing"), detail: appState.t("ui.mixer.empty_detail"))
             }
             ForEach(Array(appState.mixerSources.enumerated()), id: \.element.id) { i, src in
-                if i > 0 { Hairline().padding(.leading, 64) }
-                SourceRow(appState: appState, src: src)
-                ForEach(tabs(for: src), id: \.tabID) { tab in
-                    Hairline().padding(.leading, 64)
-                    TabRow(appState: appState, tab: tab)
+                VStack(spacing: 0) {
+                    if i > 0 { Hairline().padding(.leading, 64) }
+                    SourceRow(appState: appState, src: src)
+                    ForEach(tabs(for: src), id: \.tabID) { tab in
+                        Hairline().padding(.leading, 64)
+                        TabRow(appState: appState, tab: tab)
+                    }
                 }
+                .transition(.opacity)   // a source that starts or stops fades in/out instead of popping
             }
         }
+        .animation(TimbreMotion.smooth, value: appState.mixerSources.map(\.bundleID))
         if appState.tabUpdates.isEmpty {
             Text(appState.t("mixer.tabs_note"))
                 .type(TimbreTypography.caption)

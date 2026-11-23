@@ -51,9 +51,12 @@
   --timbre-border-hairlineNotch: 0px;
   --timbre-ease-enter: cubic-bezier(0.16, 1, 0.3, 1);
   --timbre-ease-standard: cubic-bezier(0.22, 1, 0.36, 1);
-  --timbre-ease-exit: cubic-bezier(0.7, 0, 0.84, 0);
+  --timbre-ease-exit: cubic-bezier(0.23, 1, 0.32, 1);
   --timbre-ease-inOut: cubic-bezier(0.65, 0, 0.35, 1);
   --timbre-ease-pressOut: cubic-bezier(0.23, 1, 0.32, 1);
+  --timbre-ease-fade: cubic-bezier(0.23, 1, 0.32, 1);
+  --timbre-ease-fadeOut: cubic-bezier(0.23, 1, 0.32, 1);
+  --timbre-ease-tab: cubic-bezier(0.23, 1, 0.32, 1);
   --timbre-font-sans: 'SF Pro', -apple-system, BlinkMacSystemFont, Geist, sans-serif;
   --timbre-font-mono: 'SF Mono', ui-monospace, 'Geist Mono', monospace;
   --timbre-font-serif: 'New York', ui-serif, Georgia, serif;
