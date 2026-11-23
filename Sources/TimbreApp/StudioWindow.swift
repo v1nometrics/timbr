@@ -1009,6 +1009,7 @@ private struct EqualizerPage: View {
                 Eyebrow(text: freqLabel(slot.freqHz) + " Hz")
                 Spacer()
                 Text(slot.type == .peak ? "peak" : "shelf").type(TimbreTypography.monoSmall).foregroundStyle(c.ink_faint)
+                InfoHintButton(text: hint, label: name, startsOpen: index == 0).padding(.trailing, -4)
             }
             Text(name).type(TimbreTypography.micro).foregroundStyle(c.ink_secondary).lineLimit(1).minimumScaleFactor(0.75)
             HStack(alignment: .firstTextBaseline, spacing: 3) {
@@ -1024,15 +1025,18 @@ private struct EqualizerPage: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: TimbreRadius.card, style: .continuous).fill(c.bg_surface))
         .overlay(RoundedRectangle(cornerRadius: TimbreRadius.card, style: .continuous).strokeBorder(c.line_default, lineWidth: 1))
-        .help(hint)
     }
 
     private func tone(_ name: String, _ spec: String, _ value: Double, hint: String = "", set: @escaping (Double) -> Void) -> some View {
         let binding = Binding(get: { value }, set: { set(SimpleTasteControls.clampStep($0)) })
         return VStack(alignment: .leading, spacing: 12) {
-            VStack(alignment: .leading, spacing: 3) {
-                Eyebrow(text: name).lineLimit(1).minimumScaleFactor(0.8)
-                Text(spec).type(TimbreTypography.monoSmall).foregroundStyle(c.ink_faint)
+            HStack(alignment: .top, spacing: 6) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Eyebrow(text: name).lineLimit(1).minimumScaleFactor(0.8)
+                    Text(spec).type(TimbreTypography.monoSmall).foregroundStyle(c.ink_faint)
+                }
+                Spacer(minLength: 0)
+                if !hint.isEmpty { InfoHintButton(text: hint, label: name, startsOpen: name == appState.t("eq.band.bass")).padding(.top, -2).padding(.trailing, -4) }
             }
             HStack(alignment: .center, spacing: 12) {
                 TKnob(
@@ -1066,7 +1070,6 @@ private struct EqualizerPage: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: TimbreRadius.card, style: .continuous).fill(c.bg_surface))
         .overlay(RoundedRectangle(cornerRadius: TimbreRadius.card, style: .continuous).strokeBorder(c.line_default, lineWidth: 1))
-        .help(hint)
     }
 
     // Advanced — Pro-Q style band table with scrubbable values

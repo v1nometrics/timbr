@@ -267,6 +267,41 @@ extension ButtonStyle where Self == TButtonStyle {
     static func t(_ kind: TButtonKind, compact: Bool = false) -> TButtonStyle { TButtonStyle(kind: kind, compact: compact) }
 }
 
+/// A small, quiet "i" for the corner of a card: nothing shows until it is clicked, then a short note in a popover.
+/// Replaces the hover tooltip, which was easy to trigger by accident and invisible to anyone not hovering.
+struct InfoHintButton: View {
+    let text: String
+    var label: String = ""
+    /// Design review only: `--hint-open` opens the note on the first card.
+    var startsOpen = false
+    @Environment(\.palette) private var c
+    @State private var shown = false
+    @State private var hover = false
+
+    var body: some View {
+        Button { shown.toggle() } label: {
+            Image(systemName: "info.circle")
+                .font(.system(size: 11, weight: .regular))
+                .foregroundStyle(shown || hover ? c.ink_secondary : c.ink_faint)
+                .frame(width: 18, height: 18)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { hover = $0 }
+        .popover(isPresented: $shown, arrowEdge: .bottom) {
+            Text(text)
+                .type(TimbreTypography.small)
+                .foregroundStyle(c.ink_primary)
+                .frame(width: 230, alignment: .leading)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(14)
+        }
+        .onAppear { if startsOpen && ProcessInfo.processInfo.arguments.contains("--hint-open") { shown = true } }
+        .accessibilityLabel(label.isEmpty ? text : label)
+        .accessibilityHint(text)
+    }
+}
+
 /// Square icon button with hover wash. Used for mute, remove, reveal, close.
 struct IconButton: View {
     let symbol: String
