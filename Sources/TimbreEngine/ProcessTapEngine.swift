@@ -175,6 +175,18 @@ public final class ProcessTapEngine: @unchecked Sendable {
         lock.unlock()
     }
 
+    /// True while any of these processes still has Core Audio output running. A handful of property
+    /// reads: cheap enough to ask four times a second, unlike re-enumerating every audio process.
+    public static func isAnyProcessOutputting(pids: [pid_t]) -> Bool {
+        var addr = AudioObjectPropertyAddress(mSelector: kAudioProcessPropertyIsRunningOutput, mScope: kAudioObjectPropertyScopeGlobal, mElement: kAudioObjectPropertyElementMain)
+        for obj in translatePIDsToProcessObjects(pids) {
+            var v: UInt32 = 0
+            var size = UInt32(MemoryLayout<UInt32>.size)
+            if AudioObjectGetPropertyData(obj, &addr, 0, nil, &size, &v) == noErr, v != 0 { return true }
+        }
+        return false
+    }
+
     public static func translatePIDsToProcessObjects(_ pids: [pid_t]) -> [AudioObjectID] {
         var result: [AudioObjectID] = []
         var seen = Set<AudioObjectID>()
@@ -379,6 +391,26 @@ public final class ProcessTapEngine: @unchecked Sendable {
             cpuMicroseconds: Double(m.process_ns_last) / 1000.0,
             spectrumBinsDB: bins
         )
+    }
+
+    public func hasSlot(forKey key: String) -> Bool {
+        lock.lock(); defer { lock.unlock() }
+        return activeSlots[key] != nil
+    }
+
+    /// Latest peak (max of L/R true peak, dB) of every live slot, keyed by slot key
+    /// (`global`, `app:<bundleID>`, `mirror:<uid>`). The DSP updates it every block, so silence shows up
+    /// within ~20 ms, long before Core Audio reports that an app stopped playing.
+    public func slotPeaks() -> [String: Double] {
+        lock.lock()
+        let slots = activeSlots.map { ($0.key, $0.value.enginePtr) }
+        lock.unlock()
+        var out: [String: Double] = [:]
+        for (key, eng) in slots {
+            let m = timbre_dsp_get_metrics(eng)
+            out[key] = max(m.true_peak_l_dbtp, m.true_peak_r_dbtp)
+        }
+        return out
     }
 
     /// Limiter gain reduction (dB, ≤ 0) of every per-app slot, keyed by bundle ID. A boosted app
