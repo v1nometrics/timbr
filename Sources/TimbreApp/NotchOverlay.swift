@@ -137,13 +137,17 @@ enum MenuBarSpace {
         let ownPID = ProcessInfo.processInfo.processIdentifier
 
         var statusSpans: [MenuBarItemSpan] = []
-        if let list = CGWindowListCopyWindowInfo([.optionOnScreenOnly], kCGNullWindowID) as? [[String: Any]] {
+        // macOS 26 Tahoe hosts active menu bar status items (layer 25) with kCGWindowIsOnscreen == false,
+        // so query `.optionAll` and filter strictly to visible-alpha windows inside the menu-bar strip.
+        if let list = CGWindowListCopyWindowInfo([.optionAll], kCGNullWindowID) as? [[String: Any]] {
             for w in list {
                 guard let layer = w[kCGWindowLayer as String] as? Int, layer == 25,
                       let pid = w[kCGWindowOwnerPID as String] as? Int32, pid != ownPID,
+                      (w[kCGWindowAlpha as String] as? Double ?? 1.0) > 0,
                       let bd = w[kCGWindowBounds as String] as? NSDictionary,
                       let r = CGRect(dictionaryRepresentation: bd as CFDictionary),
-                      r.width > 0,
+                      r.width > 0, r.width < screenW * 0.4,
+                      r.height > 0, r.height <= g.notchHeight + 8,
                       r.minY >= cgTop - 4, r.minY < cgTop + g.notchHeight,
                       r.maxX > screenX, r.minX < screenX + screenW else { continue }
                 statusSpans.append(MenuBarItemSpan(minX: Double(r.minX - screenX), maxX: Double(r.maxX - screenX)))
@@ -899,12 +903,6 @@ public struct NotchOverlayView: View {
             }
             return CompactIconFrames(leadCenter: CGPoint(x: earMid, y: H / 2), leadSize: e.left >= 34 ? 16 : 15, secondCenter: nil, secondSize: 0, visible: true)
         }
-        if e.left >= 40 {
-            return CompactIconFrames(leadCenter: CGPoint(x: cx - layout.half - e.left + 14.5, y: H / 2), leadSize: 15, secondCenter: nil, secondSize: 0, visible: true)
-        }
-        if e.right >= 40 {
-            return CompactIconFrames(leadCenter: CGPoint(x: cx + layout.half + 14.5, y: H / 2), leadSize: 15, secondCenter: nil, secondSize: 0, visible: true)
-        }
         return CompactIconFrames(leadCenter: CGPoint(x: cx - layout.half + 12, y: H / 2), leadSize: 12, secondCenter: nil, secondSize: 0, visible: false)
     }
 
@@ -1044,10 +1042,6 @@ public struct NotchOverlayView: View {
                 indicator.position(x: cx + layout.half - 22, y: H + NotchLayout.chinHeight / 2 - 1)
             } else if interaction.ears.left > 0, interaction.ears.right > 0 {
                 indicator.position(x: cx + layout.half + interaction.ears.right / 2, y: H / 2)
-            } else if interaction.ears.right >= 40 {
-                indicator.position(x: cx + layout.half + interaction.ears.right - 12.5, y: H / 2)
-            } else if interaction.ears.left >= 40 {
-                indicator.position(x: cx - layout.half - 11.5, y: H / 2)
             }
         }
         .frame(width: canvas.width, height: canvas.height, alignment: .topLeading)

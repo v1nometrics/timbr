@@ -51,12 +51,13 @@ Estudamos o código dos apps de notch abertos mais usados: DynamicNotchKit (base
 - Orelha = espaço livre − 8 pt de respiro, limitada a 44 pt; abaixo de 26 pt, não há orelha.
 - Remede ao trocar de app em primeiro plano (imediato + após layout), ao entrar no compacto e a cada 1,5 s enquanto compacto.
 
+**Regra bilateral invariante:** os ícones de app ficam **sempre à esquerda** e a marca harmônica 5-bar fica **sempre à direita** (em orelhas, queixo, espiada e expandido). O ícone nunca pula para a orelha direita nem divide orelha apertada com a marca:
+
 | Espaço livre | 1 app tocando | 2+ apps tocando |
 |---|---|---|
-| Dois lados (esq ≥ 36 pt, dir ≥ 26 pt) | Ícone à esquerda, marca 5-bar à direita | Os 2 logos mais recentes à esquerda, marca 5-bar à direita |
-| Dois lados (esq 26–35 pt, dir ≥ 26 pt) | Ícone à esquerda, marca 5-bar à direita | **Queixo** (evita espremer 2 logos) |
-| Só um lado (≥ 40 pt) | Ícone e marca dividem a orelha disponível | **Queixo** (evita espremer 2 logos + marca na mesma orelha) |
-| Demais casos / sem espaço livre | **Queixo**: o notch cresce 20 pt para baixo (179 pt de largura), sem tocar a barra | **Queixo**: 2 logos à esquerda, marca 5-bar à direita, sem tocar a barra |
+| Dois lados (esq ≥ 36 pt, dir ≥ 26 pt) | **Orelhas:** ícone à esquerda, marca 5-bar à direita | **Orelhas:** 2 logos mais recentes à esquerda, marca 5-bar à direita |
+| Dois lados (esq 26–35 pt, dir ≥ 26 pt) | **Orelhas:** ícone à esquerda, marca 5-bar à direita | **Queixo:** 2 logos à esquerda, marca 5-bar à direita |
+| Só um lado livre ou nenhum livre | **Queixo:** ícone à esquerda, marca 5-bar à direita (179 pt de largura, +20 pt abaixo do hardware) | **Queixo:** 2 logos à esquerda, marca 5-bar à direita |
 
 ### 1.4 Estados e medidas
 

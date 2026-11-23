@@ -217,7 +217,6 @@ public enum MenuBarSpaceEvaluator: Sendable {
     public static let earMax: Double = 44
     public static let earMin: Double = 26
     public static let dualIconMinEar: Double = 36
-    public static let singleEarSingleIconMin: Double = 40
     public static let gap: Double = 8
 
     /// Computes safe left and right ear widths beside the physical notch, never overlapping either:
@@ -265,17 +264,12 @@ public enum MenuBarSpaceEvaluator: Sendable {
         return (clamp(rawLeft), clamp(rawRight))
     }
 
-    /// Dual-icon Compact needs both ears (left >= 36 for 2 logos, right >= 26 for the 5-bar mark);
-    /// a single-ear layout for 1 app needs >= 40 to fit both logo and harmonic mark cleanly.
-    /// Otherwise drop into the chin beneath the hardware notch so logos never cramp, clip, or overlap menus.
+    /// Consistent bilateral rule ("App(s) always on the left, harmonic mark always on the right"):
+    /// Compact uses the ears only when BOTH sides have room (left >= 26 for 1 app or >= 36 for 2+ apps,
+    /// and right >= 26 for the 5-bar mark). Otherwise it drops cleanly into the chin beneath the notch
+    /// so the app icon never jumps across the camera to the right ear or cramps beside the meter.
     public static func shouldUseChin(ears: (left: Double, right: Double), hasMultipleSources: Bool) -> Bool {
-        if ears.left == 0 && ears.right == 0 { return true }
-        if hasMultipleSources {
-            return ears.left < dualIconMinEar || ears.right < earMin
-        }
-        if ears.left == 0 || ears.right == 0 {
-            return max(ears.left, ears.right) < singleEarSingleIconMin
-        }
-        return false
+        let minLeft = hasMultipleSources ? dualIconMinEar : earMin
+        return ears.left < minLeft || ears.right < earMin
     }
 }
