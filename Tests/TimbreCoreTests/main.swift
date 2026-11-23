@@ -298,7 +298,8 @@ struct TimbreCoreTestRunner {
         expect(MenuBarSpaceEvaluator.shouldUseChin(ears: chromeWrapped, hasMultipleSources: false), "Wrapped menus force safe chin for 1 app")
         expect(MenuBarSpaceEvaluator.shouldUseChin(ears: chromeWrapped, hasMultipleSources: true), "Wrapped menus force safe chin for 2+ apps")
 
-        // Single right ear free (left busy, right 44pt): fine for 1 app, chin for 2+ apps (no clipping/cramming)
+        // Bilateral consistency: if EITHER ear is blocked (left=0 OR right=0), always drop to chin
+        // so the app icon never jumps across the camera to the right or cramps next to the harmonic mark.
         let rightOnly = MenuBarSpaceEvaluator.freeEars(
             hasPhysicalNotch: true,
             screenWidth: 1470,
@@ -309,13 +310,12 @@ struct TimbreCoreTestRunner {
             statusItemSpans: [MenuBarItemSpan(minX: 928, maxX: 1460)]
         )
         expect(rightOnly.left == 0 && rightOnly.right == 44, "Left busy + right free yields (0, 44): \(rightOnly)")
-        expect(!MenuBarSpaceEvaluator.shouldUseChin(ears: rightOnly, hasMultipleSources: false), "1 app fits cleanly in a 44pt single ear")
-        expect(MenuBarSpaceEvaluator.shouldUseChin(ears: rightOnly, hasMultipleSources: true), "2+ apps drop to chin instead of cramping 2 icons + meter into 1 ear")
+        expect(MenuBarSpaceEvaluator.shouldUseChin(ears: rightOnly, hasMultipleSources: false), "Left busy drops 1 app to chin instead of jumping icon to right ear")
+        expect(MenuBarSpaceEvaluator.shouldUseChin(ears: rightOnly, hasMultipleSources: true), "Left busy drops 2+ apps to chin")
+        expect(MenuBarSpaceEvaluator.shouldUseChin(ears: (44, 0), hasMultipleSources: false), "Right busy drops 1 app to chin instead of cramping icon + mark")
 
-        // Narrow single ear (<40pt) drops to chin so 1 app never loses its harmonic mark
-        expect(MenuBarSpaceEvaluator.shouldUseChin(ears: (32, 0), hasMultipleSources: false), "Single 32pt ear drops to chin so icon + mark both fit")
         expect(MenuBarSpaceEvaluator.shouldUseChin(ears: (30, 44), hasMultipleSources: true), "30pt left ear drops 2+ apps to chin (< 36pt)")
-        expect(!MenuBarSpaceEvaluator.shouldUseChin(ears: (30, 44), hasMultipleSources: false), "30pt left + 44pt right fits 1 app cleanly")
+        expect(!MenuBarSpaceEvaluator.shouldUseChin(ears: (30, 44), hasMultipleSources: false), "30pt left + 44pt right fits 1 app cleanly across both ears")
 
         // Without AX permission, never guess over wrapped or left menus
         let untrusted = MenuBarSpaceEvaluator.freeEars(
