@@ -21,3 +21,9 @@ Exige conta Apple Developer paga (US$ 99/ano) antes do primeiro release público
 ## Nota 2026-11-22 · Assinatura em desenvolvimento
 
 Até existir Developer ID, os builds locais são assinados por `scripts/setup_dev_signing.sh` + `build_app.sh`, com uma identidade autoassinada ("timbr Local Signing") num keychain próprio. Motivo (Comprovado): o TCC prende Acessibilidade ao requisito designado do app. Com ad-hoc, esse requisito é o `cdhash`, que muda a cada build, e a permissão deixava de valer em silêncio. Com a identidade local, o requisito passa a `identifier "com.timbr.app" and certificate leaf = H"…"` e se mantém entre builds. Isso não substitui a notarização: só vale nesta máquina.
+
+## Emenda 2026-11-24 · DMG beta direto no GitHub
+
+Por orientação explícita do responsável pelo projeto, disponibilizar o DMG beta no GitHub Releases sem aguardar Developer ID ou notarização. O README oferece download direto, instalação por arrastar para Aplicativos e instruções de primeira abertura pelo painel de segurança do macOS. Essa distribuição acontece fora da App Store.
+
+A exigência de Developer ID e notarização continua como objetivo para releases estáveis. O beta é identificado como pré-release, informa a ausência de notarização e inclui SHA-256 do arquivo. Sparkle e Homebrew não bloqueiam esse download inicial.

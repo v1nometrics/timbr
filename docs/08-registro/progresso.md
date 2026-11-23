@@ -39,6 +39,13 @@
 
 ## Histórico Consolidado
 
+### 2026-11-24 · Apresentação e instalação simplificada
+
+- **Feito:** README começa pelo notch audiófilo e mantém mixer por app, EQ Float64, Observatório, execução local e MPL-2.0 em texto corrido. Instalação rápida com um único comando e atalho no topo.
+- **Distribuição:** a pedido explícito do responsável, DMG beta direto no GitHub Releases sem aguardar notarização; exceção documentada no ADR-0007. README com botão de download e instruções para a primeira abertura no macOS.
+- **Verificação:** sequência do comando conferida nos scripts existentes; alteração apenas documental, sem novo ensaio de instalação ou de áudio.
+- **Próximo passo:** assinatura Developer ID e notarização para a distribuição estável.
+
 ### 2026-11-23 · Auditoria de animações de ponta a ponta
 
 - **Pedido:** revisar e refinar todas as animações do app.
