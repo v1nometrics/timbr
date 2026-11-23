@@ -16,7 +16,7 @@ extension AppState {
 
     /// `mixerSources` as the notch should see them: system blips (error click, alerts) are not "playing".
     var notchMixerSources: [AudioSourceDescriptor] {
-        NotchActivityPolicy.forNotch(mixerSources).sorted(by: AudioSourceDescriptor.displayOrder)
+        NotchActivityPolicy.forNotch(mixerSources, silent: tapSilentBundles).sorted(by: AudioSourceDescriptor.displayOrder)
     }
 
     /// Sources actively outputting audio right now, in stable display order (newest run first).

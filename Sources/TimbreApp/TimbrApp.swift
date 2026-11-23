@@ -58,6 +58,16 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
             sound.loops = true
             sound.play()
             selfTestTone = sound
+            // Latency probes: `--pause-after <s> <timestamp file>` pauses (or `--stop-after`) and records the wall clock.
+            for (flag, isStop) in [("--pause-after", false), ("--stop-after", true)] {
+                if let k = launchArgs.firstIndex(of: flag), k + 2 < launchArgs.count, let secs = Double(launchArgs[k + 1]) {
+                    let file = URL(fileURLWithPath: launchArgs[k + 2])
+                    DispatchQueue.main.asyncAfter(deadline: .now() + secs) {
+                        try? String(format: "%.4f", Date().timeIntervalSince1970).write(to: file, atomically: true, encoding: .utf8)
+                        if isStop { sound.stop() } else { sound.pause() }
+                    }
+                }
+            }
             return
         }
         // Child of the test above: holds a mute until it is SIGKILLed.
@@ -96,6 +106,8 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
             appState.selectedTab = tab
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak self] in self?.openStudio() }
         }
+        // Latency probe: `--review-crossfeed` keeps the global tap (and so the silence measurement) alive while audio plays.
+        if args.contains("--review-crossfeed") { appState.activePreset.crossfeedEnabled = true; appState.syncDSPAndTap() }
         if let i = args.firstIndex(of: "--notch"), i + 1 < args.count, let st = NotchState(rawValue: args[i + 1]) {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in
                 if st == .hud { self?.appState.triggerHUD(title: "Output", value: 0.62, muted: false) } else { self?.appState.notchState = st }

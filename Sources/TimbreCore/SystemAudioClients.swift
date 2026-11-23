@@ -113,10 +113,13 @@ public enum NotchActivityPolicy {
         }
     }
 
-    /// The sources as the notch should see them: transient system sounds are never "playing".
-    public static func forNotch(_ sources: [AudioSourceDescriptor]) -> [AudioSourceDescriptor] {
+    /// The sources as the notch should see them: transient system sounds are never "playing", and
+    /// neither is an app whose own signal has been measured silent (`silent`, see `SilenceTracker`):
+    /// macOS keeps "running output" on for seconds after a pause (measured 2026-11-23: 2.1 s after a
+    /// stop, 3.7–7.4 s after a pause), and the notch must not wait for it when we can hear the silence.
+    public static func forNotch(_ sources: [AudioSourceDescriptor], silent: Set<String> = []) -> [AudioSourceDescriptor] {
         sources.map { src in
-            guard src.isPlaying, isTransientSystemSound(bundleID: src.bundleID) else { return src }
+            guard src.isPlaying, isTransientSystemSound(bundleID: src.bundleID) || silent.contains(src.bundleID) else { return src }
             var quiet = src
             quiet.isPlaying = false
             quiet.playingSince = nil

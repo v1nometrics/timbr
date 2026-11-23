@@ -580,6 +580,29 @@ struct TimbreCoreTestRunner {
             print("  [PASS] NotchActivityPolicy (system blips never wake the notch; Siri, calls and apps still do)")
         }
 
+        // Silence tracker: pauses are heard in ~1 s, track gaps are not mistaken for pauses
+        do {
+            var tr = SilenceTracker(floorDB: -75, holdSeconds: 1.0)
+            let t0 = Date(timeIntervalSince1970: 1_800_000_000)
+            expect(tr.update(peaks: ["app:a": -10], now: t0).isEmpty, "A loud slot is never silent")
+            expect(tr.update(peaks: ["app:a": -120], now: t0.addingTimeInterval(0.1)).isEmpty, "Silence is not reported at once (a gap between songs)")
+            expect(tr.update(peaks: ["app:a": -120], now: t0.addingTimeInterval(0.9)).isEmpty, "…nor before the hold time")
+            expect(tr.update(peaks: ["app:a": -120], now: t0.addingTimeInterval(1.2)) == ["app:a"], "…but is, after a second of it")
+            expect(tr.update(peaks: ["app:a": -20], now: t0.addingTimeInterval(1.3)).isEmpty, "A loud block ends the silence at once")
+            expect(tr.update(peaks: ["app:a": -120], now: t0.addingTimeInterval(1.4)).isEmpty, "…and the hold starts over (a 0.2 s gap is never a pause)")
+            _ = tr.update(peaks: ["global": -120, "app:b": -120], now: t0.addingTimeInterval(2.0))
+            let both = tr.update(peaks: ["global": -120, "app:b": -3], now: t0.addingTimeInterval(3.2))
+            expect(both == ["global"], "Slots are tracked independently")
+            _ = tr.update(peaks: [:], now: t0.addingTimeInterval(3.3))
+            expect(tr.update(peaks: ["global": -120], now: t0.addingTimeInterval(3.4)).isEmpty, "A slot that disappeared and came back starts from zero")
+            let spotify = AudioSourceDescriptor(bundleID: "com.spotify.client", name: "Spotify", isPlaying: true)
+            let chrome = AudioSourceDescriptor(bundleID: "com.google.Chrome", name: "Chrome", isPlaying: true)
+            let seen = NotchActivityPolicy.forNotch([spotify, chrome], silent: ["com.spotify.client"])
+            expect(seen.map(\.isPlaying) == [false, true] && spotify.isPlaying, "A silent app is not playing for the notch; the other one still is; the source is untouched")
+            expect(NotchActivityPolicy.forNotch([spotify, chrome]).allSatisfy(\.isPlaying), "With no silence information nothing changes")
+            print("  [PASS] SilenceTracker (1 s hold, instant resume, independent slots) and the notch policy's silent set")
+        }
+
         print("[TimbreCoreTests] ALL PASSED")
     }
 }

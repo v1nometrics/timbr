@@ -219,6 +219,12 @@ public final class AppState: ObservableObject {
     @Published public var showOnboarding: Bool = false
 
     private var refreshTimer: Timer?
+    /// Fast, cheap re-read of "who is playing" while something plays (see `startPlaybackWatch`).
+    private var playbackWatchTimer: Timer?
+    private var silenceTracker = SilenceTracker()
+    /// Apps whose own measured signal has been silent for a second: they paused, whatever Core Audio
+    /// still says for the next 2–7 s. Only filled while a tap is measuring them.
+    @Published public private(set) var tapSilentBundles: Set<String> = []
     private let processMonitor = AudioProcessMonitor()
     private var lastLoggedTapFailure: String?
     /// Last time any source was playing; the global EQ tap is torn down this long after silence.
@@ -429,6 +435,7 @@ public final class AppState: ObservableObject {
 
     public func shutdown() {
         refreshTimer?.invalidate()
+        playbackWatchTimer?.invalidate()
         processMonitor.stop()
         telemetryTimer?.invalidate()
         halManager.stopSystemWatchdog()
@@ -525,7 +532,7 @@ public final class AppState: ObservableObject {
     }
 
     public var shouldShowCompact: Bool {
-        showCompactActivity && !menuBarOnlyMode && notchEnabled && !shouldSuppressNotchChrome && NotchActivityPolicy.forNotch(sources).contains(where: { $0.isPlaying })
+        showCompactActivity && !menuBarOnlyMode && notchEnabled && !shouldSuppressNotchChrome && NotchActivityPolicy.forNotch(sources, silent: tapSilentBundles).contains(where: { $0.isPlaying })
     }
 
     public func toggleExpandedNotch() {
@@ -609,19 +616,80 @@ public final class AppState: ObservableObject {
         syncDSPAndTap()
         evaluateGuardian()
 
-        // Transition Compact <-> Resting cleanly when audio starts/stops
-        if notchState == .resting && shouldShowCompact {
-            notchState = .compact
-        } else if notchState == .compact && !shouldShowCompact {
+        updateCompactState()
+        updatePlaybackWatch()
+    }
+
+    /// How long the compact view waits, after the last sound, before leaving. Only a debounce against
+    /// a gap between two songs: macOS already adds 2–7 s of its own before it reports a stop, so this
+    /// used to be a second wait stacked on a first one (3 s).
+    static let compactLeaveDelay: TimeInterval = 0.35
+
+    private var compactDismissPending: Bool { compactDismissWorkItem.map { !$0.isCancelled } ?? false }
+
+    /// Compact <-> Resting, from "is something playing". Arms the leave debounce once: the old code
+    /// cancelled and re-armed it on every refresh, and with a refresh every 2 s a 3 s wait could be
+    /// pushed back forever.
+    func updateCompactState() {
+        if shouldShowCompact {
             compactDismissWorkItem?.cancel()
+            compactDismissWorkItem = nil
+            if notchState == .resting { notchState = .compact }
+        } else if notchState == .compact, !compactDismissPending {
             let item = DispatchWorkItem { [weak self] in
                 guard let self else { return }
-                if self.notchState == .compact && !self.shouldShowCompact {
-                    self.notchState = .resting
-                }
+                self.compactDismissWorkItem = nil
+                if self.notchState == .compact && !self.shouldShowCompact { self.notchState = .resting }
             }
             compactDismissWorkItem = item
-            DispatchQueue.main.asyncAfter(deadline: .now() + 3.0, execute: item)
+            DispatchQueue.main.asyncAfter(deadline: .now() + Self.compactLeaveDelay, execute: item)
+        }
+    }
+
+    /// While something plays, look again every 250 ms instead of waiting for the 2 s fallback: Core
+    /// Audio does not notify when a process stops producing output (measured: no change event at all),
+    /// so polling is the only way to notice it. Cheap (a few property reads); stops when nothing plays.
+    private func updatePlaybackWatch() {
+        let active = sources.contains(where: \.isPlaying)
+        if active, playbackWatchTimer == nil {
+            let t = Timer(timeInterval: 0.25, repeats: true) { [weak self] _ in
+                Task { @MainActor in self?.pollPlayback() }
+            }
+            t.tolerance = 0.05
+            RunLoop.main.add(t, forMode: .common)
+            playbackWatchTimer = t
+        } else if !active {
+            playbackWatchTimer?.invalidate()
+            playbackWatchTimer = nil
+        }
+    }
+
+    private func pollPlayback() {
+        guard !Self.isAuxiliaryInstance else { return }
+        // Only "did a source that was playing stop?" is asked here: a few property reads. Starts come
+        // from the process monitor's events, so nothing needs a full re-enumeration four times a second.
+        let stopped = sources.contains { $0.isPlaying && !$0.pids.isEmpty && !ProcessTapEngine.isAnyProcessOutputting(pids: $0.pids) }
+        if stopped { refreshSystemState() }
+    }
+
+    /// Per-app silence from the level our own taps already measure (called from the 30 Hz telemetry
+    /// poll, at ~7 Hz). Covers every app that goes through a tap: the ones with their own volume, and
+    /// all the rest when the global tap exists (EQ, crossfeed, ducking).
+    private func updateTapSilence() {
+        guard tapEngine.activeTapCount > 0, !outputSilenced else {
+            if !tapSilentBundles.isEmpty { tapSilentBundles = []; silenceTracker.reset(); updateCompactState() }
+            return
+        }
+        let silentKeys = silenceTracker.update(peaks: tapEngine.slotPeaks(), now: Date())
+        var bundles: Set<String> = []
+        for src in sources where src.isPlaying && !src.isVoIPExcluded && !PersistentMutePolicy.isSilenced(src) {
+            let own = silentKeys.contains("app:\(src.bundleID)")
+            let hasOwnSlot = tapEngine.hasSlot(forKey: "app:\(src.bundleID)")
+            if own || (!hasOwnSlot && silentKeys.contains("global")) { bundles.insert(src.bundleID) }
+        }
+        if bundles != tapSilentBundles {
+            tapSilentBundles = bundles
+            updateCompactState()
         }
     }
 
@@ -642,6 +710,7 @@ public final class AppState: ObservableObject {
                 .mapValues { ($0 * 2).rounded() / 2 }
             if held != sourceLimiterDB { sourceLimiterDB = held }
         }
+        if telemetryTick % 4 == 0 { updateTapSilence() }
     }
 
     public func resetClipLatch() {
