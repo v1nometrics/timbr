@@ -273,3 +273,128 @@ public enum MenuBarSpaceEvaluator: Sendable {
         return ears.left < minLeft || ears.right < earMin
     }
 }
+// MARK: - Output volume & zero-bleed mute policy
+
+public enum OutputVolumeBehavior: Sendable {
+    /// CoreAudio speakers/DACs often have a finite dB floor at scalar 0.0 (e.g. -63.5 dB on MacBook
+    /// speakers) that remains audibly faint unless hardware mute is engaged. Anything that formats
+    /// as "0%" (< 0.005) therefore snaps scalar to 0.0 and engages hardware mute, matching macOS.
+    public static let zeroThreshold: Double = 0.005
+
+    public struct SetVolumeTransition: Equatable, Sendable {
+        public let scalar: Float
+        public let muted: Bool
+        public let displayVolume: Double
+        public let hudMuted: Bool
+
+        public init(scalar: Float, muted: Bool, displayVolume: Double, hudMuted: Bool) {
+            self.scalar = scalar
+            self.muted = muted
+            self.displayVolume = displayVolume
+            self.hudMuted = hudMuted
+        }
+    }
+
+    public enum MediaKeyStepAction: Equatable, Sendable {
+        case volumeUp(step: Double)
+        case volumeDown(step: Double)
+        case muteToggle
+    }
+
+    public struct MediaKeyTransition: Equatable, Sendable {
+        public let scalar: Float?
+        public let muted: Bool
+        public let displayVolume: Double
+        public let hudMuted: Bool
+
+        public init(scalar: Float?, muted: Bool, displayVolume: Double, hudMuted: Bool) {
+            self.scalar = scalar
+            self.muted = muted
+            self.displayVolume = displayVolume
+            self.hudMuted = hudMuted
+        }
+    }
+
+    public static func evaluateSetVolume(requested: Double, isHWMuteSettable: Bool) -> SetVolumeTransition {
+        let clamped = min(max(requested, 0.0), 1.0)
+        if clamped < zeroThreshold {
+            return SetVolumeTransition(
+                scalar: 0.0,
+                muted: isHWMuteSettable,
+                displayVolume: 0.0,
+                hudMuted: true
+            )
+        }
+        return SetVolumeTransition(
+            scalar: Float(clamped),
+            muted: false,
+            displayVolume: clamped,
+            hudMuted: false
+        )
+    }
+
+    public static func evaluateMediaKey(
+        currentVolume: Double,
+        currentMuted: Bool,
+        isHWMuteSettable: Bool,
+        action: MediaKeyStepAction
+    ) -> MediaKeyTransition {
+        let clampedCur = min(max(currentVolume, 0.0), 1.0)
+        switch action {
+        case .volumeUp(let step):
+            let t = evaluateSetVolume(requested: clampedCur + step, isHWMuteSettable: isHWMuteSettable)
+            return MediaKeyTransition(scalar: t.scalar, muted: t.muted, displayVolume: t.displayVolume, hudMuted: t.hudMuted)
+        case .volumeDown(let step):
+            let next = max(0.0, clampedCur - step)
+            if next < zeroThreshold {
+                return MediaKeyTransition(
+                    scalar: 0.0,
+                    muted: isHWMuteSettable,
+                    displayVolume: 0.0,
+                    hudMuted: true
+                )
+            }
+            let keepMuted = currentMuted && isHWMuteSettable
+            return MediaKeyTransition(
+                scalar: Float(next),
+                muted: keepMuted,
+                displayVolume: next,
+                hudMuted: keepMuted
+            )
+        case .muteToggle:
+            if currentMuted {
+                if clampedCur < zeroThreshold {
+                    // Never unmute into CoreAudio's -63.5 dB zero floor via mute key.
+                    return MediaKeyTransition(
+                        scalar: 0.0,
+                        muted: isHWMuteSettable,
+                        displayVolume: 0.0,
+                        hudMuted: true
+                    )
+                }
+                return MediaKeyTransition(
+                    scalar: nil,
+                    muted: false,
+                    displayVolume: clampedCur,
+                    hudMuted: false
+                )
+            } else {
+                return MediaKeyTransition(
+                    scalar: nil,
+                    muted: isHWMuteSettable,
+                    displayVolume: clampedCur,
+                    hudMuted: isHWMuteSettable || clampedCur < zeroThreshold
+                )
+            }
+        }
+    }
+
+    public static func shouldRestoreAudibleOnUnmute(activeVolume: Double?) -> Bool {
+        (activeVolume ?? 0.0) < zeroThreshold
+    }
+
+    public static func normalizeSourceVolume(_ requested: Double) -> Double {
+        let clamped = min(max(requested, 0.0), 4.0)
+        return clamped < zeroThreshold ? 0.0 : clamped
+    }
+}

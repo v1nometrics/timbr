@@ -190,7 +190,7 @@ public final class AppState: ObservableObject {
     /// The active output is muted at the device (the master mute macOS shows in Control Center).
     @Published public private(set) var activeOutputMuted: Bool = false
     /// Nothing can be heard from any app: master muted or at zero. Per-app controls are then moot.
-    public var outputSilenced: Bool { activeOutputMuted || (activeOutputVolume.map { $0 < 0.005 } ?? false) }
+    public var outputSilenced: Bool { activeOutputMuted || (activeOutputVolume.map { $0 < OutputVolumeBehavior.zeroThreshold } ?? false) }
     /// Per-app limiter reduction (dB, rounded to 0.5), only for apps the limiter is actually holding.
     @Published public private(set) var sourceLimiterDB: [String: Double] = [:]
     private var telemetryTick = 0
@@ -435,27 +435,28 @@ public final class AppState: ObservableObject {
         let currentVol = Double(halManager.readOutputVolumeScalar(deviceID: out.audioObjectID) ?? 0.5)
         let currentMute = halManager.readOutputMute(deviceID: out.audioObjectID) ?? false
 
+        let stepAction: OutputVolumeBehavior.MediaKeyStepAction
         switch action {
-        case .volumeUp(let fine):
-            let next = min(1.0, currentVol + (fine ? 0.015625 : 0.0625))
-            _ = halManager.setOutputVolumeScalar(deviceID: out.audioObjectID, value: Float32(next))
-            _ = halManager.setOutputMute(deviceID: out.audioObjectID, muted: false)
-            activeOutputMuted = false
-            activeOutputVolume = next
-            triggerHUD(title: out.name, value: next, muted: false)
-        case .volumeDown(let fine):
-            let next = max(0.0, currentVol - (fine ? 0.015625 : 0.0625))
-            _ = halManager.setOutputVolumeScalar(deviceID: out.audioObjectID, value: Float32(next))
-            activeOutputVolume = next
-            triggerHUD(title: out.name, value: next, muted: next <= 0.001)
-        case .muteToggle:
-            let nextMute = !currentMute
-            _ = halManager.setOutputMute(deviceID: out.audioObjectID, muted: nextMute)
-            activeOutputMuted = nextMute
-            triggerHUD(title: out.name, value: currentVol, muted: nextMute)
-        case .brightnessUp, .brightnessDown:
-            break   // handled above
+        case .volumeUp(let fine): stepAction = .volumeUp(step: fine ? 0.015625 : 0.0625)
+        case .volumeDown(let fine): stepAction = .volumeDown(step: fine ? 0.015625 : 0.0625)
+        case .muteToggle: stepAction = .muteToggle
+        case .brightnessUp, .brightnessDown: return
         }
+        let transition = OutputVolumeBehavior.evaluateMediaKey(
+            currentVolume: currentVol,
+            currentMuted: currentMute,
+            isHWMuteSettable: out.isHWMuteSettable,
+            action: stepAction
+        )
+        if let scalar = transition.scalar {
+            _ = halManager.setOutputVolumeScalar(deviceID: out.audioObjectID, value: Float32(scalar))
+        }
+        let muteApplied = out.isHWMuteSettable ? halManager.setOutputMute(deviceID: out.audioObjectID, muted: transition.muted) : false
+        activeOutputVolume = transition.displayVolume
+        if muteApplied || !transition.muted {
+            activeOutputMuted = transition.muted && out.isHWMuteSettable
+        }
+        triggerHUD(title: out.name, value: transition.displayVolume, muted: transition.hudMuted)
     }
 
     public func triggerHUD(title: String, value: Double, muted: Bool, kind: HUDKind = .volume) {
@@ -727,7 +728,8 @@ public final class AppState: ObservableObject {
             logEvent(category: "device", message: "Switched output to \(device.name)")
             refreshSystemState()
             let vol = Double(halManager.readOutputVolumeScalar(deviceID: device.audioObjectID) ?? 0.5)
-            triggerHUD(title: device.name, value: vol, muted: false)
+            let muted = halManager.readOutputMute(deviceID: device.audioObjectID) ?? false
+            triggerHUD(title: device.name, value: vol, muted: muted || vol < OutputVolumeBehavior.zeroThreshold)
         }
     }
 
@@ -743,14 +745,18 @@ public final class AppState: ObservableObject {
     /// `showHUD: false` when the change comes from a control that is already on screen (e.g. the
     /// notch's own fader) — the HUD would replace the very panel the user is dragging in.
     public func setOutputVolume(_ device: AudioDeviceDescriptor, value: Double, showHUD: Bool = true) {
-        let clamped = Float32(min(max(value, 0.0), 1.0))
-        _ = halManager.setOutputVolumeScalar(deviceID: device.audioObjectID, value: clamped)
+        let t = OutputVolumeBehavior.evaluateSetVolume(requested: value, isHWMuteSettable: device.isHWMuteSettable)
+        _ = halManager.setOutputVolumeScalar(deviceID: device.audioObjectID, value: Float32(t.scalar))
+        let muteApplied = device.isHWMuteSettable ? halManager.setOutputMute(deviceID: device.audioObjectID, muted: t.muted) : false
         if device.uid == activeOutputDevice?.uid {
-            activeOutputVolume = Double(clamped)
-            // Like macOS: moving the master slider up brings sound back.
-            if clamped > 0.001, activeOutputMuted { setOutputMuted(false) }
+            activeOutputVolume = t.displayVolume
+            if muteApplied {
+                activeOutputMuted = t.muted
+            } else if !t.muted {
+                activeOutputMuted = false
+            }
         }
-        if showHUD { triggerHUD(title: device.name, value: Double(clamped), muted: clamped <= 0.001) }
+        if showHUD { triggerHUD(title: device.name, value: t.displayVolume, muted: t.hudMuted) }
     }
 
     func refreshActiveOutputVolume() {
@@ -768,11 +774,12 @@ public final class AppState: ObservableObject {
     public func setSourceVolume(bundleID: String, volume: Double) {
         guard let idx = sources.firstIndex(where: { $0.bundleID == bundleID }) else { return }
         guard !sources[idx].isVoIPExcluded else { return }
-        let new = min(max(volume, 0.0), 4.0)
+        let new = OutputVolumeBehavior.normalizeSourceVolume(volume)
         let raising = new > sources[idx].volume + 0.0001
         sources[idx].volume = new
-        // Turning an app up while the master is muted would do nothing audible: bring the master back.
-        if raising, new > 0.001, activeOutputMuted { setOutputMuted(false) }
+        // Turning an app up while the master is muted would do nothing audible: bring the master back
+        // (and bump master out of 0% so unmuting never exposes CoreAudio's -63.5 dB floor).
+        if raising, new >= OutputVolumeBehavior.zeroThreshold, activeOutputMuted { restoreOutputAudible() }
         syncDSPAndTap()
     }
 
@@ -780,7 +787,7 @@ public final class AppState: ObservableObject {
         guard let idx = sources.firstIndex(where: { $0.bundleID == bundleID }) else { return }
         guard !sources[idx].isVoIPExcluded else { return }
         sources[idx].isMuted.toggle()
-        if !sources[idx].isMuted, activeOutputMuted { setOutputMuted(false) }   // unmuting an app = wanting to hear it
+        if !sources[idx].isMuted, activeOutputMuted { restoreOutputAudible() }   // unmuting an app = wanting to hear it
         syncDSPAndTap()
     }
 
@@ -788,18 +795,31 @@ public final class AppState: ObservableObject {
 
     public func setOutputMuted(_ muted: Bool) {
         guard let out = activeOutputDevice else { return }
+        if !muted, OutputVolumeBehavior.shouldRestoreAudibleOnUnmute(activeVolume: activeOutputVolume) {
+            setOutputVolume(out, value: 0.25, showHUD: false)
+            return
+        }
         if halManager.setOutputMute(deviceID: out.audioObjectID, muted: muted) || !out.isHWMuteSettable {
             activeOutputMuted = muted && out.isHWMuteSettable
         }
     }
 
-    public func toggleOutputMute() { setOutputMuted(!activeOutputMuted) }
+    public func toggleOutputMute() {
+        if activeOutputMuted {
+            restoreOutputAudible()
+        } else {
+            setOutputMuted(true)
+        }
+    }
 
-    /// "Make it audible again": unmute the master and, if it sits at 0 %, bring it to 25 %.
+    /// "Make it audible again": raise from 0% before unmuting so CoreAudio never exposes a -63.5 dB floor.
     public func restoreOutputAudible() {
         guard let out = activeOutputDevice else { return }
-        if activeOutputMuted { setOutputMuted(false) }
-        if let v = activeOutputVolume, v < 0.005 { setOutputVolume(out, value: 0.25, showHUD: false) }
+        if OutputVolumeBehavior.shouldRestoreAudibleOnUnmute(activeVolume: activeOutputVolume) {
+            setOutputVolume(out, value: 0.25, showHUD: false)
+        } else if activeOutputMuted {
+            setOutputMuted(false)
+        }
     }
 
     /// Unity / flat: all controllable app volumes → 1.0, unmuted. VoIP/DAW rows stay untouched.
