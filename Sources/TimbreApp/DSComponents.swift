@@ -1347,16 +1347,43 @@ enum Fmt {
 }
 
 
-/// The approved source artwork, independent of macOS icon styling and cached low-resolution reps.
+/// Native vector rendering of the approved *Ilha refinada* icon (ADR-0025, `Resources/Brand/timbr-icon.svg`).
+/// Drawn directly from the canonical 824x824 tile geometry without macOS icon-grid outer padding so it stays
+/// razor-sharp at any Retina scale and aligns flush with typography in Onboarding and About.
 struct TimbrBrandIcon: View {
     var size: CGFloat
-    private var artwork: NSImage {
-        if let url = Bundle.main.url(forResource: "TimbrBrandIcon", withExtension: "png"),
-           let image = NSImage(contentsOf: url) { return image }
-        return NSApp.applicationIconImage
-    }
+
     var body: some View {
-        Image(nsImage: artwork).resizable().interpolation(.high)
-            .frame(width: size, height: size).accessibilityLabel("timbr")
+        Canvas { ctx, canvasSize in
+            let s = min(canvasSize.width, canvasSize.height) / 824.0
+            let strokeW = max(0.5, 5.0 * s)
+            let halfStroke = strokeW / 2.0
+
+            func rounded(_ x: CGFloat, _ y: CGFloat, _ w: CGFloat, _ h: CGFloat, _ r: CGFloat) -> Path {
+                Path(roundedRect: CGRect(x: x * s, y: y * s, width: w * s, height: h * s), cornerRadius: r * s, style: .circular)
+            }
+
+            let tileRect = CGRect(
+                x: halfStroke,
+                y: halfStroke,
+                width: 824.0 * s - strokeW,
+                height: 824.0 * s - strokeW
+            )
+            let tilePath = Path(roundedRect: tileRect, cornerRadius: max(0, 185.0 * s - halfStroke), style: .circular)
+            ctx.fill(tilePath, with: .color(Color(red: 0xF3 / 255.0, green: 0xF3 / 255.0, blue: 0xF1 / 255.0)))
+            ctx.stroke(tilePath, with: .color(Color(red: 0xDE / 255.0, green: 0xDE / 255.0, blue: 0xD9 / 255.0)), lineWidth: strokeW)
+
+            // Black island pill (182-100 = 82, 387-100 = 287, 660x250, rx=125)
+            ctx.fill(rounded(82.0, 287.0, 660.0, 250.0, 125.0), with: .color(Color(red: 0, green: 0, blue: 0)))
+
+            // Inner glyph elements (#F2F2F2)
+            let glyph = Color(red: 0xF2 / 255.0, green: 0xF2 / 255.0, blue: 0xF2 / 255.0)
+            ctx.fill(rounded(222.0, 344.0, 136.0, 136.0, 36.7), with: .color(glyph))
+            ctx.fill(rounded(416.0, 365.2, 42.0, 93.5, 21.0), with: .color(glyph))
+            ctx.fill(rounded(488.0, 327.0, 42.0, 170.0, 21.0), with: .color(glyph))
+            ctx.fill(rounded(560.0, 350.8, 42.0, 122.4, 21.0), with: .color(glyph))
+        }
+        .frame(width: size, height: size)
+        .accessibilityLabel("timbr")
     }
 }

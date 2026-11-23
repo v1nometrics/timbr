@@ -1798,7 +1798,7 @@ private struct AboutPage: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 28) {
             VStack(alignment: .leading, spacing: 14) {
-                TimbrBrandIcon(size: 88)
+                TimbrBrandIcon(size: 72)
                 HStack(alignment: .firstTextBaseline, spacing: 0) {
                     Text("timbr").font(.system(size: 56, weight: .semibold)).tracking(-2.6)
                 }
@@ -1858,8 +1858,9 @@ private struct UpdateProgressBar: View {
 
     var body: some View {
         GeometryReader { geo in
-            let w = geo.size.width
-            let fillW = progress.map { max(6, w * min(1, max(0, $0))) } ?? (w * 0.35)
+            let w: CGFloat = geo.size.width
+            let fraction: CGFloat = progress.map { CGFloat(min(1.0, max(0.0, $0))) } ?? 0.35
+            let fillW: CGFloat = max(6, w * fraction)
             ZStack(alignment: .leading) {
                 Capsule().fill(c.bg_inset)
                 Capsule()
