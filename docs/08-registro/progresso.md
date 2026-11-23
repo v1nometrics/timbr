@@ -337,3 +337,19 @@
 5. **Mute real de hardware em 0% e liderança neutra no Expandido (`OutputVolumeBehavior` + `NotchExpandedTarget`):**
    - **Zero-bleed em `0%`:** o CoreAudio dos alto-falantes do MacBook deixa `-63,5 dB` residuais quando `kAudioDevicePropertyVolumeScalar = 0.0` e `kAudioDevicePropertyMute == 0`. O novo `OutputVolumeBehavior` espelha o comportamento nativo do macOS: qualquer escrita `< 0,5%` (que exibe `0`) ou tecla de diminuir volume até `0%` engata o mute de hardware (`kAudioDevicePropertyMute = 1`), e desmutar a partir de `0%` no botão da UI restaura para `25%` antes de abrir o mute (sem jamais passar por `(0.0, mute: 0)`). Refletido também no slider de saídas do Estúdio (`OutputRow`).
    - **Espiada e Expandido unificados:** ambos os estados seguem a mesma regra de cardinalidade (`0 / 1 / 2+` apps tocando). Com `2+` apps tocando ao mesmo tempo (ex.: Spotify + Chrome) ou só apps pausados, o **Geral** neutro assume o destaque no topo do Expandido e todos os apps aparecem em igualdade nas linhas abaixo, com recolhimento suave do ícone viajante.
+
+### 2026-11-23 · Refinamento de Audio UI e Metrologia com `audiocn/ui` (MIT)
+
+1. **Auditoria de licença e conformidade (`NOTICE` + `11_auditoria_repositorios_oss.md`):** verificada a licença **MIT** de `github.com/audiocn/ui` (`audiocn.dev`), compatível com MPL-2.0 e zero-GPL, mantendo 100% a identidade acromática do **ADR-0016**.
+2. **Núcleo matemático de UI de áudio (`Sources/TimbreCore/AudioUIMath.swift`):**
+   - `AudioDecibelMath` & `AudioMeterZone`: conversão ganho ↔ dB, normalização com *audio taper* (`expoente 1,65`) para faders e medidores, e classificação em zonas (`safe`, `warning` ≥ `-6 dB`, `clip` ≥ `-1 dB`).
+   - `AudioMeterBallistics`: balística determinística com ataque rápido, queda contínua, retenção de pico (*peak hold* de `1,2 s`) e *latch* de clip por borda de subida com contador de eventos e reset explícito (`resetClip()`).
+   - `LCDSegmentLayout`: quantização de bloco inteiro (32 segmentos — nenhum bloco LCD acende parcialmente) e cálculo do índice de *peak hold*.
+   - `KnobArcGeometry`: varredura de 270° (`-135°…+135°`), origem bipolar em 12h (`0 dB`) e iluminação seletiva de ticks periféricos.
+   - Cobertura completa de testes unitários em `Tests/TimbreCoreTests/main.swift`.
+3. **Primitivas SwiftUI (`Sources/TimbreApp/DSComponents.swift`) e integração nas superfícies:**
+   - `TKnob`, `TChannelButton` (`M`/`S`/`BYP`), `TClipIndicator`, `TdBReadout`, `TdBScale`, `TLevelMeter`, `TLCDDisplay`, `TLCDMeterRow` e `TFader` aprimorado (`liveMeterNorm`, `scaleMarks`).
+   - **Estúdio — Mixer:** faixas de fontes, abas e saídas com medidor ao vivo translúcido dentro do `TFader`, marcas de escala e botão de console `M` (`TChannelButton`).
+   - **Estúdio — Equalizador:** barra de metrologia com `TLevelMeter` (True Peak + LUFS Momentary + Peak Hold) e `TClipIndicator` clicável; cartões `Seu gosto` com dials rotativos bipolares `TKnob` em par com `TFader` bipolar (`-6…+6 dB`).
+   - **Estúdio — Observatório:** monitor `TLCDDisplay` (`TRUE PEAK & LUFS RECORDER MONITOR`) com par estéreo `L`/`R` de 32 segmentos (`TLCDMeterRow`), `TdBScale` e `TClipIndicator`, além de `SpectrumView` com eixo dB, grade de frequência e envelope tracejado de Peak Hold. Corrigida também a inicialização atômica de `metric_tp_l`/`metric_tp_r` em `timbre_dsp.cpp` para `-120.0 dBTP` em repouso.
+   - **MenuBarPanel & Playground Web:** `MenuBarPanel` (estilo *Quick Audio Popover*) com `MiniMeter` no cabeçalho, `TFader` com `scaleMarks` e `TChannelButton` (`M`); `design-system/playground/` atualizado para demonstrar `LCD Display + Stereo LCD Meter`, `Bipolar Rotary Knobs`, `Channel Strip` e `Clip Latch` em paleta acromática ADR-0016.

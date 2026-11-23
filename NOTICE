@@ -50,3 +50,9 @@ References (study only; parser reimplemented in Swift under MPL-2.0):
 Adapted in: Sources/TimbreEngine/AirPodsFamilyDriver.swift
   ContinuityProximityParser + ContinuityBLEScanner (independent reimplementation).
   Zero code from LibrePods (GPL-3.0) or AirBattery (AGPL-3.0).
+
+4. audiocn UI Primitives & Audio Metrology Reference (MIT)
+   - Project: https://github.com/audiocn/ui (https://www.audiocn.dev)
+   - Authors: fortysevenfx & orcdev
+   - License: MIT
+   - Note: timbr. models its native SwiftUI audio UI primitives (`TKnob`, `TLCDDisplay`, `TLCDMeterRow`, `TLevelMeter`, `TdBScale`, `TdBReadout`, `TClipIndicator`, `TChannelButton`, and enhanced `TFader`) and `AudioUIMath` metrology/ballistics after the component anatomy, audio-taper exponent (`1.65`), whole-segment LCD quantization, and bipolar rotary arc patterns specified by audiocn. No GPL/AGPL code is linked or bundled.

@@ -20,11 +20,14 @@ struct MenuBarPanel: View {
             // Header
             HStack(alignment: .center, spacing: 10) {
                 VStack(alignment: .leading, spacing: 3) {
-                    HStack(alignment: .firstTextBaseline, spacing: 0) {
-                        Text("timbr").font(.system(size: 15, weight: .semibold)).tracking(-0.4)
-                        Text(".").font(.system(size: 15, weight: .semibold)).foregroundStyle(c.accent_signal)
+                    HStack(alignment: .center, spacing: 8) {
+                        HStack(alignment: .firstTextBaseline, spacing: 0) {
+                            Text("timbr").font(.system(size: 15, weight: .semibold)).tracking(-0.4)
+                            Text(".").font(.system(size: 15, weight: .semibold)).foregroundStyle(c.accent_signal)
+                        }
+                        .foregroundStyle(c.ink_primary)
+                        MiniMeter(level: appState.hasLiveSignal ? min(1, max(0, (appState.telemetry.lufsMomentary + 48) / 40)) : nil, active: !appState.playingSources.isEmpty && !appState.isProcessingBypassed, color: appState.isProcessingBypassed ? c.ink_muted : c.accent_base)
                     }
-                    .foregroundStyle(c.ink_primary)
                     Text((appState.isProcessingBypassed ? appState.t("ui.path.bypassed") : (appState.pathIsNative ? appState.t("ui.path.native") : appState.t("ui.path.processing"))) + " · " + (appState.activeOutputDevice?.name ?? "—")).type(TimbreTypography.caption).foregroundStyle(c.ink_muted).lineLimit(1)
                 }
                 Spacer()
@@ -49,9 +52,11 @@ struct MenuBarPanel: View {
                             Spacer()
                         } else {
                             TFader(value: Binding(get: { src.isMuted ? 0 : src.volume }, set: { appState.setSourceVolume(bundleID: src.bundleID, volume: $0) }),
-                                   range: 0...2, unity: 1, tint: c.ink_primary, height: 20, trackHeight: 2.5, label: src.name, valueText: Fmt.percent(src.volume), unityPosition: 0.75)
+                                   range: 0...2, unity: 1, tint: c.ink_primary, height: 20, trackHeight: 2.5, label: src.name, valueText: Fmt.percent(src.volume), unityPosition: 0.75,
+                                   liveMeterNorm: (!src.isPlaying || src.isMuted || !appState.hasLiveSignal) ? nil : min(1, max(0, (appState.telemetry.lufsMomentary + 60) / 60) * min(1.0, src.volume)),
+                                   scaleMarks: [0.25, 0.5, 0.75, 1.5])
                             Text(src.isMuted ? "—" : Fmt.percent(src.volume)).type(TimbreTypography.monoSmall).foregroundStyle(c.ink_secondary).frame(width: 26, alignment: .trailing)
-                            IconButton(symbol: src.isMuted ? "speaker.slash.fill" : "speaker.fill", size: 22, active: src.isMuted, activeColor: c.semantic_warning, help: appState.t("ui.mute")) {
+                            TChannelButton(text: "M", pressed: src.isMuted, tone: .mute, help: appState.t("ui.mute")) {
                                 appState.toggleSourceMute(bundleID: src.bundleID)
                             }
                         }
