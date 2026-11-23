@@ -488,6 +488,7 @@ public final class ProcessTapEngine: @unchecked Sendable {
         duckFactor: Double = 1.0,
         mirrorOutputs: [MirrorOutputTarget] = [],
         audioActive: Bool = true,
+        forceGlobalTap: Bool = false,
         manageMutes: Bool = true
     ) -> Bool {
         // Fail-closed mutes (ADR-0017): hand the silenced apps to the keeper. Until it confirms an app,
@@ -557,7 +558,7 @@ public final class ProcessTapEngine: @unchecked Sendable {
         // The global tap only exists while something is actually playing (plus a grace period decided
         // by the caller). Idle, it would keep the purple "recording" indicator lit and make apps that
         // watch for audio input (e.g. superwhisper's meeting detection) think a meeting started.
-        let needsGlobal = (eqActive || preset.crossfeedEnabled || duckFactor < 0.999) && audioActive
+        let needsGlobal = (eqActive || preset.crossfeedEnabled || duckFactor < 0.999 || forceGlobalTap) && audioActive
         if needsGlobal {
             let globalExcludes = Array(Set(baseExcludedObjs + perAppObjs + silencedObjs))
             desiredKeys.insert("global")

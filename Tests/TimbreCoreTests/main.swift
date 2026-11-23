@@ -758,6 +758,55 @@ struct TimbreCoreTestRunner {
             print("  [PASS] SilenceTracker (1 s hold, instant resume, independent slots) and the notch policy's silent set")
         }
 
+        // Listening time (ADR-0023): counts time and volume, never dB
+        do {
+            func dev(_ n: String, _ t: DeviceTransport) -> AudioDeviceDescriptor { AudioDeviceDescriptor(uid: n, name: n, transport: t) }
+            expect(ListeningPolicy.isPersonalListening(dev("AirPods Pro de Vinícius", .bluetoothA2DP)) && ListeningPolicy.isPersonalListening(dev("MOMENTUM 4", .bluetoothHFP)),
+                   "Bluetooth headphones are personal listening")
+            expect(!ListeningPolicy.isPersonalListening(dev("MacBook Air Speakers", .builtIn)) && !ListeningPolicy.isPersonalListening(dev("LG UltraFine Display Audio", .usb))
+                   && !ListeningPolicy.isPersonalListening(dev("JBL Soundbar", .bluetoothA2DP)) && !ListeningPolicy.isPersonalListening(dev("HDMI", .hdmi)),
+                   "Speakers, displays, soundbars and HDMI are not")
+            expect(ListeningPolicy.isPersonalListening(dev("Headphones", .builtIn)) && ListeningPolicy.isPersonalListening(dev("Fone de ouvido", .wiredAnalog))
+                   && ListeningPolicy.isPersonalListening(dev("USB Headset", .usb)), "The headphone jack and USB headsets count")
+            expect(ListeningPolicy.duration(0.4) == "0 min" && ListeningPolicy.duration(30) == "< 1 min" && ListeningPolicy.duration(35 * 60) == "35 min"
+                   && ListeningPolicy.duration(3600) == "1 h" && ListeningPolicy.duration(4320) == "1 h 12 min", "Durations read naturally")
+            expect(ListeningPolicy.dayKey(Date(timeIntervalSince1970: 1_800_000_000), calendar: { var c = Calendar(identifier: .gregorian); c.timeZone = TimeZone(identifier: "UTC")!; return c }()) == "2027-01-15", "Day keys use the calendar day")
+
+            var t = ListeningTracker(day: "2027-01-15")
+            for _ in 0..<600 { t.tick(dayKey: "2027-01-15", dt: 2, listening: true, volume: 0.45) }   // 20 min, comfortable
+            expect(abs(t.today.personalSeconds - 1200) < 0.01 && t.today.highSeconds == 0 && !t.isHigh && !t.adviceActive, "Comfortable listening counts as listening, not as high")
+            for _ in 0..<1800 { t.tick(dayKey: "2027-01-15", dt: 2, listening: true, volume: 0.80) }  // 60 min high
+            expect(t.isHigh && abs(t.streakSeconds - 3600) < 0.01 && t.adviceActive, "An hour at high volume raises the advice")
+            t.tick(dayKey: "2027-01-15", dt: 2, listening: true, volume: 0.58)
+            expect(t.isHigh && t.adviceActive, "Hysteresis: 58 % does not end a high streak that started at 60 %")
+            t.tick(dayKey: "2027-01-15", dt: 2, listening: true, volume: 0.40)
+            expect(!t.isHigh && !t.adviceActive && t.streakSeconds > 3600, "Lowering the volume dismisses the advice at once, but the streak is remembered")
+            for _ in 0..<(8 * 60 / 2) { t.tick(dayKey: "2027-01-15", dt: 2, listening: false, volume: 0.80) }
+            expect(t.streakSeconds > 3600, "A short pause is not a rest")
+            for _ in 0..<(8 * 60 / 2) { t.tick(dayKey: "2027-01-15", dt: 2, listening: false, volume: 0.80) }
+            expect(t.streakSeconds == 0, "15 minutes away from high volume is a rest: the streak resets")
+            t.tick(dayKey: "2027-01-15", dt: 30, listening: true, volume: 0.9)
+            expect(t.streakSeconds == 0, "A tick longer than 6 s (sleep, stall) counts for nothing")
+            t.tick(dayKey: "2027-01-15", dt: 2, listening: true, volume: nil)
+            expect(!t.isHigh, "Unknown volume is never counted as high")
+            let pending = t.takePending()
+            expect(pending != nil && pending!.day == "2027-01-15" && pending!.personal > 3000 && pending!.high > 3500 && t.takePending() == nil, "Pending seconds are handed over once for the store")
+            t.tick(dayKey: "2027-01-16", dt: 2, listening: true, volume: 0.9)
+            expect(t.today.day == "2027-01-16" && abs(t.today.personalSeconds - 2) < 0.01, "A new day starts its own totals")
+
+            let path = FileManager.default.temporaryDirectory.appendingPathComponent("timbr-listen-\(UUID().uuidString).sqlite").path
+            let st = try! SQLiteStore(path: path)
+            st.addListening(day: "2027-01-15", personal: 100, high: 40)
+            st.addListening(day: "2027-01-15", personal: 50, high: 10)
+            st.addListening(day: "2027-01-14", personal: 7, high: 0)
+            let days = st.loadListening(days: 7)
+            expect(days.map(\.day) == ["2027-01-15", "2027-01-14"] && days[0].personalSeconds == 150 && days[0].highSeconds == 50, "The store adds up a day and lists newest first")
+            try! st.clearAllHistory()
+            expect(st.loadListening().isEmpty, "Clearing history clears the listening days too")
+            for ext in ["", "-wal", "-shm"] { try? FileManager.default.removeItem(atPath: path + ext) }
+            print("  [PASS] ListeningTracker (time and volume only: 60/60 streak, hysteresis, rest, sleep, day rollover, storage)")
+        }
+
         print("[TimbreCoreTests] ALL PASSED")
     }
 }

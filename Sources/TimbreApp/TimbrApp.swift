@@ -138,6 +138,8 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
             }
         }
         // Latency probe: `--review-crossfeed` keeps the global tap (and so the silence measurement) alive while audio plays.
+        if args.contains("--listening-demo") { appState.applyListeningDemo() }
+        if args.contains("--review-instant-pause") { appState.instantPauseDetection = true; appState.syncDSPAndTap() }
         if args.contains("--review-crossfeed") { appState.activePreset.crossfeedEnabled = true; appState.syncDSPAndTap() }
         if let i = args.firstIndex(of: "--notch"), i + 1 < args.count, let st = NotchState(rawValue: args[i + 1]) {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in

@@ -65,6 +65,11 @@ public final class SQLiteStore: @unchecked Sendable {
         );
         CREATE INDEX IF NOT EXISTS idx_events_ts ON observatory_events(timestamp);
         CREATE INDEX IF NOT EXISTS idx_events_cat_ts ON observatory_events(category, timestamp);
+        CREATE TABLE IF NOT EXISTS listening_days (
+            day TEXT PRIMARY KEY,
+            personal_seconds REAL NOT NULL DEFAULT 0,
+            high_seconds REAL NOT NULL DEFAULT 0
+        );
         CREATE TABLE IF NOT EXISTS presets (
             id TEXT PRIMARY KEY,
             device_uid TEXT,
@@ -167,6 +172,43 @@ public final class SQLiteStore: @unchecked Sendable {
         return out
     }
 
+    // MARK: Listening time (ADR-0023)
+
+    /// Adds seconds to a day (creating it). Called every ~30 s with what the tracker accumulated.
+    public func addListening(day: String, personal: Double, high: Double) {
+        lock.lock()
+        defer { lock.unlock() }
+        let sql = """
+        INSERT INTO listening_days (day, personal_seconds, high_seconds) VALUES (?, ?, ?)
+        ON CONFLICT(day) DO UPDATE SET personal_seconds = personal_seconds + excluded.personal_seconds,
+                                       high_seconds = high_seconds + excluded.high_seconds;
+        """
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return }
+        defer { sqlite3_finalize(stmt) }
+        let transient = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
+        sqlite3_bind_text(stmt, 1, day, -1, transient)
+        sqlite3_bind_double(stmt, 2, personal)
+        sqlite3_bind_double(stmt, 3, high)
+        sqlite3_step(stmt)
+    }
+
+    /// The most recent `days` days that have data, newest first.
+    public func loadListening(days: Int = 7) -> [ListeningDay] {
+        lock.lock()
+        defer { lock.unlock() }
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, "SELECT day, personal_seconds, high_seconds FROM listening_days ORDER BY day DESC LIMIT ?;", -1, &stmt, nil) == SQLITE_OK else { return [] }
+        defer { sqlite3_finalize(stmt) }
+        sqlite3_bind_int(stmt, 1, Int32(days))
+        var out: [ListeningDay] = []
+        while sqlite3_step(stmt) == SQLITE_ROW {
+            out.append(ListeningDay(day: String(cString: sqlite3_column_text(stmt, 0)),
+                                    personalSeconds: sqlite3_column_double(stmt, 1), highSeconds: sqlite3_column_double(stmt, 2)))
+        }
+        return out
+    }
+
     public func savePreset(_ preset: TimbrePreset) throws {
         lock.lock()
         defer { lock.unlock() }
@@ -265,6 +307,6 @@ public final class SQLiteStore: @unchecked Sendable {
     public func clearAllHistory() throws {
         lock.lock()
         defer { lock.unlock() }
-        try exec("DELETE FROM observatory_events; DELETE FROM muted_guardian_pairs; DELETE FROM kv_store;")
+        try exec("DELETE FROM observatory_events; DELETE FROM muted_guardian_pairs; DELETE FROM kv_store; DELETE FROM listening_days;")
     }
 }
