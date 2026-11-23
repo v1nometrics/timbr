@@ -55,6 +55,6 @@ Com "Reduzir movimento": o notch troca de estado com 120 ms de opacidade, sem mo
 
 - `ease-in` em qualquer UI.
 - Animar a partir de `scale(0)`.
-- Visualizador "decorativo" que finge nível de áudio (o MiniMeter mostra um glifo estático quando não há medição).
+- Visualizador "decorativo" que finge picos de áudio: o `MiniMeter` usa a silhueta simétrica de 5 barras do `timbr.` com respiração harmônica sutil (~2,6 s, amplitude ≤ 1,1 pt, opacidade contida em 0,70–0,86) quando ativo sem DSP, acoplamento suave ao nível real quando há medição, silhueta estática com "Reduzir movimento" e pausa total quando inativo ou oculto.
 - Animação em ação de teclado.
 - Loops infinitos em repouso (o notch em repouso não desenha nada).

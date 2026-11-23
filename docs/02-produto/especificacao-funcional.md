@@ -57,7 +57,7 @@ Regras:
 - **Barra de menus:** o estado persistente (compacto) nunca cobre menus de outros apps. Os estados abertos são transitórios, abertos por intenção, e cobrem a barra enquanto abertos. Se o ponteiro vai para a faixa da barra, o fechamento acontece em 30 pt.
 - **Ícone na barra de menus:** só existe quando o notch não é a entrada do app: sem tela com notch, notch desligado, modo "só barra de menus" ou opção ligada em Ajustes.
 - **Volume geral:** aumentar um app, tirar um app do mudo ou subir o fader geral tira a saída do mudo, como o macOS faz com as teclas.
-- Tela cheia: o painel acompanha os espaços (`fullScreenAuxiliary`).
+- **Tela cheia:** com a preferência **Ocultar em tela cheia** (ligada por padrão), o indicador compacto e o sensor de hover ficam ocultos em vídeos e apps em tela cheia (Spaces nativos, YouTube HTML5 em Chrome/Safari, players sem borda) para zero distração e para nunca bloquear o botão de sair; o painel ainda acompanha espaços (`fullScreenAuxiliary`) apenas para ações explícitas (teclas de volume/brilho no HUD e atalho `⌥⌘V`).
 - Vários monitores: o notch vive na tela com notch; sem tela com notch, a forma vira uma pílula flutuante e o ícone da barra de menus aparece.
 - Dois apps de notch competindo: o timbr. detecta apps conhecidos e oferece o modo "só barra de menus".
 

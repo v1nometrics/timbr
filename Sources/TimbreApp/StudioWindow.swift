@@ -1163,6 +1163,10 @@ private struct SettingsPage: View {
                     TSwitch(isOn: Binding(get: { appState.showCompactActivity }, set: { appState.toggleShowCompact($0) }))
                 }
                 Hairline().padding(.leading, 20)
+                row(appState.t("ui.settings.hide_fullscreen"), appState.t("ui.settings.hide_fullscreen_sub")) {
+                    TSwitch(isOn: Binding(get: { appState.hideNotchInFullscreen }, set: { appState.toggleHideNotchInFullscreen($0) }))
+                }
+                Hairline().padding(.leading, 20)
                 row(appState.t("ui.settings.menubar_icon"), appState.notchScreenAvailable ? appState.t("ui.settings.menubar_icon_sub") : appState.t("ui.settings.menubar_icon_no_notch")) {
                     TSwitch(isOn: Binding(get: { appState.menuBarIconVisible }, set: { appState.setShowMenuBarIcon($0) }))
                         .disabled(!appState.notchScreenAvailable || appState.menuBarOnlyMode || !appState.notchEnabled)

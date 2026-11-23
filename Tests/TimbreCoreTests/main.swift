@@ -222,6 +222,50 @@ struct TimbreCoreTestRunner {
         }
         print("  [PASS] NotchPeekTarget resolution (0 / 1 / 2+ playing)")
 
+        // TimbreHarmonicMath: 5-bar timbr. mark + subtle restrained motion + Reduce Motion
+        let idleBars = TimbreHarmonicMath.samples(active: false, level: 0.9, time: 1.2, reduceMotion: false)
+        expect(idleBars.count == 5 && idleBars.allSatisfy { $0.height == TimbreHarmonicMath.idleDotHeight && $0.opacity == TimbreHarmonicMath.idleOpacity }, "Idle bars collapse to quiet dots")
+
+        let rmA = TimbreHarmonicMath.samples(active: true, level: nil, time: 0.0, reduceMotion: true)
+        let rmB = TimbreHarmonicMath.samples(active: true, level: 0.8, time: 1.3, reduceMotion: true)
+        expect(rmA.map(\.height) == TimbreHarmonicMath.baseHeights && rmA == rmB, "Reduce Motion keeps static timbr. silhouette")
+
+        let nativeT0 = TimbreHarmonicMath.samples(active: true, level: nil, time: 0.0, reduceMotion: false)
+        let nativeT1 = TimbreHarmonicMath.samples(active: true, level: nil, time: 0.7, reduceMotion: false)
+        expect(nativeT0 != nativeT1, "Native active pass-through breathes subtly over time")
+        for i in 0..<5 {
+            expect(abs(nativeT0[i].height - TimbreHarmonicMath.baseHeights[i]) <= 1.15, "Native harmonic excursion stays subtle (<=1.15pt)")
+            expect(nativeT0[i].opacity >= 0.69 && nativeT0[i].opacity <= 0.87, "Native harmonic luminance stays restrained")
+        }
+
+        let liveQuiet = TimbreHarmonicMath.samples(active: true, level: 0.05, time: 0.4, reduceMotion: false)
+        let liveLoud = TimbreHarmonicMath.samples(active: true, level: 0.95, time: 0.4, reduceMotion: false)
+        let avgQuiet = liveQuiet.map(\.height).reduce(0, +) / 5.0
+        let avgLoud = liveLoud.map(\.height).reduce(0, +) / 5.0
+        expect(avgLoud > avgQuiet && liveLoud.allSatisfy { $0.height <= 13.0 && $0.opacity <= 0.91 }, "Live signal lifts harmonic envelope smoothly within calm bounds")
+        print("  [PASS] TimbreHarmonicMath (5-bar silhouette, subtle breath, Reduce Motion)")
+
+        // FullscreenEvaluator: Chrome/Safari/video fullscreen vs desktop maximized & multi-display
+        let notchScreen = FullscreenScreenSpec(minX: 0, minY: 0, width: 1470, height: 956, topInset: 32, hasPhysicalNotch: true)
+        let dockBackdrop = FullscreenWindowSnapshot(ownerPID: 10, ownerName: "Dock", layer: 20, minX: 0, minY: 0, width: 1470, height: 956)
+        let ownWindow = FullscreenWindowSnapshot(ownerPID: 999, ownerName: "Timbr", layer: 0, minX: 0, minY: 0, width: 1470, height: 956)
+        let desktopMaxWithDock = FullscreenWindowSnapshot(ownerPID: 200, ownerName: "T3 Code", layer: 0, minX: 0, minY: 33, width: 1470, height: 868)
+        let desktopMaxAutoHideDock = FullscreenWindowSnapshot(ownerPID: 200, ownerName: "Safari", layer: 0, minX: 0, minY: 32, width: 1470, height: 924)
+        let html5Fullscreen = FullscreenWindowSnapshot(ownerPID: 201, ownerName: "Google Chrome", layer: 0, minX: 0, minY: 0, width: 1470, height: 956)
+        let nativeFullscreen = FullscreenWindowSnapshot(ownerPID: 202, ownerName: "Safari", layer: 0, minX: 0, minY: 32, width: 1470, height: 924)
+        let externalFullscreen = FullscreenWindowSnapshot(ownerPID: 203, ownerName: "VLC", layer: 0, minX: 1470, minY: 0, width: 1920, height: 1080)
+        let splitLeft = FullscreenWindowSnapshot(ownerPID: 202, ownerName: "Safari", layer: 0, minX: 0, minY: 32, width: 730, height: 924)
+        let splitRight = FullscreenWindowSnapshot(ownerPID: 204, ownerName: "Notes", layer: 0, minX: 740, minY: 32, width: 730, height: 924)
+
+        expect(!FullscreenEvaluator.isFullscreen(screen: notchScreen, windows: [dockBackdrop, ownWindow, desktopMaxWithDock], menuBarVisible: true, autoHideMenuBarAlways: false, frontmostAXFullScreen: false, ownPID: 999), "Desktop maximized window is not fullscreen")
+        expect(!FullscreenEvaluator.isFullscreen(screen: notchScreen, windows: [dockBackdrop, desktopMaxAutoHideDock], menuBarVisible: true, autoHideMenuBarAlways: false, frontmostAXFullScreen: false, ownPID: 999), "Desktop maximized with auto-hidden Dock (menu bar visible) is not fullscreen")
+        expect(FullscreenEvaluator.isFullscreen(screen: notchScreen, windows: [dockBackdrop, html5Fullscreen], menuBarVisible: false, autoHideMenuBarAlways: false, frontmostAXFullScreen: false, ownPID: 999), "Chrome HTML5 fullscreen covering notch edge hides compact")
+        expect(FullscreenEvaluator.isFullscreen(screen: notchScreen, windows: [dockBackdrop, nativeFullscreen], menuBarVisible: false, autoHideMenuBarAlways: false, frontmostAXFullScreen: false, ownPID: 999), "Native macOS fullscreen Space hides compact")
+        expect(FullscreenEvaluator.isFullscreen(screen: notchScreen, windows: [dockBackdrop, splitLeft, splitRight], menuBarVisible: false, autoHideMenuBarAlways: false, frontmostAXFullScreen: false, ownPID: 999), "Fullscreen Split View hides compact")
+        expect(!FullscreenEvaluator.isFullscreen(screen: notchScreen, windows: [dockBackdrop, externalFullscreen], menuBarVisible: false, autoHideMenuBarAlways: false, frontmostAXFullScreen: false, ownPID: 999), "Fullscreen on external display does not hide MacBook notch")
+        expect(FullscreenEvaluator.isFullscreen(screen: notchScreen, windows: [dockBackdrop, nativeFullscreen], menuBarVisible: true, autoHideMenuBarAlways: false, frontmostAXFullScreen: true, ownPID: 999), "AXFullScreen keeps fullscreen active during brief top-edge menu bar peek")
+        print("  [PASS] FullscreenEvaluator (HTML5, native Space, Split View, auto-hide Dock, multi-monitor)")
+
         print("[TimbreCoreTests] ALL PASSED")
     }
 }

@@ -23,7 +23,7 @@
 | **OriginMark** | badges de texto "MEDIDO" | Ponto 7 pt: cheio = medido, anel = reportado, tracejado = inferido, verde = bit-perfect | — | próprio (P4) |
 | **AppIcon** | iniciais ou texto | Ícone real do app (`NSWorkspace`), cache; fallback: quadrado com inicial | — | macOS |
 | **DeviceGlyph** | ícones genéricos | SF Symbol do dispositivo (airpodspro, headphones, laptopcomputer…) em quadrado 30 pt | ativo/inativo | — |
-| **MiniMeter** | visualizador aleatório | 3 barras de 2,5 pt; nível real 0–1; sem medição, glifo estático (6/11/8 pt) | ativo, inativo | Dynamic Island |
+| **MiniMeter** | visualizador aleatório | Marca harmônica simétrica de 5 barras do `timbr.` (`1,5 pt`); respiração harmônica sutil (~2,6 s, ≤ 1,1 pt) sem medição e envelope suavizado pelo nível real quando há DSP | ativo, inativo (5 pontos em 2,5 pt), reduzir movimento (estático) | Ícone do `timbr.` (`Timbr.icns`) + acústica de harmônicos |
 | **LevelBar** | — | Barra 3 pt, segmento âmbar acima de −1 dBFS | — | medidores de pico |
 
 ## 2. Gráficos e visualização de áudio
