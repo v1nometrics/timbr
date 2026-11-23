@@ -626,6 +626,16 @@ struct TimbreCoreTestRunner {
             expect(EQBandEditing.nextFreeFrequency(existing: []) > 100 && EQBandEditing.nextFreeFrequency(existing: []) < 1000, "With no filters the first one lands mid-spectrum")
             expect(EQBandEditing.maxFreeBands(correctionCount: 0) == 24 && EQBandEditing.maxFreeBands(correctionCount: 10) == 22 && EQBandEditing.maxFreeBands(correctionCount: 40) == 0,
                    "Free filters never exceed what the DSP can run next to the correction bands")
+            for l in EQBandLayout.allCases {
+                for slot in l.slots {
+                    for lang in TimbreLanguage.allCases {
+                        expect(TimbreStrings.get(slot.nameKey, lang: lang) != slot.nameKey && TimbreStrings.get(slot.nameKey + ".hint", lang: lang) != slot.nameKey + ".hint",
+                               "\(l.rawValue)/\(slot.freqHz) Hz: band name and hint exist in \(lang.rawValue)")
+                    }
+                }
+            }
+            expect(TimbreStrings.get("eq.band.bass", lang: .ptBR) == "Graves (Bass)" && TimbreStrings.get("eq.band.bass", lang: .en) == "Bass",
+                   "Portuguese first with the audiophile term in parentheses; English shows the term alone")
             print("  [PASS] EQ layouts (4/5/10), per-layout gains, old-preset compatibility, free-PEQ handle/reset/placement rules")
         }
 

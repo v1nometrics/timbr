@@ -8,6 +8,13 @@ public struct EQLayoutSlot: Equatable, Sendable {
     public let type: EQFilterType
     public let freqHz: Double
     public let q: Double
+    /// Localization key of the region name, "Graves (Bass)": Portuguese first, the audiophile term in
+    /// parentheses. `<key>.hint` is the one-line explanation shown on hover.
+    public let nameKey: String
+
+    init(type: EQFilterType, freqHz: Double, q: Double, nameKey: String) {
+        self.type = type; self.freqHz = freqHz; self.q = q; self.nameKey = nameKey
+    }
 }
 
 public enum EQBandLayout: String, Codable, CaseIterable, Sendable {
@@ -34,23 +41,27 @@ public enum EQBandLayout: String, Codable, CaseIterable, Sendable {
         switch self {
         case .four:
             return [
-                EQLayoutSlot(type: .lowShelf, freqHz: 105, q: 0.7),
-                EQLayoutSlot(type: .peak, freqHz: 250, q: 0.9),
-                EQLayoutSlot(type: .peak, freqHz: 3000, q: 1.0),
-                EQLayoutSlot(type: .highShelf, freqHz: 10000, q: 0.7),
+                EQLayoutSlot(type: .lowShelf, freqHz: 105, q: 0.7, nameKey: "eq.band.bass"),
+                EQLayoutSlot(type: .peak, freqHz: 250, q: 0.9, nameKey: "eq.band.warmth"),
+                EQLayoutSlot(type: .peak, freqHz: 3000, q: 1.0, nameKey: "eq.band.presence"),
+                EQLayoutSlot(type: .highShelf, freqHz: 10000, q: 0.7, nameKey: "eq.band.air"),
             ]
         case .five:
             return [
-                EQLayoutSlot(type: .lowShelf, freqHz: 80, q: 0.7),
-                EQLayoutSlot(type: .peak, freqHz: 250, q: 0.9),
-                EQLayoutSlot(type: .peak, freqHz: 1000, q: 1.0),
-                EQLayoutSlot(type: .peak, freqHz: 4000, q: 1.0),
-                EQLayoutSlot(type: .highShelf, freqHz: 10000, q: 0.7),
+                EQLayoutSlot(type: .lowShelf, freqHz: 80, q: 0.7, nameKey: "eq.band.bass"),
+                EQLayoutSlot(type: .peak, freqHz: 250, q: 0.9, nameKey: "eq.band.warmth"),
+                EQLayoutSlot(type: .peak, freqHz: 1000, q: 1.0, nameKey: "eq.band.mid"),
+                EQLayoutSlot(type: .peak, freqHz: 4000, q: 1.0, nameKey: "eq.band.presence"),
+                EQLayoutSlot(type: .highShelf, freqHz: 10000, q: 0.7, nameKey: "eq.band.air"),
             ]
         case .ten:
             let octave = 1.41   // constant-Q for one-octave spacing
+            // Region names are a convention and authors disagree on the edges (headphones.com, RTINGS):
+            // they label the band, they do not claim an exact range.
+            let names = ["eq.band.subbass", "eq.band.bass", "eq.band.body", "eq.band.warmth", "eq.band.lowmid",
+                         "eq.band.mid", "eq.band.uppermid", "eq.band.presence.short", "eq.band.brilliance", "eq.band.air"]
             return [31.5, 63, 125, 250, 500, 1000, 2000, 4000, 8000, 16000].enumerated().map { i, f in
-                EQLayoutSlot(type: i == 0 ? .lowShelf : (i == 9 ? .highShelf : .peak), freqHz: f, q: (i == 0 || i == 9) ? 0.7 : octave)
+                EQLayoutSlot(type: i == 0 ? .lowShelf : (i == 9 ? .highShelf : .peak), freqHz: f, q: (i == 0 || i == 9) ? 0.7 : octave, nameKey: names[i])
             }
         }
     }

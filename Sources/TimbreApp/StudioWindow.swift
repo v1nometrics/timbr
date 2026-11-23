@@ -892,10 +892,10 @@ private struct EqualizerPage: View {
             }
             if layout == .four {
                 HStack(spacing: 12) {
-                    tone(appState.t("eq.taste.bass"), "105 Hz · shelf", st.bassDB) { var s = st; s.bassDB = $0; appState.updateSimpleTaste(s) }
-                    tone(appState.t("eq.taste.warmth"), "250 Hz · peak", st.warmthDB) { var s = st; s.warmthDB = $0; appState.updateSimpleTaste(s) }
-                    tone(appState.t("eq.taste.presence"), "3 kHz · peak", st.presenceDB) { var s = st; s.presenceDB = $0; appState.updateSimpleTaste(s) }
-                    tone(appState.t("eq.taste.air"), "10 kHz · shelf", st.airDB) { var s = st; s.airDB = $0; appState.updateSimpleTaste(s) }
+                    tone(appState.t(layout.slots[0].nameKey), "105 Hz · shelf", st.bassDB, hint: appState.t(layout.slots[0].nameKey + ".hint")) { var s = st; s.bassDB = $0; appState.updateSimpleTaste(s) }
+                    tone(appState.t(layout.slots[1].nameKey), "250 Hz · peak", st.warmthDB, hint: appState.t(layout.slots[1].nameKey + ".hint")) { var s = st; s.warmthDB = $0; appState.updateSimpleTaste(s) }
+                    tone(appState.t(layout.slots[2].nameKey), "3 kHz · peak", st.presenceDB, hint: appState.t(layout.slots[2].nameKey + ".hint")) { var s = st; s.presenceDB = $0; appState.updateSimpleTaste(s) }
+                    tone(appState.t(layout.slots[3].nameKey), "10 kHz · shelf", st.airDB, hint: appState.t(layout.slots[3].nameKey + ".hint")) { var s = st; s.airDB = $0; appState.updateSimpleTaste(s) }
                 }
             } else {
                 // 5 and 10 bands: compact cards (a knob each would not fit), five per row.
@@ -904,7 +904,8 @@ private struct EqualizerPage: View {
                     ForEach(rows.indices, id: \.self) { r in
                         HStack(spacing: 12) {
                             ForEach(rows[r], id: \.self) { i in
-                                compactBand(index: i, slot: layout.slots[i], gain: gains[i], range: layout.gainRangeDB)
+                                compactBand(index: i, slot: layout.slots[i], gain: gains[i], range: layout.gainRangeDB,
+                                            name: appState.t(layout.slots[i].nameKey), hint: appState.t(layout.slots[i].nameKey + ".hint"))
                             }
                         }
                     }
@@ -916,7 +917,7 @@ private struct EqualizerPage: View {
     /// 31.5 Hz must not read "32 Hz" (Fmt.hz rounds).
     private func freqLabel(_ f: Double) -> String { f < 100 && f != f.rounded() ? String(format: "%.1f", f) : Fmt.hz(f) }
 
-    private func compactBand(index: Int, slot: EQLayoutSlot, gain: Double, range: Double) -> some View {
+    private func compactBand(index: Int, slot: EQLayoutSlot, gain: Double, range: Double, name: String, hint: String) -> some View {
         let binding = Binding(get: { gain }, set: { appState.setLayoutGain($0, at: index) })
         return VStack(alignment: .leading, spacing: 10) {
             HStack {
@@ -925,6 +926,7 @@ private struct EqualizerPage: View {
                 Spacer()
                 Text(slot.type == .peak ? "peak" : "shelf").type(TimbreTypography.monoSmall).foregroundStyle(c.ink_faint)
             }
+            Text(name).type(TimbreTypography.micro).foregroundStyle(c.ink_secondary).lineLimit(1).minimumScaleFactor(0.75)
             HStack(alignment: .firstTextBaseline, spacing: 3) {
                 Text(Fmt.db(gain)).type(TimbreTypography.mediumValue).foregroundStyle(abs(gain) < 0.01 ? c.ink_muted : c.ink_primary)
                     .contentTransition(.numericText(value: gain))
@@ -938,14 +940,14 @@ private struct EqualizerPage: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: TimbreRadius.card, style: .continuous).fill(c.bg_surface))
         .overlay(RoundedRectangle(cornerRadius: TimbreRadius.card, style: .continuous).strokeBorder(c.line_default, lineWidth: 1))
+        .help(hint)
     }
 
-    private func tone(_ name: String, _ spec: String, _ value: Double, set: @escaping (Double) -> Void) -> some View {
+    private func tone(_ name: String, _ spec: String, _ value: Double, hint: String = "", set: @escaping (Double) -> Void) -> some View {
         let binding = Binding(get: { value }, set: { set(SimpleTasteControls.clampStep($0)) })
         return VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Eyebrow(text: name)
-                Spacer()
+            VStack(alignment: .leading, spacing: 3) {
+                Eyebrow(text: name).lineLimit(1).minimumScaleFactor(0.8)
                 Text(spec).type(TimbreTypography.monoSmall).foregroundStyle(c.ink_faint)
             }
             HStack(alignment: .center, spacing: 12) {
@@ -980,6 +982,7 @@ private struct EqualizerPage: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: TimbreRadius.card, style: .continuous).fill(c.bg_surface))
         .overlay(RoundedRectangle(cornerRadius: TimbreRadius.card, style: .continuous).strokeBorder(c.line_default, lineWidth: 1))
+        .help(hint)
     }
 
     // Advanced — Pro-Q style band table with scrubbable values

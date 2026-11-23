@@ -24,6 +24,10 @@ O equalizador simples tinha **quatro** ajustes fixos (Graves 105 Hz, Calor 250 H
 3. **Entrar no PEQ Livre** parte da curva que você ouve agora, com **todos os filtros ligados** (zero dB é neutro).
 4. **Compatibilidade:** presets salvos antes não têm `layout` nem `layoutGains` e carregam como o EQ de 4 bandas, com os mesmos ganhos (testado).
 
+### Nomes das bandas
+
+Português primeiro, o termo do meio audiófilo entre parênteses: **Graves (Bass)**, **Médios-graves (Warmth)**, **Médios-agudos (Presence)**, **Agudos (Air)** no EQ de 4; no de 5, **Médios (Midrange)** entra no meio; no de 10, cada banda mostra a frequência e, abaixo, o nome da região (Sub-grave, Graves, Corpo, Médios-graves, Médios, Médios altos, Presença, Brilho, Agudos). Com o app em inglês aparece só o termo. Ao passar o mouse, uma frase explica o termo e o que acontece em excesso (por exemplo "Calor, em torno de 250 Hz: dá corpo às vozes. Demais deixa o som embolado"). Os autores não concordam nas fronteiras das regiões (headphones.com e RTINGS diferem), por isso o nome **rotula** a banda e a frequência exata fica sempre à vista.
+
 ### Defeito 1 — a curva não acompanhava os pontos (causa: Comprovado, reproduzido em teste)
 
 Ao entrar no PEQ livre, os quatro filtros nasciam **desligados** (`enabled = abs(ganho) > 0.01`, e o ganho era 0). O ponto era arrastado, o ganho mudava, mas o filtro seguia desligado, então o DSP ignorava e a curva ficava parada. O teste de motor reproduz o sintoma contra o DSP real (banda desligada em +6 dB: resposta 0 dB) e confirma a correção (+6 dB). Correção em duas partes: (a) a semente do PEQ nasce com tudo ligado; (b) **ajustar** frequência, ganho ou Q de um filtro desligado o liga (alternar o interruptor e trocar só o tipo continuam exatamente como o usuário pôs).
