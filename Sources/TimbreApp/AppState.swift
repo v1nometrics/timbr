@@ -185,6 +185,8 @@ public final class AppState: ObservableObject {
 
     // Telemetry, Observatory & Guardian
     @Published public var telemetry: DSPTelemetrySnapshot = .idle
+    @Published public var meterBallisticsL = AudioMeterBallistics()
+    @Published public var meterBallisticsR = AudioMeterBallistics()
     /// Hardware volume of the active output (0…1), nil when the device has no settable volume.
     @Published public private(set) var activeOutputVolume: Double?
     /// The active output is muted at the device (the master mute macOS shows in Control Center).
@@ -586,6 +588,13 @@ public final class AppState: ObservableObject {
     private func pollTelemetry() {
         let snap = tapEngine.readTelemetry()
         self.telemetry = snap
+        if hasLiveSignal {
+            meterBallisticsL.step(sampleDB: snap.truePeakL, dtSeconds: 1.0 / 30.0)
+            meterBallisticsR.step(sampleDB: snap.truePeakR, dtSeconds: 1.0 / 30.0)
+        } else if meterBallisticsL.smoothedDB > meterBallisticsL.floorDB || meterBallisticsR.smoothedDB > meterBallisticsR.floorDB {
+            meterBallisticsL.clearImmediately()
+            meterBallisticsR.clearImmediately()
+        }
         telemetryTick &+= 1
         if telemetryTick % 8 == 0 {   // ~4 Hz is plenty for a status line
             let held = tapEngine.limiterReductionByApp()
@@ -593,6 +602,11 @@ public final class AppState: ObservableObject {
                 .mapValues { ($0 * 2).rounded() / 2 }
             if held != sourceLimiterDB { sourceLimiterDB = held }
         }
+    }
+
+    public func resetClipLatch() {
+        meterBallisticsL.resetClip()
+        meterBallisticsR.resetClip()
     }
 
     public func syncDSPAndTap() {

@@ -1,4 +1,4 @@
-/* Consumes ../generated/tokens.css directly */
+/* Consumes ../generated/tokens.css directly (ADR-0016 Achromatic Identity) */
 [data-surface="light"] {
   --s-canvas: var(--timbre-bg-canvas);
   --s-surface: var(--timbre-bg-surface);
@@ -9,22 +9,22 @@
   --s-accent: var(--timbre-accent-base);
 }
 [data-surface="dark"] {
-  --s-canvas: #141414;
-  --s-surface: #191919;
+  --s-canvas: #0E0E0E;
+  --s-surface: #151515;
   --s-track: #242424;
   --s-ink: #F2F2F2;
-  --s-ink2: #B4B4B4;
-  --s-line: #2B2B2B;
-  --s-accent: #A78BFF;
+  --s-ink2: #A8A8A8;
+  --s-line: #272727;
+  --s-accent: #F2F2F2;
 }
 [data-surface="notch"] {
   --s-canvas: #000000;
   --s-surface: #000000;
   --s-track: rgba(255,255,255,0.12);
-  --s-ink: #F2F2F2;
-  --s-ink2: #B4B4B4;
+  --s-ink: #F5F5F5;
+  --s-ink2: #B0B0B0;
   --s-line: rgba(255,255,255,0.11);
-  --s-accent: #A78BFF;
+  --s-accent: #FFFFFF;
 }
 * { box-sizing: border-box; }
 body {
@@ -34,14 +34,14 @@ body {
   transition: background 240ms var(--timbre-ease-standard);
 }
 .topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--timbre-space-6); }
-.eyebrow { font-family: var(--timbre-font-mono); font-size: var(--timbre-type-eyebrow-size); letter-spacing: var(--timbre-type-eyebrow-tracking); color: var(--s-accent); }
-.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: var(--timbre-space-4); }
+.eyebrow { font-family: var(--timbre-font-mono); font-size: var(--timbre-type-eyebrow-size); letter-spacing: var(--timbre-type-eyebrow-tracking); color: var(--s-ink2); }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: var(--timbre-space-4); }
 .card { background: var(--s-surface); border: 1px solid var(--s-line); border-radius: var(--timbre-radius-card); padding: var(--timbre-space-4); }
 .surface-switch, .pill-row, .badges { display: flex; flex-wrap: wrap; gap: var(--timbre-space-2); }
-button { background: var(--s-track); color: var(--s-ink); border: 1px solid var(--s-line); border-radius: var(--timbre-radius-control); padding: 6px 12px; cursor: pointer; }
+button { background: var(--s-track); color: var(--s-ink); border: 1px solid var(--s-line); border-radius: var(--timbre-radius-control); padding: 6px 12px; cursor: pointer; font-size: 12px; }
 button.active { background: var(--s-accent); color: #0B0B0B; border-color: var(--s-accent); font-weight: 600; }
 .notch-stage { background: #0D0D0D; border-radius: var(--timbre-radius-card); min-height: 170px; display: flex; justify-content: center; align-items: flex-start; padding-top: 12px; margin-bottom: var(--timbre-space-3); }
-.notch-box { background: #000000; color: #F2F2F2; border: 1px solid rgba(255,255,255,0.14); transition: all 320ms var(--timbre-ease-enter); display: flex; align-items: center; justify-content: space-between; padding: 0 10px; }
+.notch-box { background: #000000; color: #F5F5F5; transition: all 320ms var(--timbre-ease-enter); display: flex; align-items: center; justify-content: space-between; padding: 0 10px; }
 .notch-box.state-resting { width: 179px; height: 32px; border-radius: 0 0 12px 12px; font-size: 10px; justify-content: center; color: #7A7A7A; }
 .notch-box.state-compact { width: 263px; height: 36px; border-radius: 14px; }
 .notch-box.state-hud { width: 300px; height: 54px; border-radius: 22px; }
@@ -50,16 +50,65 @@ button.active { background: var(--s-accent); color: #0B0B0B; border-color: var(-
 .ear { font-family: var(--timbre-font-mono); font-size: 10px; max-width: 40px; overflow: hidden; }
 .hardware-notch { font-family: var(--timbre-font-mono); font-size: 10px; color: #7A7A7A; }
 .badge { font-family: var(--timbre-font-mono); font-size: 10px; padding: 3px 8px; border-radius: var(--timbre-radius-badge); }
-.badge.pos { background: rgba(85,214,159,0.16); color: #55D69F; }
-.badge.info { background: rgba(124,196,240,0.16); color: #7CC4F0; }
-.badge.accent { background: rgba(167,139,255,0.18); color: #A78BFF; }
-.badge.warn { background: rgba(242,189,104,0.18); color: #F2BD68; }
-.badge.neg { background: rgba(240,115,143,0.18); color: #F0738F; }
+.badge.pos { background: rgba(76,204,142,0.16); color: #4CCC8E; }
+.badge.info { background: rgba(168,168,168,0.16); color: #A8A8A8; }
+.badge.accent { background: rgba(242,242,242,0.14); color: var(--s-ink); }
+.badge.warn { background: rgba(232,178,89,0.18); color: #E8B259; }
+.badge.neg { background: rgba(232,107,117,0.18); color: #E86B75; }
 .swatches { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 12px; }
 .swatch { height: 34px; border-radius: 6px; border: 1px solid var(--s-line); display: flex; align-items: flex-end; padding: 4px; font-size: 9px; font-family: var(--timbre-font-mono); }
 .type-row { display: flex; justify-content: space-between; align-items: baseline; padding: 6px 0; border-bottom: 1px solid var(--s-line); }
 .micro { font-family: var(--timbre-font-mono); font-size: 9px; letter-spacing: 0.72px; }
-.kicker { font-family: var(--timbre-font-mono); font-size: 10px; letter-spacing: 1px; }
-.mono-val { font-family: var(--timbre-font-mono); font-size: 11px; font-variant-numeric: tabular-nums; }
+.kicker { font-family: var(--timbre-font-mono); font-size: 10px; letter-spacing: 1px; color: var(--s-ink2); }
+.mono-val, .db-readout { font-family: var(--timbre-font-mono); font-size: 11px; font-variant-numeric: tabular-nums; }
 .medium-val { font-size: 24px; font-weight: 500; font-variant-numeric: tabular-nums; }
 .card-title { font-size: 18px; font-weight: 500; }
+
+/* audiocn LCD Display & Stereo LCD Meter */
+.lcd-display {
+  background: rgba(0,0,0,0.28);
+  border: 1px solid var(--s-line);
+  border-radius: 8px;
+  padding: 10px 12px;
+  display: flex; flex-direction: column; gap: 7px;
+}
+.lcd-header { display: flex; align-items: center; gap: 8px; padding-bottom: 4px; border-bottom: 1px solid var(--s-line); }
+.lcd-dot { width: 6px; height: 6px; border-radius: 50%; background: #4CCC8E; }
+.lcd-title { font-family: var(--timbre-font-mono); font-size: 10px; letter-spacing: 0.8px; color: var(--s-ink2); flex: 1; }
+.lcd-meta { font-family: var(--timbre-font-mono); font-size: 10px; color: var(--s-ink2); }
+.clip-indicator {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-family: var(--timbre-font-mono); font-size: 9px;
+  padding: 2px 6px; border-radius: 4px;
+  background: var(--s-track); color: var(--s-ink2); border: 1px solid var(--s-line);
+}
+.clip-indicator.latched {
+  background: rgba(232,107,117,0.18); color: #E86B75; border-color: rgba(232,107,117,0.55);
+}
+.clip-dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+.lcd-meter-row { display: flex; align-items: center; gap: 8px; }
+.lcd-ch { font-family: var(--timbre-font-mono); font-size: 10px; width: 12px; color: var(--s-ink2); }
+.lcd-segments { flex: 1; display: grid; grid-template-columns: repeat(32, 1fr); gap: 2px; height: 10px; }
+.lcd-seg { border-radius: 1.5px; background: rgba(255,255,255,0.08); }
+.lcd-seg.lit-safe { background: var(--s-ink); }
+.lcd-seg.lit-warn { background: #E8B259; }
+.lcd-seg.lit-clip { background: #E86B75; }
+.lcd-seg.peak-hold { box-shadow: inset 0 0 0 1px var(--s-ink); background: var(--s-ink); }
+.db-scale { display: flex; justify-content: space-between; padding: 0 60px 0 20px; font-family: var(--timbre-font-mono); font-size: 9px; color: var(--s-ink2); }
+
+/* audiocn Knobs & Channel Strip */
+.knob-row { display: flex; justify-content: space-around; padding: 8px 0 14px; border-bottom: 1px solid var(--s-line); margin-bottom: 12px; }
+.knob-cell { display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: ns-resize; user-select: none; }
+.knob-track { fill: none; stroke: var(--s-line); stroke-width: 2.5; }
+.knob-cap { fill: var(--s-track); stroke: var(--s-line); stroke-width: 1; }
+.knob-pointer { stroke: var(--s-ink); stroke-width: 2; stroke-linecap: round; transform-origin: 32px 32px; }
+.channel-strip { display: flex; align-items: center; gap: 10px; }
+.strip-label { font-size: 13px; width: 64px; }
+.fader-track { position: relative; flex: 1; height: 6px; border-radius: 3px; background: var(--s-track); }
+.fader-meter { position: absolute; inset: 1px auto 1px 0; background: rgba(242,242,242,0.18); border-radius: 3px; }
+.fader-fill { position: absolute; inset: 0 auto 0 0; background: var(--s-ink); border-radius: 3px; }
+.fader-unity { position: absolute; top: -3px; bottom: -3px; width: 1.5px; background: var(--s-ink2); }
+.fader-thumb { position: absolute; top: 50%; width: 14px; height: 14px; border-radius: 50%; background: var(--s-ink); transform: translate(-50%, -50%); }
+.ch-toggle { width: 22px; height: 22px; padding: 0; font-family: var(--timbre-font-mono); font-size: 10px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; }
+.ch-toggle.muted { background: rgba(232,178,89,0.2); color: #E8B259; border-color: rgba(232,178,89,0.6); }
+.ch-toggle.solo { background: rgba(76,204,142,0.2); color: #4CCC8E; border-color: rgba(76,204,142,0.6); }

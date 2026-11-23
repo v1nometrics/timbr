@@ -69,3 +69,18 @@ Na web os mesmos papéis usam shadcn/ui: `slider` → TFader, `switch` → TSwit
 | Faixa **Geral** (master) | Expandido, depois das fontes | Hairline acima, como o master de uma mesa: fader de hardware e mudo da saída; mudo em âmbar |
 | Linha "Saída sem som" | Espiada | Explica por que nada soa e oferece **Ativar som** |
 | HUD de brilho | HUD | Mesmo HUD do volume com `sun.min.fill`/`sun.max.fill` |
+
+
+## 4. Primitivas de Áudio Modeladas em `audiocn` (MIT)
+
+Inspiradas na biblioteca open-source [`audiocn/ui`](https://github.com/audiocn/ui) (`MIT`, `audiocn.dev`) e adaptadas nativamente em SwiftUI (`DSComponents.swift`) + `TimbreCore` (`AudioUIMath.swift`) sob a identidade acromática estrita do **ADR-0016**:
+
+| Componente SwiftUI (`DSComponents.swift`) | Equivalente `audiocn` | Matemática / Regra (`AudioUIMath.swift`) | Onde vive no `timbr.` |
+|---|---|---|---|
+| `TFader` (`liveMeterNorm`, `scaleMarks`) | `Fader` + `Parameter Slider` | Preenchimento de nível ao vivo translúcido dentro da trilha, pino de unidade (`100%` / `0 dB`), marcas de escala opcionais (`scaleMarks`), duplo clique para reset e modo fino (`⌥`/`⇧` a `0,2×`). | Mixer (`SourceRow`, `TabRow`, `OutputRow`), Equalizador (cartões de Gosto), `MenuBarPanel` |
+| `TKnob` | `Knob` (`KnobTrack`, `KnobRange`, `KnobCap`, `KnobPointer`, `KnobScale`) | Arco de 270° (`-135°…+135°`), origem bipolar em 12h (`0 dB`), ticks periféricos iluminados apenas na excursão ativa, arraste vertical/horizontal com modo fino (`⌥`/`⇧`) e duplo clique para `0 dB`. | Equalizador — seção `01 Seu gosto` (`Graves`, `Calor`, `Presença`, `Ar`) em par com `TFader` bipolar |
+| `TChannelButton` | `Channel Toggle` (`M`, `S`, `BYP`) | Botão quadrado/compacto de console com estados semânticos (`mute` em âmbar `semantic_warning`, `solo`/`monitor` em `semantic_positive`, `neutral` acromático). | Mixer (`SourceRow`, `TabRow`, `OutputRow`) e `MenuBarPanel` (mute por fonte `M`) |
+| `TLevelMeter` | `Level Meter` (`peak` + `rms` + `peakHold`) | Barra dupla horizontal/vertical: camada translúcida de True Peak, núcleo sólido de RMS/LUFS Momentary e tick de Peak Hold com queda controlada (`AudioMeterBallistics`). | Equalizador — barra de metrologia abaixo da curva de resposta |
+| `TLCDDisplay` + `TLCDMeterRow` | `LCD Display` + `LCD Meter` | Moldura dot-matrix escura com status ao vivo e medidor estéreo `L`/`R` de 32 segmentos com **quantização de bloco inteiro** (`LCDSegmentLayout` — nenhum segmento acende parcialmente), zonas `safe`/`warning` (`≥ -6 dB`)/`clip` (`≥ -1 dB`) e segmento de Peak Hold. | Observatório — monitor `TRUE PEAK & LUFS RECORDER MONITOR` |
+| `TdBScale` + `TdBReadout` | `dB Scale` + `dB Readout` | Escala logarítmica com *audio taper* (`expoente 1,65` em `AudioDecibelMath`) e leitura tabular monoespaçada com largura fixa (`-∞` abaixo de `-70 dBFS`, sem deslocamento de layout). | Observatório (`TLCDDisplay`), Equalizador e Mixer |
+| `TClipIndicator` | `Clip Indicator` | Indicador com *latch* de borda de subida (`≥ 0,0 dBTP` ou ativação do limiter), contagem acumulada de eventos e clique para resetar o latch (`appState.resetClipLatch()`). | Equalizador (barra de metrologia) e Observatório (`TLCDDisplay`) |

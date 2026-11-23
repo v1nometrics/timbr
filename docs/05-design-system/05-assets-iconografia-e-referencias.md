@@ -43,6 +43,7 @@ O app é nativo (ADR-0002). As bibliotecas abaixo são usadas no **site, na docu
 
 | Biblioteca | Uso no timbr. | Componentes |
 |---|---|---|
+| **audiocn/ui** (MIT, `audiocn.dev`) | Referência canônica de primitivas de áudio UI para SwiftUI (`DSComponents.swift`), `AudioUIMath.swift` e Playground web | `level-meter`, `lcd-meter`, `lcd-display`, `fader`, `knob`, `channel-strip`, `channel-toggle`, `clip-indicator`, `db-scale`, `db-readout`, `spectrum`, `quick-audio-popover`, `system-audio-mixer` |
 | **shadcn/ui** (MIT) | Base do site e do playground; gráficos do site | `chart` (Recharts, eixo log, `chart-area-gradient`, `chart-line-linear`, tooltip com indicador de linha), `slider`, `switch`, `toggle-group`, `tabs`, `command`, `sonner`, `sheet` |
 | **Bencho** (free, MIT) | Referência de motion e protótipos web | `dynamic-island` (morph pílula→player), `sound` (now playing), `wake-slider`, `liq-toggle`, `rolling-counter`, `time-scrubber` |
 | **Spell UI** (MIT) | Landing e docs | `kbd`, `shimmer-text`, `blur-reveal`, `bars-spinner` |

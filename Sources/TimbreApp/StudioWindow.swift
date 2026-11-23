@@ -415,8 +415,14 @@ private struct SourceRow: View {
                 Text(appState.t("ui.mixer.voip_detail")).type(TimbreTypography.caption).foregroundStyle(c.ink_muted)
                 Spacer()
             } else {
+                let liveNorm: Double? = (src.isPlaying && !src.isMuted && !appState.outputSilenced)
+                    ? (appState.hasLiveSignal
+                       ? AudioDecibelMath.dbToNormalized(max(appState.meterBallisticsL.smoothedDB, appState.meterBallisticsR.smoothedDB) + (src.volume > 0.0001 ? 20 * log10(src.volume) : -60), minDB: -60, maxDB: 6)
+                       : min(1.0, src.volume * 0.52))
+                    : nil
                 TFader(value: Binding(get: { src.isMuted ? 0 : src.volume }, set: { appState.setSourceVolume(bundleID: src.bundleID, volume: $0) }),
-                       range: 0...2, unity: 1, tint: c.ink_primary, label: src.name, valueText: Fmt.percent(src.volume), unityPosition: 0.75)
+                       range: 0...2, unity: 1, tint: c.ink_primary, label: src.name, valueText: Fmt.percent(src.volume), unityPosition: 0.75,
+                       liveMeterNorm: liveNorm, scaleMarks: [0.25, 0.5, 0.75, 1.5])
                     .frame(maxWidth: 420)
                 HStack(alignment: .firstTextBaseline, spacing: 1) {
                     Text(src.isMuted ? "—" : Fmt.percent(src.volume)).type(TimbreTypography.monoValue)
@@ -428,7 +434,7 @@ private struct SourceRow: View {
                     .type(TimbreTypography.monoSmall).foregroundStyle(c.ink_muted)
                     .frame(width: 64, alignment: .trailing)
                 Spacer(minLength: 12)
-                IconButton(symbol: src.isMuted ? "speaker.slash.fill" : "speaker.wave.2", active: src.isMuted, activeColor: c.semantic_warning, help: appState.t("ui.mute")) {
+                TChannelButton(text: "M", symbol: src.isMuted ? "speaker.slash.fill" : nil, pressed: src.isMuted, tone: .mute, size: 24, help: appState.t("ui.mute")) {
                     appState.toggleSourceMute(bundleID: src.bundleID)
                 }
             }
@@ -474,7 +480,7 @@ private struct TabRow: View {
                 .frame(maxWidth: 420)
             Text(tab.isMuted ? "—" : Fmt.percent(tab.volume) + "%").type(TimbreTypography.monoSmall).foregroundStyle(c.ink_secondary).frame(width: 58, alignment: .trailing)
             Spacer(minLength: 12)
-            IconButton(symbol: tab.isMuted ? "speaker.slash.fill" : "speaker.wave.1", size: 24, active: tab.isMuted, activeColor: c.semantic_warning, help: appState.t("ui.mute")) {
+            TChannelButton(text: "M", pressed: tab.isMuted, tone: .mute, size: 22, help: appState.t("ui.mute")) {
                 appState.toggleTabMute(browser: tab.browser, tabID: tab.tabID)
             }
         }
@@ -529,11 +535,12 @@ private struct OutputRow: View {
                     HStack {
                         Spacer(minLength: 0)
                         if dev.isHWMuteSettable {
-                            IconButton(
-                                symbol: appState.activeOutputMuted ? "speaker.slash.fill" : "speaker.wave.2.fill",
+                            TChannelButton(
+                                text: "M",
+                                symbol: appState.activeOutputMuted ? "speaker.slash.fill" : nil,
+                                pressed: appState.activeOutputMuted,
+                                tone: .mute,
                                 size: 24,
-                                active: appState.activeOutputMuted,
-                                activeColor: c.semantic_warning,
                                 help: appState.t("ui.mute")
                             ) {
                                 appState.toggleOutputMute()
@@ -672,11 +679,37 @@ private struct EqualizerPage: View {
 
     private var metrology: some View {
         let t = appState.telemetry
+        let live = appState.hasLiveSignal
+        let peakDB = live ? max(appState.meterBallisticsL.smoothedDB, appState.meterBallisticsR.smoothedDB) : -60.0
+        let holdDB = live ? max(appState.meterBallisticsL.heldPeakDB, appState.meterBallisticsR.heldPeakDB) : nil
+        let clipped = appState.meterBallisticsL.isClipLatched || appState.meterBallisticsR.isClipLatched || t.limiterActive
         return HStack(spacing: 0) {
             stat(appState.t("eq.preamp"), Fmt.db(t.preampDB) + " dB")
-            stat(appState.t("ui.eq.true_peak"), appState.hasLiveSignal ? Fmt.signed(max(t.truePeakL, t.truePeakR)) + " dBTP" : "—")
-            stat(appState.t("ui.eq.limiter"), !appState.hasLiveSignal ? "—" : (t.limiterActive ? Fmt.db(-abs(t.limiterGR)) + " dB" : appState.t("ui.eq.idle")))
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 6) {
+                    Eyebrow(text: appState.t("ui.eq.true_peak"))
+                    Text((live && max(t.truePeakL, t.truePeakR) > -70) ? Fmt.signed(max(t.truePeakL, t.truePeakR)) + " dBTP" : "—")
+                        .type(TimbreTypography.monoValue)
+                        .foregroundStyle(c.ink_primary)
+                }
+                TLevelMeter(
+                    peakDB: peakDB,
+                    rmsDB: live ? t.lufsMomentary : nil,
+                    heldPeakDB: holdDB,
+                    height: 5
+                )
+                .frame(width: 124)
+            }
+            .frame(width: 156, alignment: .leading)
+            stat(appState.t("ui.eq.limiter"), !live ? "—" : (t.limiterActive ? Fmt.db(-abs(t.limiterGR)) + " dB" : appState.t("ui.eq.idle")))
             stat(appState.t("ui.eq.latency"), String(format: "%.1f ms", appState.activeOutputDevice?.totalReportedLatencyMs ?? 0))
+            TClipIndicator(
+                clipping: clipped,
+                count: Int(t.clipPreventedCount) + max(appState.meterBallisticsL.clipEventCount, appState.meterBallisticsR.clipEventCount),
+                label: "CLIP"
+            ) {
+                appState.resetClipLatch()
+            }
             Spacer()
             HStack(spacing: 8) {
                 Text(appState.t("eq.crossfeed")).type(TimbreTypography.caption).foregroundStyle(c.ink_secondary)
@@ -684,7 +717,7 @@ private struct EqualizerPage: View {
             }
         }
         .padding(.horizontal, 20)
-        .frame(height: 52)
+        .frame(height: 54)
     }
 
     private func stat(_ label: String, _ value: String) -> some View {
@@ -714,19 +747,40 @@ private struct EqualizerPage: View {
     }
 
     private func tone(_ name: String, _ spec: String, _ value: Double, set: @escaping (Double) -> Void) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
+        let binding = Binding(get: { value }, set: { set(SimpleTasteControls.clampStep($0)) })
+        return VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Eyebrow(text: name)
                 Spacer()
                 Text(spec).type(TimbreTypography.monoSmall).foregroundStyle(c.ink_faint)
             }
-            HStack(alignment: .firstTextBaseline, spacing: 3) {
-                Text(Fmt.db(value)).type(TimbreTypography.mediumValue).foregroundStyle(abs(value) < 0.01 ? c.ink_muted : c.ink_primary)
-                    .contentTransition(.numericText(value: value))
-                Text("dB").type(TimbreTypography.monoSmall).foregroundStyle(c.ink_muted)
+            HStack(alignment: .center, spacing: 12) {
+                TKnob(
+                    value: binding,
+                    range: -6...6,
+                    step: 0.5,
+                    origin: 0,
+                    resetValue: 0,
+                    size: 46,
+                    tickCount: 13,
+                    label: name,
+                    valueText: Fmt.db(value) + " dB"
+                )
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(alignment: .firstTextBaseline, spacing: 3) {
+                        Text(Fmt.db(value)).type(TimbreTypography.mediumValue).foregroundStyle(abs(value) < 0.01 ? c.ink_muted : c.ink_primary)
+                            .contentTransition(.numericText(value: value))
+                        Text("dB").type(TimbreTypography.monoSmall).foregroundStyle(c.ink_muted)
+                    }
+                    Text(abs(value) < 0.01 ? "0.0 · flat" : (value > 0 ? "boost" : "cut"))
+                        .type(TimbreTypography.micro)
+                        .foregroundStyle(c.ink_muted)
+                }
+                Spacer(minLength: 0)
             }
-            TFader(value: Binding(get: { value }, set: { set(SimpleTasteControls.clampStep($0)) }), range: -6...6, bipolar: true, resetValue: 0,
-                   tint: c.accent_signal, label: name, valueText: Fmt.db(value) + " dB")
+            TFader(value: binding, range: -6...6, bipolar: true, resetValue: 0,
+                   tint: c.accent_signal, label: name, valueText: Fmt.db(value) + " dB",
+                   scaleMarks: [-6, -3, 0, 3, 6])
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -949,14 +1003,50 @@ private struct ObservatoryPage: View {
             }
 
             let t = appState.telemetry
+            let live = appState.hasLiveSignal
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 5), spacing: 12) {
-                let live = appState.hasLiveSignal
                 KPITile(label: "LUFS · M", value: live && t.lufsMomentary > -70 ? Fmt.signed(t.lufsMomentary) : "—", footnote: appState.t("ui.obs.lufs_note"), origin: .measured)
-                KPITile(label: appState.t("ui.eq.true_peak"), value: live ? Fmt.signed(max(t.truePeakL, t.truePeakR)) : "—", unit: live ? "dBTP" : nil,
-                        footnote: live ? "L \(Fmt.signed(t.truePeakL)) · R \(Fmt.signed(t.truePeakR))" : appState.t("ui.obs.no_signal"), origin: .measured)
+                let hasPeak = live && max(t.truePeakL, t.truePeakR) > -70
+                KPITile(label: appState.t("ui.eq.true_peak"), value: hasPeak ? Fmt.signed(max(t.truePeakL, t.truePeakR)) : "—", unit: hasPeak ? "dBTP" : nil,
+                        footnote: hasPeak ? "L \(Fmt.signed(t.truePeakL)) · R \(Fmt.signed(t.truePeakR))" : appState.t("ui.obs.no_signal"), origin: .measured)
                 KPITile(label: appState.t("ui.eq.limiter"), value: live ? (t.limiterActive ? Fmt.db(-abs(t.limiterGR)) : "0.0") : "—", unit: live ? "dB" : nil, footnote: appState.t("ui.obs.gr_note"), origin: .measured)
                 KPITile(label: appState.t("ui.obs.clips"), value: "\(t.clipPreventedCount)", footnote: appState.t("ui.obs.clips_note"), origin: .measured)
                 KPITile(label: "DSP", value: live ? String(format: "%.0f", t.cpuMicroseconds) : "—", unit: live ? "µs" : nil, footnote: appState.t("ui.obs.cpu_note"), origin: .measured)
+            }
+
+            TLCDDisplay(
+                title: "TRUE PEAK & LUFS RECORDER MONITOR",
+                statusText: live ? "LIVE · 4× OVERSAMPLED" : (appState.pathIsNative ? "BIT-PERFECT · 0 TAPS" : "IDLE"),
+                isLive: live
+            ) {
+                VStack(spacing: 8) {
+                    TLCDMeterRow(
+                        channelLabel: "L",
+                        dbfs: live ? appState.meterBallisticsL.smoothedDB : -90,
+                        heldPeakDB: live ? appState.meterBallisticsL.heldPeakDB : nil,
+                        segmentCount: 32,
+                        unit: "dBTP"
+                    )
+                    TLCDMeterRow(
+                        channelLabel: "R",
+                        dbfs: live ? appState.meterBallisticsR.smoothedDB : -90,
+                        heldPeakDB: live ? appState.meterBallisticsR.heldPeakDB : nil,
+                        segmentCount: 32,
+                        unit: "dBTP"
+                    )
+                    HStack(spacing: 8) {
+                        Color.clear.frame(width: 24, height: 1)
+                        TdBScale(minDB: -60, maxDB: 0, ticks: [-48, -36, -24, -18, -12, -6, -3, 0], audioTaper: true, showLabels: true)
+                        TClipIndicator(
+                            clipping: appState.meterBallisticsL.isClipLatched || appState.meterBallisticsR.isClipLatched || t.limiterActive,
+                            count: Int(t.clipPreventedCount) + max(appState.meterBallisticsL.clipEventCount, appState.meterBallisticsR.clipEventCount),
+                            label: "CLIP"
+                        ) {
+                            appState.resetClipLatch()
+                        }
+                        .frame(width: 68, alignment: .trailing)
+                    }
+                }
             }
 
             VStack(alignment: .leading, spacing: 14) {
@@ -1115,7 +1205,7 @@ private struct ObservatoryPage: View {
     }
 }
 
-/// Real spectrum from the DSP telemetry. Draws nothing it did not receive (P4).
+/// Real spectrum from the DSP telemetry with dB level axis, frequency grid, and peak-hold envelope (modeled after `@audiocn/spectrum`). Draws nothing it did not receive (P4).
 private struct SpectrumView: View {
     let bins: [Float]
     let sampleRate: Double
@@ -1124,34 +1214,59 @@ private struct SpectrumView: View {
 
     var body: some View {
         GeometryReader { geo in
-            let w = geo.size.width, h = geo.size.height - 16
+            let w = geo.size.width - 34, h = geo.size.height - 18
             ZStack(alignment: .topLeading) {
                 Canvas { ctx, _ in
-                    for f in [100.0, 1000.0, 10000.0] {
+                    for f in [50.0, 100.0, 200.0, 500.0, 1000.0, 2000.0, 5000.0, 10000.0] {
                         let x = CGFloat((log10(f) - log10(20)) / (log10(20000) - log10(20))) * w
                         var p = Path(); p.move(to: CGPoint(x: x, y: 0)); p.addLine(to: CGPoint(x: x, y: h))
-                        ctx.stroke(p, with: .color(c.line_grid), lineWidth: 0.5)
+                        let major = f == 100 || f == 1000 || f == 10000
+                        ctx.stroke(p, with: .color(major ? c.line_default : c.line_grid), lineWidth: 0.5)
+                    }
+                    for db in [-72.0, -48.0, -24.0, 0.0] {
+                        let y = h - CGFloat((db + 96.0) / 96.0) * h
+                        var p = Path(); p.move(to: CGPoint(x: 0, y: y)); p.addLine(to: CGPoint(x: w, y: y))
+                        ctx.stroke(p, with: .color(db == 0 ? c.line_strong : c.line_grid), lineWidth: 0.5)
                     }
                     guard bins.count > 8 else { return }
-                    var line = Path(); var started = false
+                    var line = Path(); var peakLine = Path(); var started = false
                     for (i, v) in bins.enumerated() where i > 0 {
                         let fr = Double(i) / Double(bins.count) * sampleRate / 2
                         guard fr >= 20, fr <= 20000 else { continue }
                         let x = CGFloat((log10(fr) - log10(20)) / (log10(20000) - log10(20))) * w
-                        let y = h - CGFloat(min(max((Double(v) + 96) / 96, 0), 1)) * h
-                        if started { line.addLine(to: CGPoint(x: x, y: y)) } else { line.move(to: CGPoint(x: x, y: y)); started = true }
+                        let norm = CGFloat(min(max((Double(v) + 96) / 96, 0), 1))
+                        let y = h - norm * h
+                        let neighborPeak = max(Double(v), Double(bins[max(1, i - 1)]), Double(bins[min(bins.count - 1, i + 1)])) + 3.0
+                        let peakNorm = CGFloat(min(max((neighborPeak + 96) / 96, 0), 1))
+                        let py = h - peakNorm * h
+                        if started {
+                            line.addLine(to: CGPoint(x: x, y: y))
+                            peakLine.addLine(to: CGPoint(x: x, y: py))
+                        } else {
+                            line.move(to: CGPoint(x: x, y: y))
+                            peakLine.move(to: CGPoint(x: x, y: py))
+                            started = true
+                        }
                     }
                     var area = line; area.addLine(to: CGPoint(x: w, y: h)); area.addLine(to: CGPoint(x: 0, y: h)); area.closeSubpath()
                     ctx.fill(area, with: .linearGradient(Gradient(colors: [c.accent_signal.opacity(0.22), c.accent_signal.opacity(0.02)]), startPoint: .zero, endPoint: CGPoint(x: 0, y: h)))
-                    ctx.stroke(line, with: .color(c.accent_signal), lineWidth: 1.25)
+                    ctx.stroke(peakLine, with: .color(c.ink_muted.opacity(0.45)), style: StrokeStyle(lineWidth: 0.8, dash: [2, 2]))
+                    ctx.stroke(line, with: .color(c.accent_signal), lineWidth: 1.35)
                 }
                 .frame(width: w, height: h)
                 if bins.count <= 8 {
                     Text(emptyText).type(TimbreTypography.caption).foregroundStyle(c.ink_muted).frame(width: w, height: h)
                 }
-                ForEach([20.0, 100, 1000, 10000, 20000], id: \.self) { f in
+                ForEach([20.0, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000], id: \.self) { f in
                     Text(Fmt.hz(f)).type(TimbreTypography.monoSmall).foregroundStyle(c.ink_muted).fixedSize()
-                        .position(x: min(max(CGFloat((log10(f) - log10(20)) / (log10(20000) - log10(20))) * w, 10), w - 12), y: h + 9)
+                        .position(x: min(max(CGFloat((log10(f) - log10(20)) / (log10(20000) - log10(20))) * w, 10), w - 12), y: h + 10)
+                }
+                ForEach([0.0, -24.0, -48.0, -72.0], id: \.self) { db in
+                    Text(db == 0 ? "0 dB" : "\(Int(db))")
+                        .type(TimbreTypography.monoSmall)
+                        .foregroundStyle(c.ink_muted)
+                        .fixedSize()
+                        .position(x: w + 18, y: max(6, min(h - 6, h - CGFloat((db + 96.0) / 96.0) * h)))
                 }
             }
         }

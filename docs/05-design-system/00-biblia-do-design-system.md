@@ -90,3 +90,7 @@ Fotografe com `screencapture -x` e revise com o checklist acima. As capturas da 
 | v2.1 | 2026-11-21 | Notch em pescoço + corpo (nunca cobre menus), orelhas medidas na barra (CGWindowList + Acessibilidade) com queixo quando não há espaço, canvas fixo, ícone único viajante, fechamento contínuo seguindo o ponteiro, molas mais rápidas (0,38/0,30 s), flag `--demo` para inspeção quadro a quadro. |
 | v2.0 | 2026-11-21 | Reescrita completa: notch com forma de hardware e preto sem contorno; tipografia SF (ADR-0015) com tracking efetivamente aplicado; paleta acromática quente (ronda/Órbita) com acento único de sinal; biblioteca de componentes própria; trava de CI contra controles padrão; honestidade de métricas sem sinal. |
 | v1.0 | 2026-11-21 | Primeira versão (Geist, controles do sistema, notch com contorno). Substituída. |
+
+## 7. Primitivas de Áudio (`audiocn` Reference Architecture)
+
+Os controles de console e metrologia do Estúdio e do painel de menu seguem a anatomia e a matemática da biblioteca MIT [`audiocn/ui`](https://github.com/audiocn/ui) (`AudioUIMath.swift` + `DSComponents.swift`): curva *audio taper* (`1,65`), quantização inteira de segmentos LCD (`LCDSegmentLayout`), balística com *peak hold* e *clip latch* (`AudioMeterBallistics`), dials rotativos bipolares de 270° (`TKnob`) e botões de canal (`TChannelButton`), mantendo 100% da paleta acromática do ADR-0016.

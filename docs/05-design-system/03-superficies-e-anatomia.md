@@ -130,3 +130,9 @@ Painel de 348 pt num `NSPopover` ancorado ao `NSStatusItem` (`MenuBarIconControl
 ## 4. Introdução
 
 Janela escura de 720×520 com barra de título transparente, quatro passos com indicador de progresso em cápsulas, sem decoração (os círculos "atmosféricos" da v1 foram removidos por parecerem template). Idioma em `TSegmented`; botões `TButtonStyle`.
+
+### Refinamentos de Console e Metrologia (`audiocn`)
+
+- **Mixer (`01`) e `MenuBarPanel`:** cada faixa de fonte/aba/saída combina `TFader` com preenchimento de nível ao vivo translúcido (`liveMeterNorm`), marcas de escala (`scaleMarks`), leitura tabular em `%` e `dB` (`TdBReadout`) e botão de console `M` (`TChannelButton`). O cabeçalho do `MenuBarPanel` exibe o `MiniMeter` de 5 barras ao vivo ao lado da marca.
+- **Equalizador (`02`):** a barra de metrologia abaixo da curva integra `TLevelMeter` (True Peak + LUFS Momentary + Peak Hold) e `TClipIndicator` clicável com latch; os 4 cartões de `Seu gosto` combinam dials rotativos bipolares `TKnob` (arco de 270° a partir de 12h) com `TFader` bipolar (`scaleMarks: [-6, -3, 0, 3, 6]`).
+- **Observatório (`03`):** incorpora o monitor `TLCDDisplay` (`TRUE PEAK & LUFS RECORDER MONITOR`) com par estéreo `L`/`R` de `TLCDMeterRow` (32 blocos com quantização inteira), `TdBScale` logarítmica e `TClipIndicator`, seguido pelo `SpectrumView` com grade em dB/Hz e envelope tracejado de Peak Hold.

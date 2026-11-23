@@ -477,8 +477,8 @@ struct timbre_dsp_engine {
 
     // Lock-free telemetry atomics
     std::atomic<double> metric_preamp_db{0.0};
-    std::atomic<double> metric_tp_l{0.0};
-    std::atomic<double> metric_tp_r{0.0};
+    std::atomic<double> metric_tp_l{-120.0};
+    std::atomic<double> metric_tp_r{-120.0};
     std::atomic<double> metric_lufs{-120.0};
     std::atomic<double> metric_gr_db{0.0};
     std::atomic<bool> metric_limiter_active{false};

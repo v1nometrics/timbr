@@ -393,6 +393,10 @@ struct TFader: View {
     var valueText: String = ""
     /// Console taper: unity sits at this fraction of travel (e.g. 0.75), the rest is boost.
     var unityPosition: Double? = nil
+    /// Optional embedded live signal level (0…1) inside the fader track (audiocn FaderTrack + LevelMeter pattern).
+    var liveMeterNorm: Double? = nil
+    /// Optional tick values along the track (audiocn FaderScale).
+    var scaleMarks: [Double] = []
     @Environment(\.palette) private var c
     @State private var hover = false
     @State private var dragging = false
@@ -425,6 +429,18 @@ struct TFader: View {
             let fill = isOver ? (overTint ?? c.semantic_warning) : (tint ?? c.ink_primary)
             ZStack(alignment: .leading) {
                 Capsule().fill(c.bg_track).frame(height: trackHeight)
+                if let live = liveMeterNorm, live > 0.005 {
+                    Capsule()
+                        .fill(c.semantic_positive.opacity(0.28))
+                        .frame(width: min(w, max(trackHeight, CGFloat(min(max(live, 0), 1)) * w)), height: trackHeight)
+                }
+                ForEach(scaleMarks, id: \.self) { mark in
+                    Rectangle()
+                        .fill(c.ink_faint)
+                        .frame(width: 1, height: trackHeight + 3)
+                        .offset(x: norm(mark) * w - 0.5)
+                        .opacity(0.55)
+                }
                 Capsule()
                     .fill(fill)
                     .frame(width: max(abs(x - anchorX), trackHeight), height: trackHeight)
@@ -695,6 +711,516 @@ struct LevelBar: View {
         }
         .frame(height: 3)
         .animation(.linear(duration: 0.08), value: dbfs)
+    }
+}
+
+// MARK: - audiocn-Modeled Audio UI Primitives (TKnob, TChannelButton, TClipIndicator, TdBReadout, TdBScale, TLevelMeter, TLCDDisplay, TLCDMeter)
+
+/// Console channel toggle button (`M` mute, `S` solo, `BYP` bypass, `A/B`, `LIM`) modeled after `@audiocn/channel-toggle`.
+enum TChannelButtonTone {
+    case mute
+    case solo
+    case monitor
+    case neutral
+}
+
+struct TChannelButton: View {
+    let text: String
+    var symbol: String? = nil
+    var pressed: Bool
+    var tone: TChannelButtonTone = .mute
+    var size: CGFloat = 22
+    var help: String = ""
+    let action: () -> Void
+    @Environment(\.palette) private var c
+    @State private var hover = false
+
+    private var activeFill: Color {
+        switch tone {
+        case .mute: return c.semantic_warning
+        case .solo: return c.semantic_info
+        case .monitor: return c.semantic_positive
+        case .neutral: return c.ink_primary
+        }
+    }
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 3) {
+                if let symbol {
+                    Image(systemName: symbol).font(.system(size: size * 0.42, weight: .semibold))
+                }
+                if !text.isEmpty {
+                    Text(text)
+                        .font(.system(size: size * 0.44, weight: .bold, design: .monospaced))
+                        .tracking(0.3)
+                }
+            }
+            .foregroundStyle(pressed ? c.ink_inverse : (hover ? c.ink_primary : c.ink_secondary))
+            .padding(.horizontal, text.count > 1 ? 6 : 0)
+            .frame(minWidth: size, minHeight: size)
+            .background(
+                RoundedRectangle(cornerRadius: TimbreRadius.badge, style: .continuous)
+                    .fill(pressed ? activeFill : (hover ? c.bg_hover : c.bg_inset))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: TimbreRadius.badge, style: .continuous)
+                    .strokeBorder(pressed ? activeFill : c.line_default, lineWidth: 0.5)
+            )
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(PressScaleStyle())
+        .onHover { hover = $0 }
+        .help(help)
+        .accessibilityLabel(help.isEmpty ? text : help)
+        .accessibilityValue(pressed ? "on" : "off")
+        .accessibilityAddTraits(.isButton)
+    }
+}
+
+/// Latching clip / limiter indicator light with optional count and click-to-reset, modeled after `@audiocn/clip-indicator`.
+struct TClipIndicator: View {
+    var clipping: Bool
+    var count: Int = 0
+    var label: String = "CLIP"
+    var onReset: (() -> Void)? = nil
+    @Environment(\.palette) private var c
+    @State private var hover = false
+
+    var body: some View {
+        Button {
+            onReset?()
+        } label: {
+            HStack(spacing: 4) {
+                Circle()
+                    .fill(clipping ? c.semantic_negative : c.ink_faint.opacity(0.45))
+                    .frame(width: 5, height: 5)
+                Text(count > 0 ? "\(label) · \(count)" : label)
+                    .type(TimbreTypography.micro)
+                    .foregroundStyle(clipping ? c.semantic_negative : c.ink_muted)
+                    .lineLimit(1)
+            }
+            .padding(.horizontal, 6)
+            .frame(height: 18)
+            .background(
+                RoundedRectangle(cornerRadius: TimbreRadius.badge, style: .continuous)
+                    .fill(clipping ? c.semantic_negative.opacity(0.14) : (hover && onReset != nil ? c.bg_hover : c.bg_inset))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: TimbreRadius.badge, style: .continuous)
+                    .strokeBorder(clipping ? c.semantic_negative.opacity(0.45) : c.line_default, lineWidth: 0.5)
+            )
+        }
+        .buttonStyle(.plain)
+        .disabled(onReset == nil && !clipping)
+        .onHover { hover = $0 }
+        .help(clipping ? "Clipping detected — click to reset" : label)
+        .accessibilityLabel(clipping ? "Clipping. Reset clip indicator" : label)
+    }
+}
+
+/// Fixed-width tabular dB readout that colors by zone (`normal`, `warning`, `clip`, `silent`) and never shifts layout, modeled after `@audiocn/db-readout`.
+struct TdBReadout: View {
+    var dbfs: Double?
+    var floorDB: Double = -60.0
+    var warningDB: Double = -12.0
+    var clipDB: Double = -1.0
+    var unit: String = "dB"
+    var signed: Bool = false
+    var width: CGFloat = 58
+    @Environment(\.palette) private var c
+
+    private var zone: AudioMeterZone {
+        guard let dbfs else { return .silent }
+        return AudioDecibelMath.zone(forDB: dbfs, floorDB: floorDB, warningDB: warningDB, clipDB: clipDB)
+    }
+
+    private var color: Color {
+        switch zone {
+        case .silent: return c.ink_muted
+        case .normal: return c.ink_primary
+        case .warning: return c.semantic_warning
+        case .clip: return c.semantic_negative
+        }
+    }
+
+    private var formattedText: String {
+        guard let dbfs, dbfs.isFinite, dbfs > floorDB else { return "−∞" }
+        return signed ? Fmt.db(dbfs) : Fmt.signed(dbfs)
+    }
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 2) {
+            Text(formattedText)
+                .type(TimbreTypography.monoValue)
+                .foregroundStyle(color)
+                .lineLimit(1)
+            if !unit.isEmpty, let dbfs, dbfs.isFinite, dbfs > floorDB {
+                Text(unit)
+                    .type(TimbreTypography.monoSmall)
+                    .foregroundStyle(c.ink_muted)
+            }
+        }
+        .frame(width: width, alignment: .trailing)
+        .accessibilityElement(children: .combine)
+    }
+}
+
+/// Decibel tick marks and labels shared by meters and faders, modeled after `@audiocn/db-scale`.
+struct TdBScale: View {
+    var minDB: Double = -60.0
+    var maxDB: Double = 0.0
+    var ticks: [Double] = [-48, -36, -24, -12, -6, -3, 0]
+    var audioTaper: Bool = true
+    var showLabels: Bool = true
+    @Environment(\.palette) private var c
+
+    var body: some View {
+        GeometryReader { geo in
+            let w = geo.size.width
+            ZStack(alignment: .topLeading) {
+                ForEach(ticks, id: \.self) { tick in
+                    let norm = CGFloat(AudioDecibelMath.dbToNormalized(tick, minDB: minDB, maxDB: maxDB, audioTaper: audioTaper))
+                    let x = min(max(norm * w, 0), w)
+                    let isMajor = tick == 0 || tick == -6 || tick == -12 || tick == -24 || tick == -48
+                    Rectangle()
+                        .fill(tick == 0 ? c.line_strong : c.line_default)
+                        .frame(width: 1, height: isMajor ? 4 : 2.5)
+                        .position(x: x, y: 2)
+                    if showLabels && isMajor {
+                        Text(tick == 0 ? "0" : "\(Int(tick))")
+                            .font(.system(size: 8.5, weight: .medium, design: .monospaced))
+                            .foregroundStyle(tick == 0 ? c.ink_secondary : c.ink_muted)
+                            .fixedSize()
+                            .position(x: min(max(x, 8), w - 8), y: 10)
+                    }
+                }
+            }
+        }
+        .frame(height: showLabels ? 15 : 5)
+        .accessibilityHidden(true)
+    }
+}
+
+/// Dual-layer Peak + RMS/LUFS level meter with held-peak tick, audio taper, and zone coloring, modeled after `@audiocn/level-meter`.
+struct TLevelMeter: View {
+    var peakDB: Double
+    var rmsDB: Double? = nil
+    var heldPeakDB: Double? = nil
+    var minDB: Double = -60.0
+    var maxDB: Double = 0.0
+    var warningDB: Double = -12.0
+    var clipDB: Double = -1.0
+    var audioTaper: Bool = true
+    var height: CGFloat = 6
+    @Environment(\.palette) private var c
+
+    private func barColor(for db: Double) -> Color {
+        switch AudioDecibelMath.zone(forDB: db, floorDB: minDB, warningDB: warningDB, clipDB: clipDB) {
+        case .clip: return c.semantic_negative
+        case .warning: return c.semantic_warning
+        case .normal: return c.ink_primary
+        case .silent: return c.ink_muted
+        }
+    }
+
+    var body: some View {
+        GeometryReader { geo in
+            let w = geo.size.width
+            let peakNorm = CGFloat(AudioDecibelMath.dbToNormalized(peakDB, minDB: minDB, maxDB: maxDB, audioTaper: audioTaper))
+            let rmsNorm = rmsDB.map { CGFloat(AudioDecibelMath.dbToNormalized($0, minDB: minDB, maxDB: maxDB, audioTaper: audioTaper)) }
+            let holdNorm = heldPeakDB.map { CGFloat(AudioDecibelMath.dbToNormalized($0, minDB: minDB, maxDB: maxDB, audioTaper: audioTaper)) }
+            let color = barColor(for: peakDB)
+
+            ZStack(alignment: .leading) {
+                Capsule().fill(c.bg_track)
+                if let rmsNorm {
+                    // Dual mode: translucent peak bar behind solid RMS bar
+                    Capsule()
+                        .fill(color.opacity(0.35))
+                        .frame(width: max(0, w * peakNorm))
+                    Capsule()
+                        .fill(color)
+                        .frame(width: max(0, w * min(rmsNorm, peakNorm)))
+                } else {
+                    Capsule()
+                        .fill(color)
+                        .frame(width: max(0, w * peakNorm))
+                }
+                if let holdNorm, holdNorm > 0.01 {
+                    Rectangle()
+                        .fill(heldPeakDB.map { $0 >= clipDB } == true ? c.semantic_negative : c.ink_primary)
+                        .frame(width: 1.5, height: height + 2)
+                        .offset(x: min(w - 1.5, max(0, w * holdNorm - 0.75)))
+                }
+            }
+        }
+        .frame(height: height)
+        .animation(.linear(duration: 0.07), value: peakDB)
+    }
+}
+
+/// Hardware-style dot-matrix LCD screen container with status pixel, bezel, and glowing ink, modeled after `@audiocn/lcd-display`.
+struct TLCDDisplay<Content: View>: View {
+    var title: String? = nil
+    var statusText: String? = nil
+    var isLive: Bool = false
+    @ViewBuilder var content: () -> Content
+    @Environment(\.palette) private var c
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            if title != nil || statusText != nil {
+                HStack(spacing: 8) {
+                    if let title {
+                        Text(title)
+                            .font(.system(size: 9.5, weight: .bold, design: .monospaced))
+                            .tracking(1.1)
+                            .foregroundStyle(c.ink_secondary)
+                            .textCase(.uppercase)
+                    }
+                    Spacer()
+                    if let statusText {
+                        HStack(spacing: 5) {
+                            Rectangle()
+                                .fill(isLive ? c.semantic_positive : c.ink_muted)
+                                .frame(width: 5, height: 5)
+                            Text(statusText)
+                                .font(.system(size: 9.5, weight: .semibold, design: .monospaced))
+                                .tracking(0.6)
+                                .foregroundStyle(isLive ? c.ink_primary : c.ink_muted)
+                        }
+                    }
+                }
+                Hairline()
+            }
+            content()
+        }
+        .padding(14)
+        .background(
+            ZStack {
+                RoundedRectangle(cornerRadius: TimbreRadius.card, style: .continuous)
+                    .fill(c.bg_inset)
+                // Subtle dot-matrix grid pitch overlay
+                Canvas { ctx, size in
+                    let step: CGFloat = 4
+                    var dotPath = Path()
+                    var y: CGFloat = 2
+                    while y < size.height {
+                        var x: CGFloat = 2
+                        while x < size.width {
+                            dotPath.addRect(CGRect(x: x, y: y, width: 1, height: 1))
+                            x += step
+                        }
+                        y += step
+                    }
+                    ctx.fill(dotPath, with: .color(c.ink_primary.opacity(0.025)))
+                }
+                .clipShape(RoundedRectangle(cornerRadius: TimbreRadius.card, style: .continuous))
+                .allowsHitTesting(false)
+            }
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: TimbreRadius.card, style: .continuous)
+                .strokeBorder(c.line_strong, lineWidth: 1)
+        )
+    }
+}
+
+/// Whole-segment quantized LCD block-segment stereo/channel level meter with held-peak segment, printed dB scale, and CLIP flag, modeled after `@audiocn/lcd-meter`.
+struct TLCDMeterRow: View {
+    let channelLabel: String
+    var dbfs: Double
+    var heldPeakDB: Double? = nil
+    var minDB: Double = -60.0
+    var maxDB: Double = 0.0
+    var warningDB: Double = -12.0
+    var clipDB: Double = -1.0
+    var segmentCount: Int = 28
+    var unit: String = "dBTP"
+    @Environment(\.palette) private var c
+
+    var body: some View {
+        let layout = LCDSegmentLayout.quantize(
+            dbfs: dbfs,
+            heldPeakDB: heldPeakDB,
+            minDB: minDB,
+            maxDB: maxDB,
+            warningDB: warningDB,
+            clipDB: clipDB,
+            segmentCount: segmentCount,
+            audioTaper: true
+        )
+        HStack(spacing: 8) {
+            Text(channelLabel)
+                .font(.system(size: 10, weight: .bold, design: .monospaced))
+                .foregroundStyle(c.ink_secondary)
+                .frame(width: 24, alignment: .leading)
+
+            GeometryReader { geo in
+                let gap: CGFloat = 2
+                let totalGap = gap * CGFloat(max(0, layout.totalSegments - 1))
+                let segW = max(2, (geo.size.width - totalGap) / CGFloat(layout.totalSegments))
+                HStack(spacing: gap) {
+                    ForEach(0..<layout.totalSegments, id: \.self) { idx in
+                        let isLit = idx < layout.litCount
+                        let isHeld = layout.heldPeakIndex == idx
+                        let segColor: Color = {
+                            if idx >= layout.clipStartIndex { return c.semantic_negative }
+                            if idx >= layout.warningStartIndex { return c.semantic_warning }
+                            return c.ink_primary
+                        }()
+                        RoundedRectangle(cornerRadius: 1.2, style: .continuous)
+                            .fill((isLit || isHeld) ? segColor : c.ink_primary.opacity(0.08))
+                            .opacity(isLit ? 1.0 : (isHeld ? 0.92 : 1.0))
+                            .frame(width: segW, height: geo.size.height)
+                    }
+                }
+            }
+            .frame(height: 10)
+
+            TdBReadout(
+                dbfs: dbfs,
+                floorDB: minDB,
+                warningDB: warningDB,
+                clipDB: clipDB,
+                unit: unit,
+                width: 68
+            )
+        }
+    }
+}
+
+/// Rotary dial control drawn in Canvas with peripheral tick scale (`KnobScale`), bipolar origin arc (`KnobRange`), cap, and pointer (`KnobPointer`), modeled after `@audiocn/knob`.
+/// Supports vertical drag, ⌥-fine drag (1/10x), double-click reset to `origin ?? resetValue`, and accessibility increments.
+struct TKnob: View {
+    @Binding var value: Double
+    var range: ClosedRange<Double> = -6.0...6.0
+    var step: Double = 0.5
+    var origin: Double? = 0.0
+    var resetValue: Double? = 0.0
+    var size: CGFloat = 46
+    var tickCount: Int = 13
+    var label: String = ""
+    var valueText: String = ""
+    @Environment(\.palette) private var c
+    @State private var hover = false
+    @State private var dragging = false
+    @State private var dragStartValue: Double = 0
+
+    var body: some View {
+        let geom = KnobArcGeometry.compute(value: value, range: range, origin: origin)
+        let isModified = abs(value - (resetValue ?? origin ?? range.lowerBound)) > 0.01
+
+        Canvas { ctx, canvasSize in
+            let center = CGPoint(x: canvasSize.width / 2, y: canvasSize.height / 2)
+            let outerR = min(canvasSize.width, canvasSize.height) / 2 - 1.5
+            let arcR = outerR - 4.5
+            let capR = arcR - 4.5
+
+            // 1. Peripheral scale ticks (KnobScale)
+            if tickCount > 1 {
+                for i in 0..<tickCount {
+                    let frac = Double(i) / Double(tickCount - 1)
+                    let deg = geom.trackStartDeg + frac * (geom.trackEndDeg - geom.trackStartDeg)
+                    let rad = (deg - 90.0) * .pi / 180.0
+                    let isCenter = abs(deg) < 0.5
+                    let lit = isModified && geom.isTickLit(tickIndex: i, tickCount: tickCount)
+                    let r1 = outerR - (isCenter ? 2.5 : 1.8)
+                    let r2 = outerR
+                    var tick = Path()
+                    tick.move(to: CGPoint(x: center.x + CGFloat(cos(rad)) * r1, y: center.y + CGFloat(sin(rad)) * r1))
+                    tick.addLine(to: CGPoint(x: center.x + CGFloat(cos(rad)) * r2, y: center.y + CGFloat(sin(rad)) * r2))
+                    ctx.stroke(
+                        tick,
+                        with: .color(lit ? c.accent_signal : (isCenter ? c.ink_secondary : c.ink_faint)),
+                        lineWidth: isCenter ? 1.4 : 1.0
+                    )
+                }
+            }
+
+            // 2. Background arc track (KnobTrack)
+            var trackArc = Path()
+            trackArc.addArc(
+                center: center,
+                radius: arcR,
+                startAngle: .degrees(geom.trackStartDeg - 90.0),
+                endAngle: .degrees(geom.trackEndDeg - 90.0),
+                clockwise: false
+            )
+            ctx.stroke(trackArc, with: .color(c.bg_track), style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
+
+            // 3. Active arc from origin to value (KnobRange)
+            if abs(geom.valueDeg - geom.originDeg) > 0.5 {
+                let startDeg = min(geom.originDeg, geom.valueDeg) - 90.0
+                let endDeg = max(geom.originDeg, geom.valueDeg) - 90.0
+                var activeArc = Path()
+                activeArc.addArc(
+                    center: center,
+                    radius: arcR,
+                    startAngle: .degrees(startDeg),
+                    endAngle: .degrees(endDeg),
+                    clockwise: false
+                )
+                ctx.stroke(activeArc, with: .color(c.accent_signal), style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
+            }
+
+            // 4. Rotary cap (KnobCap)
+            let capRect = CGRect(x: center.x - capR, y: center.y - capR, width: capR * 2, height: capR * 2)
+            ctx.fill(Path(ellipseIn: capRect), with: .color(hover || dragging ? c.bg_selected : c.bg_raised))
+            ctx.stroke(Path(ellipseIn: capRect), with: .color(hover || dragging ? c.line_strong : c.line_default), lineWidth: 1)
+
+            // 5. Pointer line on cap (KnobPointer)
+            let ptrRad = (geom.valueDeg - 90.0) * .pi / 180.0
+            let pInner = capR * 0.28
+            let pOuter = capR * 0.82
+            var ptr = Path()
+            ptr.move(to: CGPoint(x: center.x + CGFloat(cos(ptrRad)) * pInner, y: center.y + CGFloat(sin(ptrRad)) * pInner))
+            ptr.addLine(to: CGPoint(x: center.x + CGFloat(cos(ptrRad)) * pOuter, y: center.y + CGFloat(sin(ptrRad)) * pOuter))
+            ctx.stroke(ptr, with: .color(c.ink_primary), style: StrokeStyle(lineWidth: 1.6, lineCap: .round))
+        }
+        .frame(width: size, height: size)
+        .contentShape(Circle())
+        .onHover { hover = $0 }
+        .gesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { g in
+                    if !dragging {
+                        dragging = true
+                        dragStartValue = value
+                    }
+                    let fine = NSEvent.modifierFlags.contains(.option) || NSEvent.modifierFlags.contains(.shift)
+                    let sensitivity = fine ? 360.0 : 96.0
+                    let span = range.upperBound - range.lowerBound
+                    let delta = (Double(-g.translation.height) + Double(g.translation.width) * 0.35) / sensitivity * span
+                    var next = dragStartValue + delta
+                    if let org = origin, !fine, abs(next - org) < span * 0.025 {
+                        next = org
+                    } else if step > 0 {
+                        next = (next / step).rounded() * step
+                    }
+                    value = min(max(next, range.lowerBound), range.upperBound)
+                }
+                .onEnded { _ in dragging = false }
+        )
+        .simultaneousGesture(
+            TapGesture(count: 2).onEnded {
+                if let r = resetValue ?? origin {
+                    value = r
+                }
+            }
+        )
+        .accessibilityElement()
+        .accessibilityLabel(label)
+        .accessibilityValue(valueText)
+        .accessibilityAdjustableAction { dir in
+            let s = step > 0 ? step : (range.upperBound - range.lowerBound) / 24.0
+            switch dir {
+            case .increment: value = min(value + s, range.upperBound)
+            case .decrement: value = max(value - s, range.lowerBound)
+            @unknown default: break
+            }
+        }
     }
 }
 

@@ -399,6 +399,53 @@ struct TimbreCoreTestRunner {
                "2+ playing -> Expanded also led neutrally by Geral/Master with equal app rows underneath")
         print("  [PASS] NotchPeekTarget & NotchExpandedTarget unified spotlight (0 / 1 / 2+ playing)")
 
+        // AudioUIMath: Decibel taper, ballistics + peak hold + clip latch, LCD whole-segment quantization, rotary knob arc
+        expect(abs(AudioDecibelMath.dbToGain(-6.0) - 0.501187) < 0.001, "dbToGain(-6 dB) ~ 0.501")
+        expect(AudioDecibelMath.dbToGain(-70.0) == 0.0, "Below floorDB snaps to 0.0 gain")
+        expect(!AudioDecibelMath.gainToDB(0.0).isFinite, "0.0 gain maps to -infinity dB")
+        let midLinear = AudioDecibelMath.dbToNormalized(-30.0, minDB: -60.0, maxDB: 0.0, audioTaper: false)
+        let midAudio = AudioDecibelMath.dbToNormalized(-30.0, minDB: -60.0, maxDB: 0.0, audioTaper: true)
+        expect(abs(midLinear - 0.5) < 0.0001 && midAudio < midLinear && midAudio > 0.25,
+               "Audio taper expands upper dB resolution near 0 dB (midAudio=\(midAudio))")
+        let roundTripDB = AudioDecibelMath.normalizedToDB(midAudio, minDB: -60.0, maxDB: 0.0, audioTaper: true)
+        expect(abs(roundTripDB - (-30.0)) < 0.001, "Audio taper round-trips normalized <-> dB")
+        expect(AudioDecibelMath.zone(forDB: -80.0) == .silent, "-80 dBFS is silent")
+        expect(AudioDecibelMath.zone(forDB: -18.0) == .normal, "-18 dBFS is normal")
+        expect(AudioDecibelMath.zone(forDB: -6.0) == .warning, "-6 dBFS is warning")
+        expect(AudioDecibelMath.zone(forDB: -0.5) == .clip, "-0.5 dBFS is clip")
+
+        var bal = AudioMeterBallistics(floorDB: -60.0, clipThresholdDB: -1.0, holdDurationSeconds: 1.5, releaseDBPerSecond: 20.0)
+        bal.step(sampleDB: -6.0, dtSeconds: 0.016)
+        expect(abs(bal.smoothedDB - (-6.0)) < 0.001 && abs(bal.heldPeakDB - (-6.0)) < 0.001 && !bal.isClipLatched,
+               "Fast attack captures -6 dB immediately without false clip")
+        bal.step(sampleDB: -30.0, dtSeconds: 0.5)
+        expect(abs(bal.smoothedDB - (-16.0)) < 0.001 && abs(bal.heldPeakDB - (-6.0)) < 0.001,
+               "Smoothed level falls at 20 dB/s while heldPeakDB holds for 1.5 s")
+        bal.step(sampleDB: -30.0, dtSeconds: 1.5)
+        expect(bal.heldPeakDB < -6.0, "Held peak decays after hold duration expires")
+        bal.step(sampleDB: -0.3, dtSeconds: 0.016)
+        expect(bal.isClipLatched && bal.clipEventCount == 1, "Signal >= -1 dBFS latches clip indicator and increments count")
+        bal.step(sampleDB: -0.1, dtSeconds: 0.016)
+        expect(bal.clipEventCount == 1, "Continuous clip burst counts as 1 event until signal drops below threshold")
+        bal.step(sampleDB: -12.0, dtSeconds: 0.016)
+        bal.step(sampleDB: -0.2, dtSeconds: 0.016)
+        expect(bal.clipEventCount == 2, "Second clip transient increments clipEventCount to 2")
+        bal.resetClip()
+        expect(!bal.isClipLatched && bal.clipEventCount == 0, "resetClip clears latch and counter")
+
+        let lcdSilent = LCDSegmentLayout.quantize(dbfs: -90.0, heldPeakDB: -90.0, segmentCount: 24)
+        expect(lcdSilent.litCount == 0 && lcdSilent.heldPeakIndex == nil, "Silence lights 0 LCD segments")
+        let lcdHot = LCDSegmentLayout.quantize(dbfs: -3.0, heldPeakDB: -0.5, segmentCount: 24)
+        expect(lcdHot.litCount > lcdHot.warningStartIndex && lcdHot.heldPeakIndex == 23,
+               "Hot signal quantizes whole segments into warning zone with held peak at top segment")
+
+        let bipolarKnob = KnobArcGeometry.compute(value: 3.0, range: -6.0...6.0, origin: 0.0)
+        expect(abs(bipolarKnob.originDeg - 0.0) < 0.001 && abs(bipolarKnob.valueDeg - 67.5) < 0.001,
+               "Bipolar knob places origin 0 dB at 12 o'clock (0 deg) and +3 dB at +67.5 deg")
+        expect(!bipolarKnob.isTickLit(tickIndex: 2, tickCount: 11) && bipolarKnob.isTickLit(tickIndex: 6, tickCount: 11),
+               "Peripheral scale ticks light only between origin (12 o'clock) and value")
+        print("  [PASS] AudioUIMath (decibel taper, ballistics, clip latch, LCD quantization, bipolar knob arc)")
+
         print("[TimbreCoreTests] ALL PASSED")
     }
 }
