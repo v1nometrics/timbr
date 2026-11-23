@@ -24,7 +24,7 @@
 ## 2. Marca
 
 - Wordmark **timbr.**: SF Pro Semibold, tracking negativo proporcional; o ponto na mesma tinta da palavra (identidade acromática, ADR-0016). Tamanhos usados: 13 (notch), 15 (barra de menus), 19 (barra lateral), 56 (Sobre).
-- Ícone do app: `Resources/Timbr.icns`, gerado por `scripts/generate_icns.py`.
+- Ícone do app: `Resources/Timbr.icns`, gerado por `scripts/generate_icns.py` ([ADR-0022](../07-decisoes/ADR-0022-icone-do-app-notch-e-som.md)): o notch pendurado na borda do bloco e as cinco barras de som abaixo, em papel quente.
 - Proibido: contorno na marca, gradiente, sombra, mudar a cor do ponto fora do acento.
 
 ## 3. Referências mestras

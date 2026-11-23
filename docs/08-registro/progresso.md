@@ -32,6 +32,22 @@
 
 ## Histórico Consolidado
 
+### 2026-11-23 · Pendências aplicadas: audição, pausa instantânea e histórico limpo
+
+- **Contexto:** o dono pediu para aplicar tudo o que eu tinha deixado em aberto ou sugerido. Mesclados: #16 (linha do tempo), #17 (equalizador 4/5/10 + PEQ livre), #18 (sons do sistema), #19 (notch percebe a pausa).
+- **Nomes das bandas** (ADR-0019): português primeiro com o termo do meio audiófilo entre parênteses, e dica ao passar o mouse.
+- **Tempo de escuta e volume alto** ([ADR-0023](../07-decisoes/ADR-0023-tempo-de-escuta-e-volume-alto.md)): seção "Audição" no Observatório e aviso discreto no notch, regra 60/60, sem decibéis e sem tap.
+- **Chave "Perceber pausas na hora"** (ADR-0021): opt-in; pausa recolhe o compacto em 1,63 s no caminho antes nativo.
+- **Ícone novo** ([ADR-0022](../07-decisoes/ADR-0022-icone-do-app-notch-e-som.md)): o notch e o som.
+- **Histórico limpo:** instâncias de revisão/smoke/self-test não gravam mais eventos no histórico real (a contagem não mudou depois de uma instância de revisão rodar 8 s).
+- **Não feito, por escolha:** estimativa de dB SPL (RF-0707); poda automática do histórico; busca sem acentos.
+
+### 2026-11-23 · Ícone novo: o notch e o som (ADR-0022)
+
+- **Pedido:** um logo mais original que o das barras de onda com ponto.
+- **Feito:** duas rodadas de propostas; o dono rejeitou a primeira e pediu partir do que é só do timbr.; apliquei a recomendação da segunda (notch + som, papel quente) com autorização geral. Gerado por `scripts/generate_icns.py`, com variante forte para ≤ 64 px.
+- **Limite:** o dono não escolheu entre as opções; trocar é editar o script. O wordmark `timbr.` não mudou.
+
 ### 2026-11-23 · Equalizador de 4, 5 ou 10 bandas; PEQ livre acompanha a curva e ganha Resetar
 
 - **Pedido:** comparar com o app da Sennheiser, permitir mais ou menos canais no equalizador e corrigir o PEQ livre (curva parada ao mexer nos pontos 1–4; sem botão de resetar).

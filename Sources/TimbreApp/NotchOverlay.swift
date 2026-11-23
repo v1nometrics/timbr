@@ -1160,7 +1160,7 @@ public struct NotchOverlayView: View {
                 Circle().fill(alert.severity == .info ? c.semantic_info : c.semantic_warning).frame(width: 6, height: 6)
             } else {
                 MiniMeter(level: level, active: !appState.playingSources.isEmpty && !appState.isProcessingBypassed,
-                          color: appState.isProcessingBypassed ? c.ink_muted : c.accent_base)
+                          color: appState.listeningAdvice ? c.semantic_warning : (appState.isProcessingBypassed ? c.ink_muted : c.accent_base))
             }
         }
         let pair = appState.compactPair
@@ -1564,9 +1564,11 @@ public struct NotchOverlayView: View {
         let dev = appState.activeOutputDevice
         let muted = appState.outputSilenced
         let hasPlaying = !appState.playingSources.isEmpty
-        let subtitle = hasPlaying
-            ? String(format: appState.t("ui.notch.playing_on"), dev?.name ?? "—")
-            : "\(appState.t("notch.empty_playing")) · \(dev?.name ?? "—")"
+        let subtitle = appState.listeningAdvice
+            ? String(format: appState.t("ui.notch.listening_advice"), ListeningPolicy.duration(appState.listeningStreakSeconds))
+            : (hasPlaying
+                ? String(format: appState.t("ui.notch.playing_on"), dev?.name ?? "—")
+                : "\(appState.t("notch.empty_playing")) · \(dev?.name ?? "—")")
         return VStack(spacing: 10) {
             HStack(alignment: .center, spacing: 12) {
                 Text(subtitle)
@@ -1636,8 +1638,10 @@ public struct NotchOverlayView: View {
         VStack(spacing: 10) {
             HStack(alignment: .center, spacing: 12) {
                 Text(f.isVoIPExcluded ? appState.t("mixer.voip_ignored")
-                     : String(format: appState.t(f.isPlaying ? "ui.notch.playing_on" : "ui.notch.paused_on"), appState.activeOutputDevice?.name ?? "—"))
-                    .type(TimbreTypography.caption).foregroundStyle(c.ink_muted).lineLimit(1)
+                     : (appState.listeningAdvice && f.isPlaying
+                        ? String(format: appState.t("ui.notch.listening_advice"), ListeningPolicy.duration(appState.listeningStreakSeconds))
+                        : String(format: appState.t(f.isPlaying ? "ui.notch.playing_on" : "ui.notch.paused_on"), appState.activeOutputDevice?.name ?? "—")))
+                    .type(TimbreTypography.caption).foregroundStyle(appState.listeningAdvice && f.isPlaying ? c.semantic_warning : c.ink_muted).lineLimit(1)
                 Spacer(minLength: 0)
                 if !f.isVoIPExcluded { valueLabel(f, big: true) }
                 IconButton(symbol: f.isMuted ? "speaker.slash.fill" : "speaker.wave.2.fill", size: 26, active: f.isMuted, activeColor: c.semantic_warning, help: appState.t("ui.mute")) {

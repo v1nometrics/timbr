@@ -224,6 +224,16 @@ public final class AppState: ObservableObject {
     @Published public var showOnboarding: Bool = false
 
     private var refreshTimer: Timer?
+    /// Time listening through headphones and time at high volume (ADR-0023): minutes and volume, never dB.
+    private var listeningTracker = ListeningTracker(day: ListeningPolicy.dayKey(Date()))
+    private var lastListeningTick: Date?
+    private var lastListeningFlush = Date()
+    @Published public private(set) var listeningToday = ListeningDay(day: ListeningPolicy.dayKey(Date()))
+    @Published public private(set) var listeningStreakSeconds: Double = 0
+    @Published public private(set) var listeningAdvice = false
+    @Published public private(set) var listeningWeek: [ListeningDay] = []
+    /// "Notice pauses at once": keeps one capture alive while something plays so the notch can hear the silence (ADR-0021).
+    @Published public var instantPauseDetection = false
     /// Fast, cheap re-read of "who is playing" while something plays (see `startPlaybackWatch`).
     private var playbackWatchTimer: Timer?
     private var silenceTracker = SilenceTracker()
@@ -319,6 +329,14 @@ public final class AppState: ObservableObject {
             self.hideNotchInFullscreen = (db.getKV("hideNotchInFullscreen") ?? "1") == "1"
             self.showMenuBarIcon = db.getKV("showMenuBarIcon") == "1"
             self.autoDuckOnCall = (db.getKV("autoDuckOnCall") ?? "1") == "1"
+            self.instantPauseDetection = db.getKV("instantPauseDetection") == "1"
+            let todayKey = ListeningPolicy.dayKey(Date())
+            let saved = db.loadListening(days: 7)
+            self.listeningWeek = saved
+            if let t = saved.first(where: { $0.day == todayKey }) {
+                self.listeningTracker = ListeningTracker(day: todayKey, personalSeconds: t.personalSeconds, highSeconds: t.highSeconds)
+                self.listeningToday = t
+            }
             self.savedPresets = db.loadPresets()
             if let first = self.savedPresets.first {
                 self.activePreset = first
@@ -624,6 +642,51 @@ public final class AppState: ObservableObject {
 
         updateCompactState()
         updatePlaybackWatch()
+        tickListening()
+    }
+
+    /// Counts personal listening and high-volume time, about every 2 s (with the system refresh).
+    private func tickListening() {
+        guard !Self.isAuxiliaryInstance else { return }
+        let now = Date()
+        defer { lastListeningTick = now }
+        guard let last = lastListeningTick else { return }
+        let dt = now.timeIntervalSince(last)
+        let personal = activeOutputDevice.map(ListeningPolicy.isPersonalListening) ?? false
+        let audible = !outputSilenced && NotchActivityPolicy.forNotch(sources, silent: tapSilentBundles).contains { $0.isPlaying && !PersistentMutePolicy.isSilenced($0) }
+        listeningTracker.tick(dayKey: ListeningPolicy.dayKey(now), dt: dt, listening: personal && audible, volume: activeOutputVolume)
+        if listeningToday != listeningTracker.today { listeningToday = listeningTracker.today }
+        let streak = (listeningTracker.streakSeconds / 15).rounded() * 15   // coarse: no redraw every 2 s
+        if streak != listeningStreakSeconds { listeningStreakSeconds = streak }
+        if listeningAdvice != listeningTracker.adviceActive {
+            listeningAdvice = listeningTracker.adviceActive
+            if listeningAdvice { logEvent(category: "listening", message: "High volume for \(ListeningPolicy.duration(listeningTracker.streakSeconds)): a rest is due") }
+        }
+        if now.timeIntervalSince(lastListeningFlush) >= 30, let p = listeningTracker.takePending(), let store {
+            lastListeningFlush = now
+            eventWriteQueue.async { [weak self] in
+                store.addListening(day: p.day, personal: p.personal, high: p.high)
+                let week = store.loadListening(days: 7)
+                DispatchQueue.main.async { self?.listeningWeek = week }
+            }
+        }
+    }
+
+    /// Design review only (`--listening-demo`): example numbers on screen, nothing stored.
+    public func applyListeningDemo() {
+        let cal = Calendar.current
+        let secs: [(Double, Double)] = [(2.5, 0.3), (1.0, 0), (4.2, 1.1), (0.4, 0), (6.5, 2.4), (3.0, 0.6), (3.4, 1.8)]
+        listeningWeek = (0..<7).map { i in ListeningDay(day: ListeningPolicy.dayKey(cal.date(byAdding: .day, value: -(6 - i), to: Date()) ?? Date()),
+                                                       personalSeconds: secs[i].0 * 3600, highSeconds: secs[i].1 * 3600) }
+        listeningToday = listeningWeek.last!
+        listeningStreakSeconds = 75 * 60
+        listeningAdvice = true
+    }
+
+    public func toggleInstantPauseDetection(_ enabled: Bool) {
+        instantPauseDetection = enabled
+        try? store?.setKV("instantPauseDetection", value: enabled ? "1" : "0")
+        syncDSPAndTap()
     }
 
     /// How long the compact view waits, after the last sound, before leaving. Only a debounce against
@@ -739,7 +802,7 @@ public final class AppState: ObservableObject {
         let anyNonNeutralBand = activePreset.allEffectiveBands.contains { $0.enabled && abs($0.gainDB) > 0.01 }
         let anySourceTap = sources.contains { $0.needsProcessingTap && !$0.isVoIPExcluded }
         let shouldProcess = !isProcessingBypassed && (
-            anyNonNeutralBand || activePreset.crossfeedEnabled || anySourceTap || duckFactor < 0.999 || !mirrorTargets.isEmpty
+            anyNonNeutralBand || activePreset.crossfeedEnabled || anySourceTap || duckFactor < 0.999 || !mirrorTargets.isEmpty || instantPauseDetection
         )
         let excludedBundles = sources.filter { $0.isVoIPExcluded }.map { $0.bundleID }
         if sources.contains(where: { $0.isPlaying }) { lastAudioActivityAt = Date() }
@@ -755,7 +818,8 @@ public final class AppState: ObservableObject {
             excludedBundleIDs: excludedBundles,
             duckFactor: duckFactor,
             mirrorOutputs: mirrorTargets,
-            audioActive: audioActive
+            audioActive: audioActive,
+            forceGlobalTap: instantPauseDetection
         )
         // Surface engine failures instead of swallowing them (they used to be silent).
         let failure = tapEngine.lastFailure ?? tapEngine.muteKeeper?.lastFailure
@@ -1433,7 +1497,7 @@ public final class AppState: ObservableObject {
         if recentEvents.count > 120 { recentEvents.removeLast(recentEvents.count - 120) }
         // Disk writes never run on the main thread: a checkpoint on a large log can take 100 ms+.
         // One serial queue keeps them in order; the timeline hears about each one when it is durable.
-        guard let store else { return }
+        guard let store, !Self.isAuxiliaryInstance else { return }   // review/smoke/self-test runs must not pollute the real history
         eventWriteQueue.async { [weak self] in
             try? store.saveEvent(ev)
             DispatchQueue.main.async { self?.eventLogRevision &+= 1 }

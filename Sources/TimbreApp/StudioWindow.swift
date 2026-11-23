@@ -256,6 +256,90 @@ private struct EmptyStateView: View {
 
 // MARK: - Observatory timeline (search, filter, paginate, export — ADR-0018)
 
+// MARK: - Observatory: listening time (ADR-0023)
+
+private struct ListeningSection: View {
+    @ObservedObject var appState: AppState
+    let index: String
+    @Environment(\.palette) private var c
+
+    private var week: [ListeningDay] {
+        // The last seven calendar days, oldest first, with empty days filled in.
+        let cal = Calendar.current
+        let byDay = Dictionary(appState.listeningWeek.map { ($0.day, $0) }, uniquingKeysWith: { a, _ in a })
+        return (0..<7).reversed().map { back in
+            let key = ListeningPolicy.dayKey(cal.date(byAdding: .day, value: -back, to: Date()) ?? Date())
+            if key == appState.listeningToday.day { return appState.listeningToday }
+            return byDay[key] ?? ListeningDay(day: key)
+        }
+    }
+
+    var body: some View {
+        let today = appState.listeningToday
+        VStack(alignment: .leading, spacing: 14) {
+            SectionHeader(index: index, title: appState.t("ui.obs.listening_title"), subtitle: appState.t("ui.obs.listening_sub"))
+            ListCard {
+                HStack(spacing: 0) {
+                    stat(appState.t("ui.obs.listening_today"), ListeningPolicy.duration(today.personalSeconds))
+                    stat(appState.t("ui.obs.listening_high"), ListeningPolicy.duration(today.highSeconds), warn: appState.listeningAdvice)
+                    stat(appState.t("ui.obs.listening_streak"), ListeningPolicy.duration(appState.listeningStreakSeconds), warn: appState.listeningAdvice)
+                }
+                .frame(height: 70)
+                Hairline()
+                HStack(spacing: 12) {
+                    Image(systemName: appState.listeningAdvice ? "exclamationmark.triangle" : "checkmark.circle")
+                        .foregroundStyle(appState.listeningAdvice ? c.semantic_warning : c.semantic_positive)
+                    Text(appState.listeningAdvice
+                         ? String(format: appState.t("ui.obs.listening_advice"), ListeningPolicy.duration(appState.listeningStreakSeconds))
+                         : appState.t("ui.obs.listening_ok"))
+                        .type(TimbreTypography.small).foregroundStyle(c.ink_primary)
+                    Spacer()
+                }
+                .padding(.horizontal, 20).frame(height: 46)
+                Hairline()
+                VStack(alignment: .leading, spacing: 10) {
+                    Eyebrow(text: appState.t("ui.obs.listening_week"))
+                    HStack(alignment: .bottom, spacing: 10) {
+                        ForEach(week) { d in dayBar(d) }
+                    }
+                    .frame(height: 64)
+                    Text(appState.t("ui.obs.listening_note")).type(TimbreTypography.caption).foregroundStyle(c.ink_muted)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(20)
+            }
+        }
+    }
+
+    private func stat(_ title: String, _ value: String, warn: Bool = false) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Eyebrow(text: title)
+            Text(value).type(TimbreTypography.mediumValue).foregroundStyle(warn ? c.semantic_warning : c.ink_primary)
+        }
+        .padding(.horizontal, 20)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    /// One day: the bar is the time with headphones (scaled to 8 h = full height); the darker part is the high-volume share.
+    private func dayBar(_ d: ListeningDay) -> some View {
+        let full: CGFloat = 8 * 3600
+        let h = min(1, CGFloat(d.personalSeconds) / full)
+        let hi = d.personalSeconds > 0 ? min(1, CGFloat(d.highSeconds / d.personalSeconds)) : 0
+        let label = String(d.day.suffix(2))
+        return VStack(spacing: 4) {
+            ZStack(alignment: .bottom) {
+                Capsule().fill(c.bg_track).frame(width: 18, height: 46)
+                Capsule().fill(c.ink_muted.opacity(0.55)).frame(width: 18, height: max(d.personalSeconds > 0 ? 4 : 0, 46 * h))
+                Capsule().fill(c.ink_primary).frame(width: 18, height: max(d.highSeconds > 0 ? 3 : 0, 46 * h * hi))
+            }
+            .frame(height: 46, alignment: .bottom)
+            Text(label).type(TimbreTypography.monoSmall).foregroundStyle(c.ink_faint)
+        }
+        .frame(maxWidth: .infinity)
+        .help("\(d.day): \(ListeningPolicy.duration(d.personalSeconds)) · \(ListeningPolicy.duration(d.highSeconds))")
+    }
+}
+
 /// Design review (`--timeline-preview [--timeline-search <text>] [--timeline-category <name>]`): the
 /// timeline alone in its own window, with search and filter already applied.
 struct TimelinePreview: View {
@@ -1310,7 +1394,8 @@ private struct ObservatoryPage: View {
                 }
             }
 
-            TimelineSection(appState: appState, index: appState.driverTelemetry == nil ? "04" : "05")
+            ListeningSection(appState: appState, index: appState.driverTelemetry == nil ? "04" : "05")
+            TimelineSection(appState: appState, index: appState.driverTelemetry == nil ? "05" : "06")
         }
     }
 
@@ -1498,6 +1583,10 @@ private struct SettingsPage: View {
                 Hairline().padding(.leading, 20)
                 row(appState.t("ui.settings.ears"), appState.t("ui.settings.ears_sub")) {
                     TSwitch(isOn: Binding(get: { appState.showCompactActivity }, set: { appState.toggleShowCompact($0) }))
+                }
+                Hairline().padding(.leading, 20)
+                row(appState.t("ui.settings.instant_pause"), appState.t("ui.settings.instant_pause_sub")) {
+                    TSwitch(isOn: Binding(get: { appState.instantPauseDetection }, set: { appState.toggleInstantPauseDetection($0) }))
                 }
                 Hairline().padding(.leading, 20)
                 row(appState.t("ui.settings.hide_fullscreen"), appState.t("ui.settings.hide_fullscreen_sub")) {

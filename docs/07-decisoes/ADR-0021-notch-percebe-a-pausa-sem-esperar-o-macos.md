@@ -39,7 +39,11 @@ O notch decidia "está tocando" só por `kAudioProcessPropertyIsRunningOutput`. 
 
 CPU com som tocando: 9,1–9,9% contra 8,2% na versão anterior (uma medição); parado, 3,2–3,9%.
 
+## Chave opcional (implementada)
+
+Em Ajustes > Notch, **"Perceber pausas na hora"** (desligada por padrão) mantém um tap global enquanto algo toca, mesmo com EQ plano e sem volume por app, para o silêncio poder ser medido. Medido: pausa em **1,63 s** e stop em 1,77 s no caminho antes nativo (contra 8,07 s e 2,6 s). O custo está escrito na própria opção: o áudio passa pelo DSP (sai do "caminho nativo"), o indicador de gravação do macOS fica aceso e o superwhisper pode sugerir uma reunião.
+
 ## Limites
 
-- **No caminho nativo, sem tap, a pausa leva o tempo do macOS** (2 a ~8 s, ~4 s no Spotify). Para ter ~1,6 s também aí seria preciso um tap permanente, o que tira o "caminho nativo" (o áudio passaria pelo DSP) e acende o indicador de gravação. Fica como opção para o dono decidir, não ligada por padrão.
+- **Com a chave desligada, no caminho nativo, sem tap, a pausa leva o tempo do macOS** (2 a ~8 s, ~4 s no Spotify). Para ter ~1,6 s também aí seria preciso um tap permanente, o que tira o "caminho nativo" (o áudio passaria pelo DSP) e acende o indicador de gravação. Fica como opção para o dono decidir, não ligada por padrão.
 - Entre duas faixas, um silêncio maior que 1 s é visto como pausa e o compacto recolhe; volta no primeiro som.
