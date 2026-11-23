@@ -31,7 +31,17 @@
 
 ## Histórico Consolidado
 
+### 2026-11-23 · Dois ou mais apps tocando: compacto e espiada no notch
 
+- **Dúvida de produto:** quando dois apps (ex.: Spotify + Google Chrome) tocam ao mesmo tempo, qual logo aparece no compacto em cima do notch e o que a espiada (hover sem clique) deve priorizar — um dos apps ou o volume geral?
+- **Decisão e implementação (`NotchPeekTarget`, `compactPair`, `NotchOverlay`):**
+  - **Compacto (topo):** com 2+ apps tocando, mostra **os dois logos** juntos com recorte preto de 1,5 pt para leitura limpa (app mais recente à frente, segundo atrás/ao lado) em todos os arranjos medidos da barra de menus (queixo, duas orelhas, só esquerda e só direita ≥ 26 pt).
+  - **Espiada (hover sem clique):**
+    - `0` apps tocando → **Saída / Geral** (mesmo se houver apps pausados recentes).
+    - `1` app tocando → **esse app** diretamente nas asas + fader (ou saída se VoIP protegido).
+    - `2+` apps tocando → **Geral (master)** no topo com nome do dispositivo, fader de hardware e mudo, seguido de hairline e de **todos os apps tocando** (até 4) em igualdade logo abaixo — sem escolher arbitrariamente um "vencedor" no hover.
+  - **Revisão visual:** flag `--review-multi` adicionada ao app para inspecionar `compact`, `peek` e `expanded` com 2 fontes simultâneas sem mexer nos taps reais.
+- **Verificado:** testes unitários em `TimbreCoreTests`, `./scripts/ci_check.sh`, capturas reais da build `--notch compact|peek|expanded --review-multi` e CI Swift 6.1 no PR.
 
 ### 2026-11-23 · Revisão E2E da documentação
 

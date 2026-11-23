@@ -14,10 +14,32 @@ extension AppState {
         return visible.sorted(by: AudioSourceDescriptor.displayOrder)
     }
 
-    /// The source the notch talks about: first playing non-call app, else the most recent one.
+    /// Sources actively outputting audio right now, in stable display order (newest run first).
+    var playingSources: [AudioSourceDescriptor] {
+        mixerSources.filter(\.isPlaying)
+    }
+
+    /// Up to 2 distinct playing sources for the Compact indicator (lead in front, second behind).
+    var compactPair: (lead: AudioSourceDescriptor, second: AudioSourceDescriptor?)? {
+        let p = playingSources
+        guard !p.isEmpty else { return nil }
+        let lead = p.first(where: { !$0.isVoIPExcluded }) ?? p[0]
+        let second = p.first(where: { $0.bundleID != lead.bundleID })
+        return (lead, second)
+    }
+
+    /// What hover-without-click (Peek) controls: Output (0), Single App (1), or Master + all playing apps (2+).
+    var peekTarget: NotchPeekTarget {
+        NotchPeekTarget.resolve(from: mixerSources)
+    }
+
+    /// The source the Expanded console leads with: playing non-call app first, then any playing app, then most recent.
     var focusSource: AudioSourceDescriptor? {
         let list = mixerSources
-        return list.first(where: { $0.isPlaying && !$0.isVoIPExcluded }) ?? list.first(where: { !$0.isVoIPExcluded }) ?? list.first
+        return list.first(where: { $0.isPlaying && !$0.isVoIPExcluded })
+            ?? list.first(where: { $0.isPlaying })
+            ?? list.first(where: { !$0.isVoIPExcluded })
+            ?? list.first
     }
 
     var playingCount: Int { sources.filter(\.isPlaying).count }

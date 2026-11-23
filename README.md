@@ -97,7 +97,7 @@ Gera automaticamente:
 
 # Abrir cada superfície direto num estado, para revisão visual e capturas:
 ./dist/Timbr.app/Contents/MacOS/Timbr --studio mixer|equalizer|observatory|settings|support
-./dist/Timbr.app/Contents/MacOS/Timbr --notch compact|peek|expanded|hud [--review-empty]
+./dist/Timbr.app/Contents/MacOS/Timbr --notch compact|peek|expanded|hud [--review-empty|--review-multi]
 ./dist/Timbr.app/Contents/MacOS/Timbr --demo          # coreografia completa do notch
 
 # Gerar o instalador distribuível dist/Timbr.dmg:
