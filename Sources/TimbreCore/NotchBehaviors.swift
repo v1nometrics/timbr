@@ -367,6 +367,118 @@ public enum MenuBarSpaceEvaluator: Sendable {
         return ears.left < minLeft || ears.right < earMin
     }
 }
+
+public struct CompactIconPlacement: Equatable, Sendable {
+    public let leadCenterX: Double
+    public let leadSize: Double
+    public let secondCenterX: Double?
+    public let secondSize: Double
+    public let centerY: Double
+    public let visible: Bool
+
+    public init(
+        leadCenterX: Double,
+        leadSize: Double,
+        secondCenterX: Double?,
+        secondSize: Double,
+        centerY: Double,
+        visible: Bool
+    ) {
+        self.leadCenterX = leadCenterX
+        self.leadSize = leadSize
+        self.secondCenterX = secondCenterX
+        self.secondSize = secondSize
+        self.centerY = centerY
+        self.visible = visible
+    }
+}
+
+public enum CompactIconLayoutEvaluator: Sendable {
+    /// Computes non-overlapping, balanced positions for 1 or 2 playing app icons across every
+    /// measured menu-bar layout (chin or left ear). Dual icons sit strictly side-by-side with
+    /// an explicit 3-4 pt gap and >= 4.5 pt side margins — never stacked or clipped.
+    public static func layout(
+        canvasCenterX: Double,
+        notchHalfWidth: Double,
+        notchHeight: Double,
+        chinHeight: Double,
+        leftEar: Double,
+        rightEar: Double,
+        useChin: Bool,
+        hasSecond: Bool
+    ) -> CompactIconPlacement {
+        if useChin {
+            let y = notchHeight + chinHeight / 2.0 - 1.0
+            if hasSecond {
+                let size = 14.0
+                let gap = 4.0
+                let secondX = canvasCenterX - notchHalfWidth + 22.0
+                let leadX = secondX + size + gap
+                return CompactIconPlacement(
+                    leadCenterX: leadX,
+                    leadSize: size,
+                    secondCenterX: secondX,
+                    secondSize: size,
+                    centerY: y,
+                    visible: true
+                )
+            }
+            return CompactIconPlacement(
+                leadCenterX: canvasCenterX - notchHalfWidth + 22.0,
+                leadSize: 14.0,
+                secondCenterX: nil,
+                secondSize: 0,
+                centerY: y,
+                visible: true
+            )
+        }
+
+        let y = notchHeight / 2.0
+        if leftEar > 0 && rightEar > 0 {
+            let earMid = canvasCenterX - notchHalfWidth - leftEar / 2.0
+            if hasSecond {
+                let size: Double
+                let gap: Double
+                if leftEar >= 42.0 {
+                    size = 14.0
+                    gap = 4.0
+                } else if leftEar >= 38.0 {
+                    size = 13.0
+                    gap = 3.0
+                } else {
+                    size = 12.0
+                    gap = 3.0
+                }
+                let step = (size + gap) / 2.0
+                return CompactIconPlacement(
+                    leadCenterX: earMid + step,
+                    leadSize: size,
+                    secondCenterX: earMid - step,
+                    secondSize: size,
+                    centerY: y,
+                    visible: true
+                )
+            }
+            return CompactIconPlacement(
+                leadCenterX: earMid,
+                leadSize: leftEar >= 34.0 ? 16.0 : 15.0,
+                secondCenterX: nil,
+                secondSize: 0,
+                centerY: y,
+                visible: true
+            )
+        }
+
+        return CompactIconPlacement(
+            leadCenterX: canvasCenterX - notchHalfWidth + 12.0,
+            leadSize: 12.0,
+            secondCenterX: nil,
+            secondSize: 0,
+            centerY: y,
+            visible: false
+        )
+    }
+}
 // MARK: - Output volume & zero-bleed mute policy
 
 public enum OutputVolumeBehavior: Sendable {

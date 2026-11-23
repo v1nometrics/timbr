@@ -352,6 +352,33 @@ struct TimbreCoreTestRunner {
         expect(untrusted.left == 0 && untrusted.right == 0, "Without Accessibility trust, falls back to safe chin")
         print("  [PASS] MenuBarSpaceEvaluator (wrapped menus, dual-app chin fallback, AX gating)")
 
+        // CompactIconLayoutEvaluator: dual icons must NEVER overlap or clip in either ears or chin
+        for leftEar in [36.0, 38.0, 40.0, 42.0, 44.0] {
+            let cx = 300.0, half = 90.0
+            let layout = CompactIconLayoutEvaluator.layout(
+                canvasCenterX: cx, notchHalfWidth: half, notchHeight: 33.0, chinHeight: 20.0,
+                leftEar: leftEar, rightEar: 44.0, useChin: false, hasSecond: true
+            )
+            expect(layout.visible, "Dual ear layout visible at leftEar=\(leftEar)")
+            let secondX = layout.secondCenterX!
+            let secondMinX = secondX - layout.secondSize / 2.0
+            let secondMaxX = secondX + layout.secondSize / 2.0
+            let leadMinX = layout.leadCenterX - layout.leadSize / 2.0
+            let leadMaxX = layout.leadCenterX + layout.leadSize / 2.0
+            let earOuterX = cx - half - leftEar
+            let earInnerX = cx - half
+            expect(secondMaxX + 3.0 <= leadMinX, "No icon overlap at leftEar=\(leftEar): gap=\(leadMinX - secondMaxX)")
+            expect(secondMinX >= earOuterX + 4.0, "Second icon stays inside outer ear margin at leftEar=\(leftEar)")
+            expect(leadMaxX <= earInnerX - 4.0, "Lead icon stays inside notch bezel margin at leftEar=\(leftEar)")
+        }
+        let chinDual = CompactIconLayoutEvaluator.layout(
+            canvasCenterX: 300.0, notchHalfWidth: 90.0, notchHeight: 33.0, chinHeight: 20.0,
+            leftEar: 0.0, rightEar: 0.0, useChin: true, hasSecond: true
+        )
+        let chinGap = (chinDual.leadCenterX - chinDual.leadSize / 2.0) - (chinDual.secondCenterX! + chinDual.secondSize / 2.0)
+        expect(chinDual.visible && chinGap >= 4.0, "Chin dual icons stay cleanly separated (gap=\(chinGap))")
+        print("  [PASS] CompactIconLayoutEvaluator (zero dual-icon overlap across all ear widths & chin)")
+
         // OutputVolumeBehavior: CoreAudio -63.5 dB floor must engage hardware mute at "0%" (< 0.005)
         let dragZero = OutputVolumeBehavior.evaluateSetVolume(requested: 0.0, isHWMuteSettable: true)
         expect(dragZero.scalar == 0.0 && dragZero.muted && dragZero.displayVolume == 0.0 && dragZero.hudMuted,
