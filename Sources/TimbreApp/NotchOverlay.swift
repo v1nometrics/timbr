@@ -123,33 +123,35 @@ private enum FullscreenProbe {
 /// without it the left side is treated as occupied — we never guess over someone's menus.
 @MainActor
 enum MenuBarSpace {
-    nonisolated static let earMax: CGFloat = 44
-    nonisolated static let earMin: CGFloat = 26
-    nonisolated static let gap: CGFloat = 8
-
     static func freeEars(_ g: NotchScreenGeometry) -> (left: CGFloat, right: CGFloat) {
         guard g.hasPhysicalNotch else { return (0, 0) }
-        // Screen-local top-left coordinates (CG/AX global space for the notch display).
+        let axTrusted = AXIsProcessTrusted()
+        guard axTrusted else { return (0, 0) }
+
+        let primaryHeight = NSScreen.screens.first?.frame.height ?? g.screenFrame.height
+        let cgTop = primaryHeight - g.screenFrame.maxY
         let screenX = g.screenFrame.minX
+        let screenW = g.screenFrame.width
         let notchLeft = g.screenFrame.midX - g.notchWidth / 2 - screenX
         let notchRight = g.screenFrame.midX + g.notchWidth / 2 - screenX
         let ownPID = ProcessInfo.processInfo.processIdentifier
 
-        var rightOccupied = CGFloat.greatestFiniteMagnitude
+        var statusSpans: [MenuBarItemSpan] = []
         if let list = CGWindowListCopyWindowInfo([.optionOnScreenOnly], kCGNullWindowID) as? [[String: Any]] {
             for w in list {
                 guard let layer = w[kCGWindowLayer as String] as? Int, layer == 25,
                       let pid = w[kCGWindowOwnerPID as String] as? Int32, pid != ownPID,
                       let bd = w[kCGWindowBounds as String] as? NSDictionary,
-                      let r = CGRect(dictionaryRepresentation: bd as CFDictionary) else { continue }
-                let x = r.minX - screenX
-                if r.minY < g.notchHeight, x >= notchRight - 1 { rightOccupied = min(rightOccupied, x) }
+                      let r = CGRect(dictionaryRepresentation: bd as CFDictionary),
+                      r.width > 0,
+                      r.minY >= cgTop - 4, r.minY < cgTop + g.notchHeight,
+                      r.maxX > screenX, r.minX < screenX + screenW else { continue }
+                statusSpans.append(MenuBarItemSpan(minX: Double(r.minX - screenX), maxX: Double(r.maxX - screenX)))
             }
         }
-        let rightFree = rightOccupied == .greatestFiniteMagnitude ? earMax : rightOccupied - notchRight - gap
 
-        var leftFree: CGFloat = 0
-        if AXIsProcessTrusted(), let app = NSWorkspace.shared.frontmostApplication {
+        var appMenuSpans: [MenuBarItemSpan] = []
+        if let app = NSWorkspace.shared.frontmostApplication {
             let axApp = AXUIElementCreateApplication(app.processIdentifier)
             var menuBar: CFTypeRef?
             if AXUIElementCopyAttributeValue(axApp, kAXMenuBarAttribute as CFString, &menuBar) == .success, let menuBar {
@@ -157,7 +159,6 @@ enum MenuBarSpace {
                 // swiftlint:disable:next force_cast
                 if AXUIElementCopyAttributeValue(menuBar as! AXUIElement, kAXChildrenAttribute as CFString, &children) == .success,
                    let items = children as? [AXUIElement] {
-                    var maxX: CGFloat = 0
                     for item in items {
                         var posRef: CFTypeRef?, sizeRef: CFTypeRef?
                         var pos = CGPoint.zero, size = CGSize.zero
@@ -169,15 +170,26 @@ enum MenuBarSpace {
                             // swiftlint:disable:next force_cast
                             AXValueGetValue(sizeRef as! AXValue, .cgSize, &size)
                         }
-                        let x = pos.x - screenX
-                        if size.width > 0, x < notchLeft { maxX = max(maxX, x + size.width) }
+                        guard size.width > 0,
+                              pos.y >= cgTop - 4, pos.y < cgTop + g.notchHeight,
+                              pos.x + size.width > screenX, pos.x < screenX + screenW else { continue }
+                        let minX = Double(pos.x - screenX)
+                        appMenuSpans.append(MenuBarItemSpan(minX: minX, maxX: minX + Double(size.width)))
                     }
-                    leftFree = notchLeft - maxX - gap
                 }
             }
         }
-        func clampEar(_ v: CGFloat) -> CGFloat { v >= earMin ? min(v, earMax) : 0 }
-        return (clampEar(leftFree), clampEar(rightFree))
+
+        let res = MenuBarSpaceEvaluator.freeEars(
+            hasPhysicalNotch: g.hasPhysicalNotch,
+            screenWidth: Double(screenW),
+            notchLeft: Double(notchLeft),
+            notchRight: Double(notchRight),
+            axTrusted: axTrusted,
+            appMenuSpans: appMenuSpans,
+            statusItemSpans: statusSpans
+        )
+        return (CGFloat(res.left), CGFloat(res.right))
     }
 }
 
@@ -206,9 +218,15 @@ struct NotchSpec: Equatable {
 struct NotchLayout {
     let g: NotchScreenGeometry
     let ears: (left: CGFloat, right: CGFloat)
+    let hasMultipleSources: Bool
     var half: CGFloat { g.notchWidth / 2 }
     var H: CGFloat { g.notchHeight }
-    var useChin: Bool { ears.left == 0 && ears.right == 0 }
+    var useChin: Bool {
+        MenuBarSpaceEvaluator.shouldUseChin(
+            ears: (Double(ears.left), Double(ears.right)),
+            hasMultipleSources: hasMultipleSources
+        )
+    }
 
     static let chinHeight: CGFloat = 20
     static let peekWing: CGFloat = 128
@@ -381,7 +399,7 @@ public final class NotchPanelController {
     private var lastState: NotchState = .resting
 
     private var g: NotchScreenGeometry { interaction.geometry }
-    private var layoutModel: NotchLayout { NotchLayout(g: g, ears: interaction.ears) }
+    private var layoutModel: NotchLayout { NotchLayout(g: g, ears: interaction.ears, hasMultipleSources: appState?.compactPair?.second != nil) }
 
     public init(appState: AppState) {
         self.appState = appState
@@ -456,14 +474,26 @@ public final class NotchPanelController {
                 self.apply(state: self.appState?.notchState ?? .resting)
             }
             .store(in: &cancellables)
+        appState.$sources
+            .map { _ in appState.compactPair?.second != nil }
+            .removeDuplicates()
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                guard let self, self.appState?.notchState == .compact else { return }
+                self.positionSensor(for: .compact)
+            }
+            .store(in: &cancellables)
         NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.didActivateApplicationNotification)
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in
                 self?.refreshFullscreen()
-                // Menus change with the frontmost app; re-measure once they have been laid out.
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
-                    self?.refreshFullscreen()
-                    self?.refreshEars()
+                self?.refreshEars()
+                // Menus change with the frontmost app; re-measure once macOS lays out the new menu bar.
+                for delay in [0.08, 0.25] {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+                        self?.refreshFullscreen()
+                        self?.refreshEars()
+                    }
                 }
             }
             .store(in: &cancellables)
@@ -488,7 +518,9 @@ public final class NotchPanelController {
     }
 
     private func refreshEars() {
-        let e = MenuBarSpace.freeEars(g)
+        let e: (left: CGFloat, right: CGFloat) = ProcessInfo.processInfo.arguments.contains("--review-chin")
+            ? (0, 0)
+            : MenuBarSpace.freeEars(g)
         if e.left != interaction.ears.left || e.right != interaction.ears.right {
             withAnimation(TimbreMotion.smooth) { interaction.ears = e }
             if appState?.notchState == .compact { positionSensor(for: .compact) }
@@ -544,7 +576,7 @@ public final class NotchPanelController {
         if state == .compact {
             refreshEars()
             earTimer?.invalidate()
-            earTimer = Timer.scheduledTimer(withTimeInterval: 4, repeats: true) { [weak self] _ in
+            earTimer = Timer.scheduledTimer(withTimeInterval: 1.5, repeats: true) { [weak self] _ in
                 MainActor.assumeIsolated { self?.refreshEars() }
             }
         } else {
@@ -779,7 +811,7 @@ public struct NotchOverlayView: View {
     }
 
     private var g: NotchScreenGeometry { interaction.geometry }
-    private var layout: NotchLayout { NotchLayout(g: g, ears: interaction.ears) }
+    private var layout: NotchLayout { NotchLayout(g: g, ears: interaction.ears, hasMultipleSources: appState.compactPair?.second != nil) }
     private var focus: AudioSourceDescriptor? { appState.focusSource }
     private var closedState: NotchState { appState.shouldShowCompact ? .compact : .resting }
     private var level: Double? { appState.hasLiveSignal ? min(1, max(0, (appState.telemetry.lufsMomentary + 48) / 40)) : nil }
@@ -847,58 +879,31 @@ public struct NotchOverlayView: View {
             let y = H + NotchLayout.chinHeight / 2 - 1
             if hasSecond {
                 return CompactIconFrames(
-                    leadCenter: CGPoint(x: cx - layout.half + 26, y: y), leadSize: 14,
-                    secondCenter: CGPoint(x: cx - layout.half + 16, y: y), secondSize: 13,
+                    leadCenter: CGPoint(x: cx - layout.half + 31, y: y), leadSize: 14,
+                    secondCenter: CGPoint(x: cx - layout.half + 19, y: y), secondSize: 13,
                     visible: true
                 )
             }
-            return CompactIconFrames(leadCenter: CGPoint(x: cx - layout.half + 22, y: y), leadSize: 13, secondCenter: nil, secondSize: 0, visible: true)
+            return CompactIconFrames(leadCenter: CGPoint(x: cx - layout.half + 22, y: y), leadSize: 14, secondCenter: nil, secondSize: 0, visible: true)
         }
         let e = interaction.ears
-        if e.left > 0 {
-            if e.right == 0 && e.left >= 40 {
-                if hasSecond {
-                    return CompactIconFrames(
-                        leadCenter: CGPoint(x: cx - layout.half - e.left + 16.5, y: H / 2), leadSize: 13,
-                        secondCenter: CGPoint(x: cx - layout.half - e.left + 9.5, y: H / 2), secondSize: 12,
-                        visible: true
-                    )
-                }
-                return CompactIconFrames(leadCenter: CGPoint(x: cx - layout.half - e.left + 13, y: H / 2), leadSize: 16, secondCenter: nil, secondSize: 0, visible: true)
-            }
+        if e.left > 0 && e.right > 0 {
             let earMid = cx - layout.half - e.left / 2
             if hasSecond {
-                let step: CGFloat = e.left >= 34 ? 4.5 : 3.5
+                let step: CGFloat = e.left >= 40 ? 6.0 : 4.5
                 return CompactIconFrames(
-                    leadCenter: CGPoint(x: earMid + step, y: H / 2), leadSize: e.left >= 34 ? 15 : 13,
-                    secondCenter: CGPoint(x: earMid - step, y: H / 2), secondSize: e.left >= 34 ? 14 : 12,
+                    leadCenter: CGPoint(x: earMid + step, y: H / 2), leadSize: e.left >= 40 ? 14 : 13,
+                    secondCenter: CGPoint(x: earMid - step, y: H / 2), secondSize: e.left >= 40 ? 13 : 12,
                     visible: true
                 )
             }
-            return CompactIconFrames(leadCenter: CGPoint(x: earMid, y: H / 2), leadSize: 17, secondCenter: nil, secondSize: 0, visible: true)
+            return CompactIconFrames(leadCenter: CGPoint(x: earMid, y: H / 2), leadSize: e.left >= 34 ? 16 : 15, secondCenter: nil, secondSize: 0, visible: true)
         }
-        // Only the right side is free: icon(s) and meter share that ear without overlapping.
-        if e.right > 0 {
-            if e.right >= 40 {
-                if hasSecond {
-                    return CompactIconFrames(
-                        leadCenter: CGPoint(x: cx + layout.half + 16.5, y: H / 2), leadSize: 13,
-                        secondCenter: CGPoint(x: cx + layout.half + 9.5, y: H / 2), secondSize: 12,
-                        visible: true
-                    )
-                }
-                return CompactIconFrames(leadCenter: CGPoint(x: cx + layout.half + 13, y: H / 2), leadSize: 16, secondCenter: nil, secondSize: 0, visible: true)
-            }
-            let earMid = cx + layout.half + e.right / 2
-            if hasSecond {
-                let step: CGFloat = e.right >= 34 ? 4.5 : 3.5
-                return CompactIconFrames(
-                    leadCenter: CGPoint(x: earMid + step, y: H / 2), leadSize: e.right >= 34 ? 14 : 12,
-                    secondCenter: CGPoint(x: earMid - step, y: H / 2), secondSize: e.right >= 34 ? 13 : 11,
-                    visible: true
-                )
-            }
-            return CompactIconFrames(leadCenter: CGPoint(x: earMid, y: H / 2), leadSize: 16, secondCenter: nil, secondSize: 0, visible: true)
+        if e.left >= 40 {
+            return CompactIconFrames(leadCenter: CGPoint(x: cx - layout.half - e.left + 14.5, y: H / 2), leadSize: 15, secondCenter: nil, secondSize: 0, visible: true)
+        }
+        if e.right >= 40 {
+            return CompactIconFrames(leadCenter: CGPoint(x: cx + layout.half + 14.5, y: H / 2), leadSize: 15, secondCenter: nil, secondSize: 0, visible: true)
         }
         return CompactIconFrames(leadCenter: CGPoint(x: cx - layout.half + 12, y: H / 2), leadSize: 12, secondCenter: nil, secondSize: 0, visible: false)
     }
@@ -1040,9 +1045,9 @@ public struct NotchOverlayView: View {
             } else if interaction.ears.left > 0, interaction.ears.right > 0 {
                 indicator.position(x: cx + layout.half + interaction.ears.right / 2, y: H / 2)
             } else if interaction.ears.right >= 40 {
-                indicator.position(x: cx + layout.half + interaction.ears.right - 9.5, y: H / 2)
+                indicator.position(x: cx + layout.half + interaction.ears.right - 12.5, y: H / 2)
             } else if interaction.ears.left >= 40 {
-                indicator.position(x: cx - layout.half - 9.5, y: H / 2)
+                indicator.position(x: cx - layout.half - 11.5, y: H / 2)
             }
         }
         .frame(width: canvas.width, height: canvas.height, alignment: .topLeading)

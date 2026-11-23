@@ -199,3 +199,83 @@ public enum FullscreenEvaluator: Sendable {
         return false
     }
 }
+
+
+// MARK: - Menu bar ear space evaluation (pure geometry)
+
+public struct MenuBarItemSpan: Equatable, Sendable {
+    public let minX: Double
+    public let maxX: Double
+
+    public init(minX: Double, maxX: Double) {
+        self.minX = minX
+        self.maxX = maxX
+    }
+}
+
+public enum MenuBarSpaceEvaluator: Sendable {
+    public static let earMax: Double = 44
+    public static let earMin: Double = 26
+    public static let dualIconMinEar: Double = 36
+    public static let singleEarSingleIconMin: Double = 40
+    public static let gap: Double = 8
+
+    /// Computes safe left and right ear widths beside the physical notch, never overlapping either:
+    /// - status items (`layer == 25`) on the right, or
+    /// - frontmost app menus (`AXMenuBar`) on BOTH the left and wrapped right sides (e.g. Chrome `Janela` / `Ajuda`).
+    /// Without Accessibility trust, both sides return `0` so Compact falls back to the safe chin instead of guessing over menus.
+    public static func freeEars(
+        hasPhysicalNotch: Bool,
+        screenWidth: Double,
+        notchLeft: Double,
+        notchRight: Double,
+        axTrusted: Bool,
+        appMenuSpans: [MenuBarItemSpan],
+        statusItemSpans: [MenuBarItemSpan]
+    ) -> (left: Double, right: Double) {
+        guard hasPhysicalNotch, axTrusted, screenWidth > 0 else { return (0, 0) }
+
+        var leftOccupiedMaxX = 0.0
+        var rightOccupiedMinX = screenWidth
+
+        for span in appMenuSpans where span.maxX > span.minX {
+            if span.minX < notchLeft {
+                leftOccupiedMaxX = max(leftOccupiedMaxX, min(span.maxX, notchLeft))
+            }
+            if span.maxX > notchRight {
+                rightOccupiedMinX = min(rightOccupiedMinX, max(span.minX, notchRight))
+            }
+        }
+
+        for span in statusItemSpans where span.maxX > span.minX {
+            if span.minX < notchLeft {
+                leftOccupiedMaxX = max(leftOccupiedMaxX, min(span.maxX, notchLeft))
+            }
+            if span.maxX > notchRight {
+                rightOccupiedMinX = min(rightOccupiedMinX, max(span.minX, notchRight))
+            }
+        }
+
+        let rawLeft = notchLeft - leftOccupiedMaxX - gap
+        let rawRight = rightOccupiedMinX - notchRight - gap
+
+        func clamp(_ v: Double) -> Double {
+            v >= earMin ? min(v, earMax) : 0
+        }
+        return (clamp(rawLeft), clamp(rawRight))
+    }
+
+    /// Dual-icon Compact needs both ears (left >= 36 for 2 logos, right >= 26 for the 5-bar mark);
+    /// a single-ear layout for 1 app needs >= 40 to fit both logo and harmonic mark cleanly.
+    /// Otherwise drop into the chin beneath the hardware notch so logos never cramp, clip, or overlap menus.
+    public static func shouldUseChin(ears: (left: Double, right: Double), hasMultipleSources: Bool) -> Bool {
+        if ears.left == 0 && ears.right == 0 { return true }
+        if hasMultipleSources {
+            return ears.left < dualIconMinEar || ears.right < earMin
+        }
+        if ears.left == 0 || ears.right == 0 {
+            return max(ears.left, ears.right) < singleEarSingleIconMin
+        }
+        return false
+    }
+}

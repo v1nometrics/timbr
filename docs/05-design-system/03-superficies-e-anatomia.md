@@ -45,18 +45,18 @@ Estudamos o código dos apps de notch abertos mais usados: DynamicNotchKit (base
 
 ### 1.3 Orelhas medidas (divisão de espaço com a barra de menus)
 
-`MenuBarSpace.freeEars` mede o espaço livre de cada lado do notch:
-- **Direita:** janelas de ícones de status (`CGWindowList`, camada 25; sem permissão).
-- **Esquerda:** menus do app em primeiro plano, via Acessibilidade (só quando já concedida). Sem ela, o lado esquerdo é tratado como ocupado: nunca adivinhamos por cima dos menus de alguém.
+`MenuBarSpace.freeEars` (`MenuBarSpaceEvaluator`) mede o espaço livre de cada lado do notch:
+- **Direita:** janelas de ícones de status (`CGWindowList`, camada 25) **e** menus do app em primeiro plano que ultrapassem a direita do notch (ex.: `Janela` / `Ajuda` no Chrome).
+- **Esquerda:** menus do app em primeiro plano à esquerda do notch, via Acessibilidade (`AXMenuBar`). Sem Acessibilidade concedida, ambos os lados retornam `0` (modo queixo seguro): nunca adivinhamos por cima dos menus de alguém.
 - Orelha = espaço livre − 8 pt de respiro, limitada a 44 pt; abaixo de 26 pt, não há orelha.
-- Remede ao trocar de app em primeiro plano, ao entrar no compacto e a cada 4 s enquanto compacto.
+- Remede ao trocar de app em primeiro plano (imediato + após layout), ao entrar no compacto e a cada 1,5 s enquanto compacto.
 
-| Espaço livre | Compacto mostra |
-|---|---|
-| Dois lados | Ícone do app à esquerda, medidor à direita |
-| Só um lado (≥ 40 pt) | Ícone e medidor dividem a orelha disponível |
-| Só um lado (26–40 pt) | Só o ícone |
-| Nenhum | **Queixo**: o notch cresce 20 pt para baixo, com ícone e medidor dentro, sem tocar a barra |
+| Espaço livre | 1 app tocando | 2+ apps tocando |
+|---|---|---|
+| Dois lados (esq ≥ 36 pt, dir ≥ 26 pt) | Ícone à esquerda, marca 5-bar à direita | Os 2 logos mais recentes à esquerda, marca 5-bar à direita |
+| Dois lados (esq 26–35 pt, dir ≥ 26 pt) | Ícone à esquerda, marca 5-bar à direita | **Queixo** (evita espremer 2 logos) |
+| Só um lado (≥ 40 pt) | Ícone e marca dividem a orelha disponível | **Queixo** (evita espremer 2 logos + marca na mesma orelha) |
+| Demais casos / sem espaço livre | **Queixo**: o notch cresce 20 pt para baixo (179 pt de largura), sem tocar a barra | **Queixo**: 2 logos à esquerda, marca 5-bar à direita, sem tocar a barra |
 
 ### 1.4 Estados e medidas
 
@@ -65,7 +65,7 @@ Estudamos o código dos apps de notch abertos mais usados: DynamicNotchKit (base
 | Estado | Largura | Altura total | Raio de baixo / ombro | Conteúdo |
 |---|---|---|---|---|
 | Repouso | W | H | 10 / 7 | nada desenhado (só o hardware); no hover aparece +5 pt de cada lado e +3 pt para baixo |
-| Compacto | W + orelhas medidas | H (ou H + 20 de queixo) | 10 / 7 | 1 app tocando: ícone + medidor nas orelhas livres (ou queixo). **2+ apps tocando:** os dois logos visíveis com recorte preto de 1,5 pt entre si, em qualquer arranjo de orelha/queixo |
+| Compacto | W + orelhas medidas (teto W + 2×44) | H (ou H + 20 de queixo) | 10 / 7 | 1 app tocando: ícone + marca 5-bar nas orelhas livres (ou queixo). **2+ apps tocando:** os **2 logos** mais recentes + marca 5-bar (exige ambas as orelhas livres ou cai no queixo); largura nunca cresce além do teto |
 | HUD | W + 2 × 58 | H + 18 | 14 / 11 | asas: ícone e valor; queixo: barra de nível |
 | Espiada | W + 2 × 128 | H + 44 (+ 34 por app listado abaixo) | 20 / 14 | **0 tocando:** controla a saída (ícone do dispositivo e "Saída" na asa esquerda; volume/mudo na direita; nome completo + fader de hardware abaixo). **1 tocando:** controla esse app nas asas (ícone, nome, volume, mudo) e fader abaixo (se VoIP protegido, mostra o controle da saída). **2+ tocando:** **Geral** (master) lidera nas asas e na faixa de hardware, seguido de hairline e de cada app tocando (até 4) em igualdade abaixo |
 | Expandido | máx(W + 2 × 140, 464) | H + 8 + foco 66 + faixa Geral 36 + 34 por fonte (até 3) + alerta 44 + rodapé 46 | 24 / 14 | asas: app (esquerda) e **só o ícone** do dispositivo de saída, que abre o menu (direita); abaixo: "Tocando em <dispositivo>", volume, fader, outras fontes, faixa Geral (volume e mudo da saída), rodapé. Nada tocando: "Nenhuma fonte tocando · <dispositivo>" e o fader da saída |
