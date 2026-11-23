@@ -98,7 +98,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
             // Design review: `--studio-scroll <0…1>` scrolls the page to that fraction of its height.
             if let k = args.firstIndex(of: "--studio-scroll"), k + 1 < args.count, let frac = Double(args[k + 1]) {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self] in
-                    func scrollView(in v: NSView?) -> NSScrollView? {
+                    @MainActor func scrollView(in v: NSView?) -> NSScrollView? {
                         guard let v else { return nil }
                         if let s = v as? NSScrollView, s.documentView != nil { return s }
                         for sub in v.subviews { if let s = scrollView(in: sub) { return s } }
