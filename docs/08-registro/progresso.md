@@ -32,6 +32,15 @@
 
 ## Histórico Consolidado
 
+### 2026-11-23 · Linha do tempo do Observatório: histórico paginado, busca e exportação
+
+- **Pedido:** ver os logs sem limite, buscar entre eles e exportar, sem deixar o app lento.
+- **Estado anterior (Comprovado):** o SQLite já guardava tudo, mas a tela mostrava 20 eventos, a memória 120, o diagnóstico exportava os mesmos 120, e não havia índice por data nem busca.
+- **Feito ([ADR-0018](../07-decisoes/ADR-0018-linha-do-tempo-busca-e-exportacao.md)):** leitor próprio com conexão somente leitura; paginação por cursor `(timestamp, rowid)` (100 por vez, ao rolar); busca FTS5 trigram por trecho (3+ letras); filtro por categoria; exportação CSV/JSON em fluxo de tudo que casa com o filtro; gravação de eventos fora da thread principal. Flag de revisão `--timeline-preview [--timeline-search] [--timeline-category]`.
+- **Medido (500 mil eventos):** primeira página e página 2000 em ~0,1 ms; busca em 7–43 ms; exportar tudo em 4,6 s, em segundo plano. Detalhes na ADR.
+- **Verificado:** testes de unidade (paginação, busca, exportação, leitura concorrente), capturas reais com o histórico do dono, `./scripts/ci_check.sh` verde.
+- **Limites:** sem poda automática do histórico; busca não ignora acentos nem aceita 1–2 letras; a caixa de salvar da exportação não foi acionada por automação.
+
 ### 2026-11-23 · Mudo à prova de falha (o app silenciado não volta a tocar se o timbr. fechar)
 
 - **Relato:** quando o timbr. fechava por algum motivo, os apps silenciados nele voltavam a tocar (ex.: Spotify mudo no meio de uma aula). "Isso em hipótese alguma pode acontecer."
