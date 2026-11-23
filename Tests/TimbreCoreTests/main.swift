@@ -629,6 +629,125 @@ struct TimbreCoreTestRunner {
             print("  [PASS] EQ layouts (4/5/10), per-layout gains, old-preset compatibility, free-PEQ handle/reset/placement rules")
         }
 
+        // Observatory timeline: keyset pagination, trigram search, filters, streamed export (ADR-0018)
+        do {
+            let dbPath = FileManager.default.temporaryDirectory.appendingPathComponent("timbr-events-\(UUID().uuidString).sqlite").path
+            let store = try! SQLiteStore(path: dbPath)
+            let t0 = Date(timeIntervalSince1970: 1_800_000_000)
+            let cats = ["device", "dsp", "mixer", "system"]
+            for i in 0..<1500 {   // several events share a timestamp on purpose: the cursor must still not skip or repeat
+                let msg = i % 50 == 0 ? "Switched output to MacBook Air Speakers #\(i)" : (i % 7 == 0 ? "=cmd|' /C calc'!A0, \"quoted\" line #\(i)" : "Event number \(i)")
+                try! store.saveEvent(ObservatoryEvent(timestamp: t0.addingTimeInterval(Double(i / 3)), category: cats[i % 4], message: msg,
+                                                      badge: i % 5 == 0 ? .measured : nil, deviceUID: i % 2 == 0 ? "uid-\(i)" : nil))
+            }
+            let reader = try! EventLogReader(path: dbPath)
+            expect(reader.count(filter: EventFilter()) == 1500, "Reader counts every stored event")
+
+            var seen = Set<UUID>(); var cursor: EventCursor?; var pages = 0; var last = Double.infinity
+            while true {
+                let pg = reader.page(filter: EventFilter(), after: cursor, limit: 100)
+                for r in pg.rows {
+                    expect(seen.insert(r.id).inserted, "Keyset pagination never repeats an event")
+                    expect(r.event.timestamp.timeIntervalSince1970 <= last, "Timeline is newest first")
+                    last = r.event.timestamp.timeIntervalSince1970
+                }
+                pages += 1
+                guard pg.hasMore, let c = pg.rows.last?.cursor else { break }
+                cursor = c
+            }
+            expect(seen.count == 1500 && pages == 15, "Paging 100 at a time walks all 1500 events in 15 pages, none skipped")
+
+            let speakers = reader.page(filter: EventFilter(text: "air SPEA"), limit: 500)
+            expect(speakers.rows.count == 30 && !speakers.hasMore, "Search matches a case-insensitive fragment through the index (30 of 1500)")
+            expect(reader.count(filter: EventFilter(text: "air SPEA")) == 30, "Search count agrees with search results")
+            expect(reader.page(filter: EventFilter(text: "ai"), limit: 5).rows.count == 5 && EventFilter(text: "ai").searchTooShort && EventFilter(text: "ai").isEmpty,
+                   "Under 3 characters the search is not applied (and says it is too short)")
+            expect(reader.count(filter: EventFilter(text: "\"quoted\"")) > 0 && reader.count(filter: EventFilter(text: "x\" OR 1=1 --")) == 0,
+                   "Quotes and SQL fragments in the search box are data, not syntax")
+            expect(reader.count(filter: EventFilter(categories: ["dsp"])) == 375, "Category filter counts that category only")
+            expect(reader.count(filter: EventFilter(text: "Speakers", categories: ["device"])) == reader.page(filter: EventFilter(text: "Speakers", categories: ["device"]), limit: 500).rows.count,
+                   "Search and category combine")
+            expect(reader.categories() == cats, "Categories come from the data, sorted")
+
+            // Live head: an event logged after the page was loaded appears via newer(than:)
+            let head = reader.page(filter: EventFilter(), limit: 1).rows[0].cursor
+            try! store.saveEvent(ObservatoryEvent(timestamp: t0.addingTimeInterval(1_000_000), category: "mixer", message: "Fresh event"))
+            let fresh = reader.newer(filter: EventFilter(), than: head)
+            expect(fresh.count == 1 && fresh[0].event.message == "Fresh event", "newer(than:) returns only what was logged after the loaded head")
+
+            // Export: streamed, filtered, complete, safe for spreadsheets
+            let csvURL = FileManager.default.temporaryDirectory.appendingPathComponent("timbr-export-\(UUID().uuidString).csv")
+            let n = try! EventLogReader.export(databasePath: dbPath, filter: EventFilter(categories: ["mixer"]), format: .csv, to: csvURL)
+            let csv = try! String(contentsOf: csvURL, encoding: .utf8)
+            expect(n == 376 && csv.components(separatedBy: "\r\n").count == 376 + 2, "CSV export has the header plus every matching event")
+            expect(csv.hasPrefix("timestamp,category,message,badge,device_uid\r\n"), "CSV has a header row")
+            expect(!csv.contains(",=cmd") && csv.contains("'=cmd"), "CSV neutralises cells that a spreadsheet would run as formulas")
+            let jsonURL = FileManager.default.temporaryDirectory.appendingPathComponent("timbr-export-\(UUID().uuidString).json")
+            let nj = try! EventLogReader.export(databasePath: dbPath, filter: EventFilter(text: "Speakers"), format: .json, to: jsonURL)
+            let parsed = try! JSONSerialization.jsonObject(with: Data(contentsOf: jsonURL)) as! [[String: Any]]
+            expect(nj == 30 && parsed.count == 30 && parsed[0]["message"] != nil, "JSON export is a valid array with one object per match")
+            let emptyURL = FileManager.default.temporaryDirectory.appendingPathComponent("timbr-export-\(UUID().uuidString).json")
+            _ = try! EventLogReader.export(databasePath: dbPath, filter: EventFilter(text: "no such text anywhere"), format: .json, to: emptyURL)
+            expect((try! JSONSerialization.jsonObject(with: Data(contentsOf: emptyURL)) as! [Any]).isEmpty, "An export with no matches is still a valid empty JSON array")
+            let partials = (try? FileManager.default.contentsOfDirectory(atPath: FileManager.default.temporaryDirectory.path))?.filter { $0.hasSuffix(".partial") } ?? []
+            expect(partials.isEmpty, "No .partial file is left behind")
+
+            // Reading while the writer keeps writing (the whole point of the second connection)
+            let burst = Task.detached { for i in 0..<300 { try? store.saveEvent(ObservatoryEvent(category: "system", message: "Burst \(i)")) } }
+            for _ in 0..<30 { _ = reader.page(filter: EventFilter(text: "Burst"), limit: 50); _ = reader.count(filter: EventFilter()) }
+            await burst.value
+            expect(reader.count(filter: EventFilter(text: "Burst")) == 300, "A reader running alongside the writer sees every event once the burst ends")
+
+            // The search index follows deletes (clearing history must not leave searchable ghosts)
+            try! store.clearAllHistory()
+            expect(reader.count(filter: EventFilter()) == 0 && reader.count(filter: EventFilter(text: "Speakers")) == 0, "Clearing history clears the search index too")
+            for u in [csvURL, jsonURL, emptyURL] { try? FileManager.default.removeItem(at: u) }
+            for ext in ["", "-wal", "-shm"] { try? FileManager.default.removeItem(atPath: dbPath + ext) }
+            print("  [PASS] Observatory timeline (keyset paging, trigram search, filters, live head, streamed CSV/JSON export, concurrent reads)")
+        }
+
+        // Notch activity: system blips never wake the notch
+        do {
+            let click = AudioSourceDescriptor(bundleID: SystemAudioClient.systemSounds.rawValue, name: "System sounds", isPlaying: true)
+            let other = AudioSourceDescriptor(bundleID: SystemAudioClient.otherSystem.rawValue, name: "Other", isPlaying: true)
+            let siri = AudioSourceDescriptor(bundleID: SystemAudioClient.siri.rawValue, name: "Siri", isPlaying: true)
+            let call = AudioSourceDescriptor(bundleID: SystemAudioClient.calls.rawValue, name: "Calls", isPlaying: true)
+            let spotify = AudioSourceDescriptor(bundleID: "com.spotify.client", name: "Spotify", isPlaying: true)
+            expect(NotchActivityPolicy.isTransientSystemSound(bundleID: click.bundleID) && NotchActivityPolicy.isTransientSystemSound(bundleID: other.bundleID),
+                   "System sounds and other macOS audio are transient")
+            expect(!NotchActivityPolicy.isTransientSystemSound(bundleID: siri.bundleID) && !NotchActivityPolicy.isTransientSystemSound(bundleID: call.bundleID)
+                   && !NotchActivityPolicy.isTransientSystemSound(bundleID: "com.spotify.client"), "Siri, calls and real apps still count")
+            let seen = NotchActivityPolicy.forNotch([click, other, siri, call, spotify])
+            expect(seen.map(\.isPlaying) == [false, false, true, true, true] && seen[0].playingSince == nil, "Only the system blips are made quiet for the notch")
+            expect(NotchPeekTarget.resolve(from: NotchActivityPolicy.forNotch([click])) == .output, "A lone system click leaves the notch on the output, not on System Settings")
+            if case .single(let s) = NotchPeekTarget.resolve(from: NotchActivityPolicy.forNotch([click, spotify])) { expect(s.bundleID == "com.spotify.client", "With music playing, a click does not steal the notch") } else { expect(false, "Music + click resolves to the music alone") }
+            expect(click.isPlaying, "The original source is untouched (the Mixer still shows it playing)")
+            print("  [PASS] NotchActivityPolicy (system blips never wake the notch; Siri, calls and apps still do)")
+        }
+
+        // Silence tracker: pauses are heard in ~1 s, track gaps are not mistaken for pauses
+        do {
+            var tr = SilenceTracker(floorDB: -75, holdSeconds: 1.0)
+            let t0 = Date(timeIntervalSince1970: 1_800_000_000)
+            expect(tr.update(peaks: ["app:a": -10], now: t0).isEmpty, "A loud slot is never silent")
+            expect(tr.update(peaks: ["app:a": -120], now: t0.addingTimeInterval(0.1)).isEmpty, "Silence is not reported at once (a gap between songs)")
+            expect(tr.update(peaks: ["app:a": -120], now: t0.addingTimeInterval(0.9)).isEmpty, "…nor before the hold time")
+            expect(tr.update(peaks: ["app:a": -120], now: t0.addingTimeInterval(1.2)) == ["app:a"], "…but is, after a second of it")
+            expect(tr.update(peaks: ["app:a": -20], now: t0.addingTimeInterval(1.3)).isEmpty, "A loud block ends the silence at once")
+            expect(tr.update(peaks: ["app:a": -120], now: t0.addingTimeInterval(1.4)).isEmpty, "…and the hold starts over (a 0.2 s gap is never a pause)")
+            _ = tr.update(peaks: ["global": -120, "app:b": -120], now: t0.addingTimeInterval(2.0))
+            let both = tr.update(peaks: ["global": -120, "app:b": -3], now: t0.addingTimeInterval(3.2))
+            expect(both == ["global"], "Slots are tracked independently")
+            _ = tr.update(peaks: [:], now: t0.addingTimeInterval(3.3))
+            expect(tr.update(peaks: ["global": -120], now: t0.addingTimeInterval(3.4)).isEmpty, "A slot that disappeared and came back starts from zero")
+            let spotify = AudioSourceDescriptor(bundleID: "com.spotify.client", name: "Spotify", isPlaying: true)
+            let chrome = AudioSourceDescriptor(bundleID: "com.google.Chrome", name: "Chrome", isPlaying: true)
+            let seen = NotchActivityPolicy.forNotch([spotify, chrome], silent: ["com.spotify.client"])
+            expect(seen.map(\.isPlaying) == [false, true] && spotify.isPlaying, "A silent app is not playing for the notch; the other one still is; the source is untouched")
+            expect(NotchActivityPolicy.forNotch([spotify, chrome]).allSatisfy(\.isPlaying), "With no silence information nothing changes")
+            print("  [PASS] SilenceTracker (1 s hold, instant resume, independent slots) and the notch policy's silent set")
+        }
+
         print("[TimbreCoreTests] ALL PASSED")
     }
 }

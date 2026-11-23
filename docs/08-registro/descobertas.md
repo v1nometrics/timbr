@@ -2,6 +2,13 @@
 
 > Fatos relevantes descobertos durante pesquisa e execução, com data, fonte e impacto no plano.
 
+## 2026-11-23 · Quanto o macOS demora para dizer que o áudio parou (ADR-0021)
+
+1. **`IsRunningOutput` atrasa 2,1 s (stop) a 7,4 s (pause) em `NSSound`, ~3,7–4,1 s no Spotify (Comprovado / estimado).** `IsRunning` e `DeviceIsRunningSomewhere` viram falsos junto. O HAL não notifica a mudança para falso.
+2. **O Spotify não posta notificação de estado (Comprovado).** Durante play e pause reais, nenhuma notificação distribuída com "spotify", "player" ou "playback" foi vista.
+3. **MediaRemote está bloqueado para apps de terceiros (Comprovado no macOS 26.6).** `MRMediaRemoteGetNowPlayingApplicationIsPlaying` ficou em `false` com o Spotify tocando.
+4. **O pico por bloco do nosso DSP cai a −120 dB no silêncio (Comprovado):** é o único sinal rápido, só existe quando há tap.
+
 ## 2026-11-23 · Mudo à prova de falha (ADR-0017)
 
 1. **Só silencia o tap que está sendo lido (Comprovado: teste de ouvido, macOS 26.6).**

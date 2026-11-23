@@ -40,6 +40,20 @@
 - **Feito ([ADR-0019](../07-decisoes/ADR-0019-equalizador-de-4-5-10-bandas-e-peq-livre.md)):** seletor 4 · 5 · 10 · PEQ Livre, com ganhos próprios por layout e pontos arrastáveis na curva também nos layouts fixos; PEQ nasce da curva atual com tudo ligado; ajustar um filtro desligado o liga; **Resetar filtros** com um nível de desfazer; novo filtro cai no maior vão livre; teto de filtros respeita as 32 bandas do DSP.
 - **Verificado:** testes de unidade e de motor, capturas reais, `./scripts/ci_check.sh` verde.
 - **Limites:** sem conversão automática da curva entre layouts; 5 e 10 bandas sem Q ajustável.
+### 2026-11-23 · Linha do tempo do Observatório: histórico paginado, busca e exportação
+
+- **Pedido:** ver os logs sem limite, buscar entre eles e exportar, sem deixar o app lento.
+- **Estado anterior (Comprovado):** o SQLite já guardava tudo, mas a tela mostrava 20 eventos, a memória 120, o diagnóstico exportava os mesmos 120, e não havia índice por data nem busca.
+- **Feito ([ADR-0018](../07-decisoes/ADR-0018-linha-do-tempo-busca-e-exportacao.md)):** leitor próprio com conexão somente leitura; paginação por cursor `(timestamp, rowid)` (100 por vez, ao rolar); busca FTS5 trigram por trecho (3+ letras); filtro por categoria; exportação CSV/JSON em fluxo de tudo que casa com o filtro; gravação de eventos fora da thread principal. Flag de revisão `--timeline-preview [--timeline-search] [--timeline-category]`.
+- **Medido (500 mil eventos):** primeira página e página 2000 em ~0,1 ms; busca em 7–43 ms; exportar tudo em 4,6 s, em segundo plano. Detalhes na ADR.
+- **Verificado:** testes de unidade (paginação, busca, exportação, leitura concorrente), capturas reais com o histórico do dono, `./scripts/ci_check.sh` verde.
+- **Limites:** sem poda automática do histórico; busca não ignora acentos nem aceita 1–2 letras; a caixa de salvar da exportação não foi acionada por automação.
+### 2026-11-23 · O notch não reage mais ao clique de ação inválida e outros sons do sistema
+
+- **Relato:** ao fazer o sistema soar (ex.: clicar onde não dá), o notch animava, mostrava o ícone de Ajustes e saía rápido.
+- **Causa (Comprovado):** qualquer processo com saída ativa virava "tocando", inclusive o `systemsoundserverd`, cujo ícone de grupo é o de Ajustes do Sistema.
+- **Correção ([ADR-0020](../07-decisoes/ADR-0020-sons-do-sistema-nao-acordam-o-notch.md)):** Sons do sistema e Outro áudio do macOS nunca contam como "tocando" para o notch (compacto, espiada, console). Seguem no Mixer, com volume ajustável.
+- **Verificado:** medição no notch real (quadros da janela do notch): antes, 3 bipes animavam; depois, 24 quadros idênticos; um app de verdade ainda anima. Testes de unidade e `./scripts/ci_check.sh` verdes.
 
 ### 2026-11-23 · Mudo à prova de falha (o app silenciado não volta a tocar se o timbr. fechar)
 

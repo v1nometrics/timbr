@@ -254,6 +254,140 @@ private struct EmptyStateView: View {
     }
 }
 
+// MARK: - Observatory timeline (search, filter, paginate, export — ADR-0018)
+
+/// Design review (`--timeline-preview [--timeline-search <text>] [--timeline-category <name>]`): the
+/// timeline alone in its own window, with search and filter already applied.
+struct TimelinePreview: View {
+    @ObservedObject var appState: AppState
+    var body: some View {
+        let c = TimbreColors.forSurface(.dark)
+        ScrollView { TimelineSection(appState: appState, index: "04").padding(32) }
+            .background(c.bg_canvas).surface(.dark).preferredColorScheme(.dark)
+            .frame(width: 1000, height: 720)
+    }
+}
+
+private struct TimelineSection: View {
+    @ObservedObject var appState: AppState
+    let index: String
+    @StateObject private var model: ObservatoryTimelineModel
+    @Environment(\.palette) private var c
+
+    init(appState: AppState, index: String) {
+        self.appState = appState
+        self.index = index
+        let m = ObservatoryTimelineModel(databasePath: appState.eventLogPath)
+        let args = ProcessInfo.processInfo.arguments
+        if let i = args.firstIndex(of: "--timeline-search"), i + 1 < args.count { m.text = args[i + 1] }
+        if let i = args.firstIndex(of: "--timeline-category"), i + 1 < args.count { m.selectedCategories = [args[i + 1]] }
+        _model = StateObject(wrappedValue: m)
+    }
+
+    private func count(_ n: Int) -> String { n.formatted(.number) }
+
+    private var categoryTitle: String {
+        switch model.selectedCategories.count {
+        case 0: return appState.t("ui.obs.categories_all")
+        case 1: return model.selectedCategories.first!
+        default: return String(format: appState.t("ui.obs.categories_n"), model.selectedCategories.count)
+        }
+    }
+
+    private var status: String {
+        if model.searchTooShort { return appState.t("ui.obs.search_min") }
+        if let total = model.total { return String(format: appState.t("ui.obs.showing"), count(model.rows.count), count(total)) }
+        return String(format: appState.t("ui.obs.showing_open"), count(model.rows.count))
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            SectionHeader(index: index, title: appState.t("ui.obs.timeline_title"), subtitle: appState.t("ui.obs.timeline_sub")) {
+                MenuChip(title: appState.t("ui.obs.export"), symbol: "square.and.arrow.up") {
+                    Button(appState.t("ui.obs.export_csv")) { export(.csv) }
+                    Button(appState.t("ui.obs.export_json")) { export(.json) }
+                }
+                .disabled(model.isExporting || model.total == 0)
+                .help(appState.t("ui.obs.export_scope"))
+            }
+
+            HStack(spacing: 10) {
+                TField(placeholder: appState.t("ui.obs.search_placeholder"), text: $model.text)
+                    .frame(maxWidth: 320)
+                MenuChip(title: categoryTitle, symbol: "line.3.horizontal.decrease") {
+                    Button { model.selectedCategories = [] } label: {
+                        if model.selectedCategories.isEmpty { Label(appState.t("ui.obs.categories_all"), systemImage: "checkmark") }
+                        else { Text(appState.t("ui.obs.categories_all")) }
+                    }
+                    ForEach(model.categories, id: \.self) { cat in
+                        Button {
+                            if model.selectedCategories.contains(cat) { model.selectedCategories.remove(cat) } else { model.selectedCategories.insert(cat) }
+                        } label: {
+                            if model.selectedCategories.contains(cat) { Label(cat, systemImage: "checkmark") } else { Text(cat) }
+                        }
+                    }
+                }
+                Spacer()
+                Text(status).type(TimbreTypography.monoSmall).foregroundStyle(c.ink_muted)
+            }
+
+            ListCard {
+                if model.rows.isEmpty {
+                    if model.isLoading {
+                        EmptyStateView(title: appState.t("ui.obs.loading"), detail: "")
+                    } else if model.isFiltering {
+                        EmptyStateView(title: appState.t("ui.obs.no_results"), detail: appState.t("ui.obs.no_results_detail"))
+                    } else {
+                        EmptyStateView(title: appState.t("ui.obs.no_events"), detail: appState.t("ui.obs.no_events_detail"))
+                    }
+                } else {
+                    LazyVStack(spacing: 0) {
+                        ForEach(Array(model.rows.enumerated()), id: \.element.id) { i, row in
+                            if i > 0 { Hairline().padding(.leading, 20) }
+                            eventRow(row.event)
+                                .onAppear { model.loadMoreIfNeeded(currentIndex: i) }
+                        }
+                        if model.hasMore {
+                            Text(appState.t("ui.obs.loading")).type(TimbreTypography.caption).foregroundStyle(c.ink_faint)
+                                .frame(maxWidth: .infinity).frame(height: 38)
+                        }
+                    }
+                }
+            }
+        }
+        .task { model.start() }
+        .onChange(of: appState.eventLogRevision) { _, _ in model.refreshHead() }
+    }
+
+    private func eventRow(_ ev: ObservatoryEvent) -> some View {
+        HStack(spacing: 14) {
+            Text(ev.timestamp.formatted(.dateTime.day(.twoDigits).month(.twoDigits).hour().minute().second()))
+                .type(TimbreTypography.monoSmall).foregroundStyle(c.ink_muted).frame(width: 104, alignment: .leading)
+            Text(ev.category).type(TimbreTypography.micro).foregroundStyle(c.ink_secondary).frame(width: 90, alignment: .leading)
+            Text(ev.message).type(TimbreTypography.small).foregroundStyle(c.ink_primary).lineLimit(1).truncationMode(.tail)
+            Spacer(minLength: 8)
+            if let b = ev.badge { OriginMark(origin: b) }
+        }
+        .padding(.horizontal, 20).frame(height: 38)
+        .help(ev.message)   // full text on hover: the row truncates long messages
+    }
+
+    private func export(_ format: EventExportFormat) {
+        let stamp = Date().formatted(.iso8601.year().month().day())
+        Task {
+            do {
+                if let n = try await model.export(format, suggestedName: "timbr-timeline-\(stamp)", message: appState.t("ui.obs.export_scope")) {
+                    appState.statusBanner = String(format: appState.t("ui.obs.exported"), count(n))
+                    appState.logEvent(category: "diagnostics", message: "Exported \(n) timeline events (\(format.fileExtension.uppercased()))")
+                }
+            } catch is CancellationError {
+            } catch {
+                appState.statusBanner = appState.t("ui.obs.export_failed")
+            }
+        }
+    }
+}
+
 // MARK: - 01 Mixer
 
 private struct MixerPage: View {
@@ -1173,25 +1307,7 @@ private struct ObservatoryPage: View {
                 }
             }
 
-            VStack(alignment: .leading, spacing: 14) {
-                SectionHeader(index: appState.driverTelemetry == nil ? "04" : "05", title: appState.t("ui.obs.timeline_title"), subtitle: appState.t("ui.obs.timeline_sub"))
-                ListCard {
-                    if appState.recentEvents.isEmpty {
-                        EmptyStateView(title: appState.t("ui.obs.no_events"), detail: appState.t("ui.obs.no_events_detail"))
-                    }
-                    ForEach(Array(appState.recentEvents.prefix(20).enumerated()), id: \.element.id) { i, ev in
-                        if i > 0 { Hairline().padding(.leading, 20) }
-                        HStack(spacing: 14) {
-                            Text(ev.timestamp.formatted(date: .omitted, time: .standard)).type(TimbreTypography.monoSmall).foregroundStyle(c.ink_muted).frame(width: 74, alignment: .leading)
-                            Text(ev.category).type(TimbreTypography.micro).foregroundStyle(c.ink_secondary).frame(width: 90, alignment: .leading)
-                            Text(ev.message).type(TimbreTypography.small).foregroundStyle(c.ink_primary).lineLimit(1)
-                            Spacer()
-                            if let b = ev.badge { OriginMark(origin: b) }
-                        }
-                        .padding(.horizontal, 20).frame(height: 38)
-                    }
-                }
-            }
+            TimelineSection(appState: appState, index: appState.driverTelemetry == nil ? "04" : "05")
         }
     }
 

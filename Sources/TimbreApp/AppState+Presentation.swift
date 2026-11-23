@@ -14,9 +14,15 @@ extension AppState {
         return visible.sorted(by: AudioSourceDescriptor.displayOrder)
     }
 
+    /// `mixerSources` as the notch should see them: system blips (error click, alerts) are not "playing".
+    var notchMixerSources: [AudioSourceDescriptor] {
+        NotchActivityPolicy.forNotch(mixerSources, silent: tapSilentBundles).sorted(by: AudioSourceDescriptor.displayOrder)
+    }
+
     /// Sources actively outputting audio right now, in stable display order (newest run first).
+    /// Notch semantics: transient system sounds never count.
     var playingSources: [AudioSourceDescriptor] {
-        mixerSources.filter(\.isPlaying)
+        notchMixerSources.filter(\.isPlaying)
     }
 
     /// Up to 2 distinct playing sources for the Compact indicator (lead in front, second behind).
@@ -30,13 +36,13 @@ extension AppState {
 
     /// What hover-without-click (Peek) controls: Output (0), Single App (1), or Master + all playing apps (2+).
     var peekTarget: NotchPeekTarget {
-        NotchPeekTarget.resolve(from: mixerSources)
+        NotchPeekTarget.resolve(from: notchMixerSources)
     }
 
     /// What the Expanded console leads with, unifying spotlight priority with Peek:
     /// Empty (0 playing & 0 recent), Single App (1 playing), or Master/Geral + equal apps (2+ playing or paused-only).
     var expandedTarget: NotchExpandedTarget {
-        NotchExpandedTarget.resolve(from: mixerSources)
+        NotchExpandedTarget.resolve(from: notchMixerSources)
     }
 
     /// Legacy focus helper kept for single-source convenience.
