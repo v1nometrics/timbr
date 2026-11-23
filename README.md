@@ -14,7 +14,7 @@ O timbr é um notch audiófilo para macOS que reúne mixer de áudio por aplicat
 ![100% Local](https://img.shields.io/badge/Privacy-100%25%20Local%20%C2%B7%20Zero%20Telemetry-111111?style=flat-square)
 ![i18n PT ES EN](https://img.shields.io/badge/i18n-PT--BR%20%C2%B7%20ES%20%C2%B7%20EN-111111?style=flat-square)
 
-[Instalar](#instalação-rápida) · [Estado atual](#estado-atual-2026-11-23) · [Como compilar e testar](#build-testes-e-instala%C3%A7%C3%A3o-macos-15--apple-silicon) · [Arquitetura](#arquitetura-e-estrutura-do-c%C3%B3digo) · [Documentação](#mapa-da-documenta%C3%A7%C3%A3o) · [Contribuir](CONTRIBUTING.md)
+[Baixar DMG](https://github.com/v1nometrics/timbr/releases/download/v0.1.0-beta.1/Timbr.dmg) · [Instalar](#instalação-rápida) · [Estado atual](#estado-atual-2026-11-23) · [Como compilar e testar](#build-testes-e-instala%C3%A7%C3%A3o-macos-15--apple-silicon) · [Arquitetura](#arquitetura-e-estrutura-do-c%C3%B3digo) · [Documentação](#mapa-da-documenta%C3%A7%C3%A3o) · [Contribuir](CONTRIBUTING.md)
 
 </div>
 
@@ -72,6 +72,16 @@ Compatibilidade documentada com apps de terceiros: [superwhisper e Google Chrome
 
 ## Instalação rápida
 
+[![Baixar DMG para macOS](https://img.shields.io/badge/Baixar_DMG-macOS_15%2B_Apple_Silicon-111111?style=for-the-badge&logo=apple)](https://github.com/v1nometrics/timbr/releases/download/v0.1.0-beta.1/Timbr.dmg)
+
+Baixe o DMG, abra o arquivo e arraste **Timbr** para **Aplicativos**. Não precisa de Xcode, Terminal ou App Store.
+
+Esta é uma versão beta, sem notarização Apple. Se o macOS bloquear a primeira abertura, tente abrir o app e depois vá a **Ajustes do Sistema → Privacidade e Segurança → Abrir Mesmo Assim**. Confirme a abertura ([instruções da Apple](https://support.apple.com/102445)).
+
+Na primeira execução, conceda **Gravação de áudio do sistema** para volume por app e EQ, e **Acessibilidade** para as teclas de volume e brilho.
+
+### Instalar pelo código-fonte
+
 Em um Mac com **Apple Silicon e macOS 15 ou mais novo**, instale as [Command Line Tools da Apple](https://developer.apple.com/xcode/resources/) e execute no Terminal:
 
 ```bash
@@ -79,8 +89,6 @@ git clone https://github.com/v1nometrics/timbr.git && cd timbr && ./scripts/setu
 ```
 
 O comando compila o app, instala em `/Applications/Timbr.app` e abre o timbr. Na primeira execução, conceda **Gravação de áudio do sistema** para volume por app e EQ, e **Acessibilidade** para as teclas de volume e brilho.
-
-**Download do DMG:** ainda não há um instalador publicado. A distribuição depende de assinatura Apple Developer ID e notarização; por enquanto, a instalação é feita pelo código-fonte com o comando acima.
 
 ---
 
