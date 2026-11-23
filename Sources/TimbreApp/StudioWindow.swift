@@ -738,6 +738,14 @@ private struct OutputRow: View {
 
 // MARK: - 02 Equalizer
 
+private extension Collection where Element == Int {
+    /// Indices in groups of `size` (the last may be shorter).
+    func chunked(into size: Int) -> [[Int]] {
+        let all = Array(self)
+        return stride(from: 0, to: all.count, by: size).map { Array(all[$0..<Swift.min($0 + size, all.count)]) }
+    }
+}
+
 private struct EqualizerPage: View {
     @ObservedObject var appState: AppState
     @Environment(\.palette) private var c
@@ -745,8 +753,10 @@ private struct EqualizerPage: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 36) {
             PageHeader(index: "02 — " + appState.t("nav.eq"), title: appState.t("ui.eq.title"), summary: eqSummary) {
-                TSegmented(options: [(false, appState.t("eq.mode.simple")), (true, appState.t("eq.mode.advanced"))],
-                           selection: Binding(get: { appState.activePreset.useAdvancedPEQ }, set: { appState.toggleAdvancedPEQ($0) }))
+                TSegmented(options: [
+                    (AppState.EQMode.four, "4"), (.five, "5"), (.ten, "10"),
+                    (.free, appState.t("eq.mode.advanced")),
+                ], selection: Binding(get: { appState.eqMode }, set: { appState.setEQMode($0) }))
                 Menu {
                     Button(appState.t("eq.import_apo")) { appState.importEqualizerAPOFromPanel() }
                     Button(appState.t("eq.export_apo")) { appState.exportEqualizerAPOToPanel() }
@@ -864,28 +874,80 @@ private struct EqualizerPage: View {
 
     // Simple — four semantic tone controls (spec §6.3)
     private var simpleControls: some View {
+        let layout = appState.activePreset.layout
         let st = appState.activePreset.simpleTaste
-        return VStack(alignment: .leading, spacing: 14) {
-            SectionHeader(index: "01", title: appState.t("ui.eq.taste_title"), subtitle: appState.t("ui.eq.taste_sub")) {
-                Button(appState.t("ui.eq.flatten")) { appState.updateSimpleTaste(.neutral) }
-                    .buttonStyle(.t(.ghost, compact: true))
-                    .disabled(st == .neutral)
+        let gains = appState.activePreset.gains(for: layout)
+        let sub: String = {
+            switch layout {
+            case .four: return appState.t("ui.eq.taste_sub")
+            case .five: return appState.t("ui.eq.taste_sub_5")
+            case .ten: return appState.t("ui.eq.taste_sub_10")
             }
-            HStack(spacing: 12) {
-                tone(appState.t("eq.taste.bass"), "105 Hz · shelf", st.bassDB) { var s = st; s.bassDB = $0; appState.updateSimpleTaste(s) }
-                tone(appState.t("eq.taste.warmth"), "250 Hz · peak", st.warmthDB) { var s = st; s.warmthDB = $0; appState.updateSimpleTaste(s) }
-                tone(appState.t("eq.taste.presence"), "3 kHz · peak", st.presenceDB) { var s = st; s.presenceDB = $0; appState.updateSimpleTaste(s) }
-                tone(appState.t("eq.taste.air"), "10 kHz · shelf", st.airDB) { var s = st; s.airDB = $0; appState.updateSimpleTaste(s) }
+        }()
+        return VStack(alignment: .leading, spacing: 14) {
+            SectionHeader(index: "01", title: appState.t("ui.eq.taste_title"), subtitle: sub) {
+                Button(appState.t("ui.eq.flatten")) { appState.flattenCurrentLayout() }
+                    .buttonStyle(.t(.ghost, compact: true))
+                    .disabled(appState.activePreset.isLayoutFlat(layout))
+            }
+            if layout == .four {
+                HStack(spacing: 12) {
+                    tone(appState.t(layout.slots[0].nameKey), "105 Hz · shelf", st.bassDB, hint: appState.t(layout.slots[0].nameKey + ".hint")) { var s = st; s.bassDB = $0; appState.updateSimpleTaste(s) }
+                    tone(appState.t(layout.slots[1].nameKey), "250 Hz · peak", st.warmthDB, hint: appState.t(layout.slots[1].nameKey + ".hint")) { var s = st; s.warmthDB = $0; appState.updateSimpleTaste(s) }
+                    tone(appState.t(layout.slots[2].nameKey), "3 kHz · peak", st.presenceDB, hint: appState.t(layout.slots[2].nameKey + ".hint")) { var s = st; s.presenceDB = $0; appState.updateSimpleTaste(s) }
+                    tone(appState.t(layout.slots[3].nameKey), "10 kHz · shelf", st.airDB, hint: appState.t(layout.slots[3].nameKey + ".hint")) { var s = st; s.airDB = $0; appState.updateSimpleTaste(s) }
+                }
+            } else {
+                // 5 and 10 bands: compact cards (a knob each would not fit), five per row.
+                let rows = layout.slots.indices.chunked(into: 5)
+                VStack(spacing: 12) {
+                    ForEach(rows.indices, id: \.self) { r in
+                        HStack(spacing: 12) {
+                            ForEach(rows[r], id: \.self) { i in
+                                compactBand(index: i, slot: layout.slots[i], gain: gains[i], range: layout.gainRangeDB,
+                                            name: appState.t(layout.slots[i].nameKey), hint: appState.t(layout.slots[i].nameKey + ".hint"))
+                            }
+                        }
+                    }
+                }
             }
         }
     }
 
-    private func tone(_ name: String, _ spec: String, _ value: Double, set: @escaping (Double) -> Void) -> some View {
+    /// 31.5 Hz must not read "32 Hz" (Fmt.hz rounds).
+    private func freqLabel(_ f: Double) -> String { f < 100 && f != f.rounded() ? String(format: "%.1f", f) : Fmt.hz(f) }
+
+    private func compactBand(index: Int, slot: EQLayoutSlot, gain: Double, range: Double, name: String, hint: String) -> some View {
+        let binding = Binding(get: { gain }, set: { appState.setLayoutGain($0, at: index) })
+        return VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("\(index + 1)").type(TimbreTypography.monoSmall).foregroundStyle(abs(gain) < 0.01 ? c.ink_faint : c.accent_signal)
+                Eyebrow(text: freqLabel(slot.freqHz) + " Hz")
+                Spacer()
+                Text(slot.type == .peak ? "peak" : "shelf").type(TimbreTypography.monoSmall).foregroundStyle(c.ink_faint)
+            }
+            Text(name).type(TimbreTypography.micro).foregroundStyle(c.ink_secondary).lineLimit(1).minimumScaleFactor(0.75)
+            HStack(alignment: .firstTextBaseline, spacing: 3) {
+                Text(Fmt.db(gain)).type(TimbreTypography.mediumValue).foregroundStyle(abs(gain) < 0.01 ? c.ink_muted : c.ink_primary)
+                    .contentTransition(.numericText(value: gain))
+                Text("dB").type(TimbreTypography.monoSmall).foregroundStyle(c.ink_muted)
+            }
+            TFader(value: binding, range: -range...range, bipolar: true, resetValue: 0,
+                   tint: c.accent_signal, label: freqLabel(slot.freqHz) + " Hz", valueText: Fmt.db(gain) + " dB",
+                   scaleMarks: [-range, 0, range])
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: TimbreRadius.card, style: .continuous).fill(c.bg_surface))
+        .overlay(RoundedRectangle(cornerRadius: TimbreRadius.card, style: .continuous).strokeBorder(c.line_default, lineWidth: 1))
+        .help(hint)
+    }
+
+    private func tone(_ name: String, _ spec: String, _ value: Double, hint: String = "", set: @escaping (Double) -> Void) -> some View {
         let binding = Binding(get: { value }, set: { set(SimpleTasteControls.clampStep($0)) })
         return VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Eyebrow(text: name)
-                Spacer()
+            VStack(alignment: .leading, spacing: 3) {
+                Eyebrow(text: name).lineLimit(1).minimumScaleFactor(0.8)
                 Text(spec).type(TimbreTypography.monoSmall).foregroundStyle(c.ink_faint)
             }
             HStack(alignment: .center, spacing: 12) {
@@ -920,19 +982,30 @@ private struct EqualizerPage: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: TimbreRadius.card, style: .continuous).fill(c.bg_surface))
         .overlay(RoundedRectangle(cornerRadius: TimbreRadius.card, style: .continuous).strokeBorder(c.line_default, lineWidth: 1))
+        .help(hint)
     }
 
     // Advanced — Pro-Q style band table with scrubbable values
     private var advancedBands: some View {
         VStack(alignment: .leading, spacing: 14) {
             SectionHeader(index: "01", title: appState.t("ui.eq.bands_title"), subtitle: appState.t("ui.eq.bands_sub")) {
-                Button {
-                    appState.addTasteBand()
-                } label: {
-                    Label(appState.t("ui.eq.add_band"), systemImage: "plus")
+                HStack(spacing: 8) {
+                    if appState.freeBandsBeforeReset != nil {
+                        Button(appState.t("ui.undo")) { appState.undoResetFreeBands() }
+                            .buttonStyle(.t(.ghost, compact: true))
+                    }
+                    Button(appState.t("ui.eq.reset_filters")) { appState.resetFreeBands() }
+                        .buttonStyle(.t(.ghost, compact: true))
+                        .disabled(!appState.canResetFreeBands)
+                    Button {
+                        appState.addTasteBand()
+                    } label: {
+                        Label(appState.t("ui.eq.add_band"), systemImage: "plus")
+                    }
+                    .buttonStyle(.t(.secondary, compact: true))
+                    .disabled(!appState.canAddFreeBand)
+                    .help(appState.canAddFreeBand ? "" : String(format: appState.t("ui.eq.max_bands"), appState.maxFreeBands))
                 }
-                .buttonStyle(.t(.secondary, compact: true))
-                .disabled(appState.activePreset.tasteBands.count >= 20)
             }
             ListCard {
                 HStack(spacing: 0) {

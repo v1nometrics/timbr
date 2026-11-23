@@ -207,6 +207,8 @@ public final class AppState: ObservableObject {
     @Published public var mutedGuardianPairs: Set<String> = []
     @Published public var silentStudioMode: Bool = false
     @Published public var recentEvents: [ObservatoryEvent] = []
+    /// The free PEQ filters as they were just before "Reset", for one undo. Any later edit clears it.
+    @Published public private(set) var freeBandsBeforeReset: [EQBand]?
     /// Bumped (main thread) after each event reaches the disk; the timeline refreshes its head on it.
     @Published public private(set) var eventLogRevision = 0
     private let eventWriteQueue = DispatchQueue(label: "dev.v1torres.timbr.events", qos: .utility)
@@ -1035,29 +1037,91 @@ public final class AppState: ObservableObject {
         syncDSPAndTap()
     }
 
+    /// What the EQ page offers: three fixed layouts (only the gain moves) or the free parametric EQ.
+    public enum EQMode: Hashable, CaseIterable { case four, five, ten, free }
+
+    public var eqMode: EQMode {
+        if activePreset.useAdvancedPEQ { return .free }
+        switch activePreset.layout { case .four: return .four; case .five: return .five; case .ten: return .ten }
+    }
+
+    public func setEQMode(_ mode: EQMode) {
+        switch mode {
+        case .free:
+            toggleAdvancedPEQ(true)
+        case .four, .five, .ten:
+            activePreset.layout = mode == .four ? .four : (mode == .five ? .five : .ten)
+            activePreset.useAdvancedPEQ = false
+            activePreset.updatedAt = Date()
+            syncDSPAndTap()
+        }
+    }
+
+    /// Gain of one slot of the current fixed layout (knob, fader or handle on the curve).
+    public func setLayoutGain(_ db: Double, at index: Int) {
+        activePreset.setGain(db, at: index, in: activePreset.layout)
+        activePreset.updatedAt = Date()
+        syncDSPAndTap()
+    }
+
+    public func flattenCurrentLayout() {
+        activePreset.flattenLayout(activePreset.layout)
+        activePreset.updatedAt = Date()
+        syncDSPAndTap()
+    }
+
     public func toggleAdvancedPEQ(_ enabled: Bool) {
         if enabled && activePreset.tasteBands.isEmpty {
-            activePreset.tasteBands = activePreset.simpleTaste.toPEQBands()
+            // Start from exactly the curve the user hears now, every filter on: dragging a handle must
+            // always move the curve (disabled bands used to be seeded here, and ignored the drag).
+            activePreset.tasteBands = EQBandEditing.bands(for: activePreset.layout, gains: activePreset.gains(for: activePreset.layout), enabled: true)
         }
         activePreset.useAdvancedPEQ = enabled
         syncDSPAndTap()
     }
 
+    public var maxFreeBands: Int { EQBandEditing.maxFreeBands(correctionCount: activePreset.correctionBands.count) }
+    public var canAddFreeBand: Bool { activePreset.tasteBands.count < maxFreeBands }
+
     public func addTasteBand() {
-        guard activePreset.tasteBands.count < 24 else { return }
+        guard canAddFreeBand else { return }
         activePreset.useAdvancedPEQ = true
-        activePreset.tasteBands.append(EQBand(type: .peak, design: .vicanek, layer: .taste, freqHz: 1000, gainDB: 0.0, q: 1.0, enabled: true))
+        freeBandsBeforeReset = nil
+        let f = EQBandEditing.nextFreeFrequency(existing: activePreset.tasteBands)
+        activePreset.tasteBands.append(EQBand(type: .peak, design: .vicanek, layer: .taste, freqHz: f, gainDB: 0.0, q: 1.0, enabled: true))
         syncDSPAndTap()
     }
 
     public func removeTasteBand(id: UUID) {
+        freeBandsBeforeReset = nil
         activePreset.tasteBands.removeAll { $0.id == id }
         syncDSPAndTap()
     }
 
     public func updateTasteBand(_ band: EQBand) {
         guard let idx = activePreset.tasteBands.firstIndex(where: { $0.id == band.id }) else { return }
-        activePreset.tasteBands[idx] = band
+        freeBandsBeforeReset = nil
+        activePreset.tasteBands[idx] = EQBandEditing.afterUserAdjust(old: activePreset.tasteBands[idx], new: band)
+        activePreset.updatedAt = Date()
+        syncDSPAndTap()
+    }
+
+    /// Free PEQ "Reset": back to four flat filters at their default places. One level of undo.
+    public var canResetFreeBands: Bool { !EQBandEditing.isDefaultFree(activePreset.tasteBands) }
+
+    public func resetFreeBands() {
+        guard canResetFreeBands else { return }
+        freeBandsBeforeReset = activePreset.tasteBands
+        activePreset.tasteBands = EQBandEditing.defaultFreeBands()
+        activePreset.updatedAt = Date()
+        syncDSPAndTap()
+        logEvent(category: "eq", message: "Free PEQ reset to flat")
+    }
+
+    public func undoResetFreeBands() {
+        guard let prev = freeBandsBeforeReset else { return }
+        activePreset.tasteBands = prev
+        freeBandsBeforeReset = nil
         activePreset.updatedAt = Date()
         syncDSPAndTap()
     }

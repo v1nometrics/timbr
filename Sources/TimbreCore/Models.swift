@@ -277,9 +277,38 @@ public struct TimbrePreset: Identifiable, Codable, Hashable, Sendable {
     public var tasteBands: [EQBand]
     public var simpleTaste: SimpleTasteControls
     public var useAdvancedPEQ: Bool
+    /// Which fixed layout the non-free mode shows (ADR-0019). `.four` keeps using `simpleTaste`.
+    public var layout: EQBandLayout
+    /// Gains per slot for the 5- and 10-band layouts, keyed by `EQBandLayout.rawValue`. Each layout
+    /// keeps its own, so switching back and forth never loses anything.
+    public var layoutGains: [String: [Double]]
     public var crossfeedEnabled: Bool
     public var limiterCeilingDBTP: Double
     public var updatedAt: Date
+
+    enum CodingKeys: String, CodingKey {
+        case schemaVersion, id, name, deviceUID, correctionMetadata, correctionBands, tasteBands, simpleTaste
+        case useAdvancedPEQ, layout, layoutGains, crossfeedEnabled, limiterCeilingDBTP, updatedAt
+    }
+
+    /// Presets saved before the layouts existed have no `layout` / `layoutGains`: they load as the 4-band EQ.
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        schemaVersion = try c.decode(Int.self, forKey: .schemaVersion)
+        id = try c.decode(UUID.self, forKey: .id)
+        name = try c.decode(String.self, forKey: .name)
+        deviceUID = try c.decodeIfPresent(String.self, forKey: .deviceUID)
+        correctionMetadata = try c.decodeIfPresent(CorrectionMetadata.self, forKey: .correctionMetadata)
+        correctionBands = try c.decode([EQBand].self, forKey: .correctionBands)
+        tasteBands = try c.decode([EQBand].self, forKey: .tasteBands)
+        simpleTaste = try c.decode(SimpleTasteControls.self, forKey: .simpleTaste)
+        useAdvancedPEQ = try c.decode(Bool.self, forKey: .useAdvancedPEQ)
+        layout = (try? c.decodeIfPresent(EQBandLayout.self, forKey: .layout)).flatMap { $0 } ?? .four
+        layoutGains = (try? c.decodeIfPresent([String: [Double]].self, forKey: .layoutGains)).flatMap { $0 } ?? [:]
+        crossfeedEnabled = try c.decode(Bool.self, forKey: .crossfeedEnabled)
+        limiterCeilingDBTP = try c.decode(Double.self, forKey: .limiterCeilingDBTP)
+        updatedAt = try c.decode(Date.self, forKey: .updatedAt)
+    }
 
     public init(
         schemaVersion: Int = 1,
@@ -291,6 +320,8 @@ public struct TimbrePreset: Identifiable, Codable, Hashable, Sendable {
         tasteBands: [EQBand] = [],
         simpleTaste: SimpleTasteControls = .neutral,
         useAdvancedPEQ: Bool = false,
+        layout: EQBandLayout = .four,
+        layoutGains: [String: [Double]] = [:],
         crossfeedEnabled: Bool = false,
         limiterCeilingDBTP: Double = -0.3,
         updatedAt: Date = Date()
@@ -304,13 +335,43 @@ public struct TimbrePreset: Identifiable, Codable, Hashable, Sendable {
         self.tasteBands = tasteBands
         self.simpleTaste = simpleTaste
         self.useAdvancedPEQ = useAdvancedPEQ
+        self.layout = layout
+        self.layoutGains = layoutGains
         self.crossfeedEnabled = crossfeedEnabled
         self.limiterCeilingDBTP = limiterCeilingDBTP
         self.updatedAt = updatedAt
     }
 
+    /// One gain per slot of `layout` (the 4-band layout reads `simpleTaste`).
+    public func gains(for layout: EQBandLayout) -> [Double] {
+        if layout == .four { return [simpleTaste.bassDB, simpleTaste.warmthDB, simpleTaste.presenceDB, simpleTaste.airDB] }
+        let stored = layoutGains[layout.rawValue] ?? []
+        return (0..<layout.bandCount).map { $0 < stored.count ? stored[$0] : 0 }
+    }
+
+    public mutating func setGain(_ db: Double, at index: Int, in layout: EQBandLayout) {
+        guard index >= 0, index < layout.bandCount else { return }
+        let clamped = ((min(max(db, -layout.gainRangeDB), layout.gainRangeDB)) * 2).rounded() / 2
+        var g = gains(for: layout)
+        g[index] = clamped
+        if layout == .four {
+            simpleTaste = SimpleTasteControls(bassDB: g[0], warmthDB: g[1], presenceDB: g[2], airDB: g[3])
+        } else {
+            layoutGains[layout.rawValue] = g
+        }
+    }
+
+    public mutating func flattenLayout(_ layout: EQBandLayout) {
+        if layout == .four { simpleTaste = .neutral } else { layoutGains[layout.rawValue] = Array(repeating: 0, count: layout.bandCount) }
+    }
+
+    public func isLayoutFlat(_ layout: EQBandLayout) -> Bool { gains(for: layout).allSatisfy { abs($0) < 0.01 } }
+
+    /// The bands of the current fixed layout, as the DSP and the curve see them.
+    public var layoutBands: [EQBand] { EQBandEditing.bands(for: layout, gains: gains(for: layout)) }
+
     public var effectiveTasteBands: [EQBand] {
-        useAdvancedPEQ ? tasteBands : simpleTaste.toPEQBands()
+        useAdvancedPEQ ? tasteBands : layoutBands
     }
 
     public var allEffectiveBands: [EQBand] {

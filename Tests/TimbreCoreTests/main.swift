@@ -561,6 +561,84 @@ struct TimbreCoreTestRunner {
                "A surviving mute for an app not seen yet gets its own muted row")
         print("  [PASS] PersistentMutePolicy & MuteKeeperProtocol (silenced rule, restore scope, adoption merge, hand-over only on confirmation)")
 
+        // EQ layouts (4 / 5 / 10 bands), free-PEQ editing rules, old presets (ADR-0019)
+        do {
+            expect(EQBandLayout.allCases.map(\.bandCount) == [4, 5, 10], "Layouts have 4, 5 and 10 bands")
+            expect(EQBandLayout.ten.slots.map(\.freqHz) == [31.5, 63, 125, 250, 500, 1000, 2000, 4000, 8000, 16000], "10 bands are ISO octave centres")
+            expect(EQBandLayout.four.slots.map(\.freqHz) == [105, 250, 3000, 10000] && SimpleTasteControls.neutral.toPEQBands().map(\.freqHz) == [105, 250, 3000, 10000],
+                   "The 4-band layout is exactly the original Bass/Warmth/Presence/Air bands")
+            for l in EQBandLayout.allCases {
+                let f = l.slots.map(\.freqHz)
+                expect(f == f.sorted() && Set(f).count == f.count, "\(l.rawValue): band centres strictly ascending")
+            }
+            var p = TimbrePreset(name: "layouts")
+            p.layout = .ten
+            p.setGain(3.2, at: 4, in: .ten)
+            expect(p.gains(for: .ten)[4] == 3.0 || p.gains(for: .ten)[4] == 3.5, "Gain snaps to 0.5 dB steps")
+            p.setGain(99, at: 0, in: .ten)
+            expect(p.gains(for: .ten)[0] == 12, "Gain clamps to the layout's travel (±12 dB for 10 bands)")
+            p.setGain(99, at: 0, in: .five)
+            expect(p.gains(for: .five)[0] == 9, "…±9 dB for 5 bands")
+            p.setGain(-4, at: 1, in: .four)
+            expect(p.simpleTaste.warmthDB == -4 && p.gains(for: .four) == [0, -4, 0, 0], "The 4-band layout still lives in simpleTaste")
+            expect(p.gains(for: .ten)[4] != 0 && p.gains(for: .five) == [9, 0, 0, 0, 0], "Each layout keeps its own gains when you switch")
+            p.setGain(1, at: 99, in: .ten)
+            expect(p.gains(for: .ten).count == 10, "An out-of-range slot is ignored")
+            expect(p.layoutBands.count == 10 && p.effectiveTasteBands.count == 10 && p.layoutBands.filter(\.enabled).count == 2, "Fixed layout feeds the DSP: only non-zero bands are on")
+            p.flattenLayout(.ten)
+            expect(p.isLayoutFlat(.ten) && !p.isLayoutFlat(.four) && p.layoutBands.allSatisfy { !$0.enabled }, "Flatten zeroes only the current layout")
+
+            // Presets saved before layouts existed still load, as the 4-band EQ
+            let legacy = TimbrePreset(name: "legacy", simpleTaste: SimpleTasteControls(bassDB: 2))
+            let enc = JSONEncoder(); enc.dateEncodingStrategy = .iso8601
+            var obj = try! JSONSerialization.jsonObject(with: enc.encode(legacy)) as! [String: Any]
+            obj.removeValue(forKey: "layout"); obj.removeValue(forKey: "layoutGains")
+            let dec = JSONDecoder(); dec.dateDecodingStrategy = .iso8601
+            let old = try! dec.decode(TimbrePreset.self, from: JSONSerialization.data(withJSONObject: obj))
+            expect(old.layout == .four && old.layoutGains.isEmpty && old.simpleTaste.bassDB == 2, "A preset from before the layouts loads as the 4-band EQ with its gains")
+            var modern = TimbrePreset(name: "modern"); modern.layout = .five; modern.setGain(-3, at: 2, in: .five)
+            let back = try! dec.decode(TimbrePreset.self, from: enc.encode(modern))
+            expect(back.layout == .five && back.gains(for: .five)[2] == -3, "Layout and gains round-trip")
+
+            // The reported bug, as a rule
+            let off = EQBand(type: .peak, freqHz: 1000, gainDB: 0, q: 1, enabled: false)
+            var moved = off; moved.freqHz = 1500
+            expect(EQBandEditing.afterUserAdjust(old: off, new: moved).enabled, "Moving a disabled band turns it on")
+            var gained = off; gained.gainDB = -3
+            expect(EQBandEditing.afterUserAdjust(old: off, new: gained).enabled, "…so does changing its gain")
+            var toggled = off; toggled.enabled = true
+            expect(EQBandEditing.afterUserAdjust(old: off, new: toggled).enabled, "Toggling on still turns it on")
+            var onNow = off; onNow.enabled = true
+            var switchedOff = onNow; switchedOff.enabled = false
+            expect(!EQBandEditing.afterUserAdjust(old: onNow, new: switchedOff).enabled, "Switching a band off is respected, not undone")
+            var retyped = off; retyped.type = .highShelf
+            expect(!EQBandEditing.afterUserAdjust(old: off, new: retyped).enabled, "Changing only the type does not switch a band on")
+
+            // Free-PEQ defaults, reset, placement and limits
+            let seeded = EQBandEditing.bands(for: .four, gains: [2, 0, -1, 0], enabled: true)
+            expect(seeded.allSatisfy(\.enabled), "A free PEQ seeded from a layout starts with every filter on")
+            expect(EQBandEditing.isDefaultFree(EQBandEditing.defaultFreeBands()) && !EQBandEditing.isDefaultFree(seeded) && !EQBandEditing.isDefaultFree([]), "Reset is only offered when something differs from the defaults")
+            var shifted = EQBandEditing.defaultFreeBands(); shifted[0].freqHz = 120
+            expect(!EQBandEditing.isDefaultFree(shifted), "A moved but flat filter still counts as changed")
+            let spot = EQBandEditing.nextFreeFrequency(existing: EQBandEditing.defaultFreeBands())
+            expect(spot > 20 && spot < 20000 && !EQBandEditing.defaultFreeBands().contains { abs(log10($0.freqHz) - log10(spot)) < 0.12 },
+                   "A new filter lands in a gap, not on top of an existing one (\(spot) Hz)")
+            expect(EQBandEditing.nextFreeFrequency(existing: []) > 100 && EQBandEditing.nextFreeFrequency(existing: []) < 1000, "With no filters the first one lands mid-spectrum")
+            expect(EQBandEditing.maxFreeBands(correctionCount: 0) == 24 && EQBandEditing.maxFreeBands(correctionCount: 10) == 22 && EQBandEditing.maxFreeBands(correctionCount: 40) == 0,
+                   "Free filters never exceed what the DSP can run next to the correction bands")
+            for l in EQBandLayout.allCases {
+                for slot in l.slots {
+                    for lang in TimbreLanguage.allCases {
+                        expect(TimbreStrings.get(slot.nameKey, lang: lang) != slot.nameKey && TimbreStrings.get(slot.nameKey + ".hint", lang: lang) != slot.nameKey + ".hint",
+                               "\(l.rawValue)/\(slot.freqHz) Hz: band name and hint exist in \(lang.rawValue)")
+                    }
+                }
+            }
+            expect(TimbreStrings.get("eq.band.bass", lang: .ptBR) == "Graves (Bass)" && TimbreStrings.get("eq.band.bass", lang: .en) == "Bass",
+                   "Portuguese first with the audiophile term in parentheses; English shows the term alone")
+            print("  [PASS] EQ layouts (4/5/10), per-layout gains, old-preset compatibility, free-PEQ handle/reset/placement rules")
+        }
+
         // Observatory timeline: keyset pagination, trigram search, filters, streamed export (ADR-0018)
         do {
             let dbPath = FileManager.default.temporaryDirectory.appendingPathComponent("timbr-events-\(UUID().uuidString).sqlite").path
