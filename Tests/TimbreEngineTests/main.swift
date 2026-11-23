@@ -113,8 +113,23 @@ struct TimbreEngineTestRunner {
         let curve = engine.evaluateCurve(bands: bands, freqsHz: [100, 1000, 10000])
         expect(curve.magDB.count == 3 && abs(curve.magDB[1] - 6.0) < 0.2, "Curve evaluated accurately at 1 kHz")
         expect(curve.recommendedPreampDB < -5.5, "Recommended preamp includes phase margin")
+
+        // Free PEQ: a handle must move the curve (the reported bug: handles seeded disabled, so dragging 1-4 changed nothing)
+        let seededOff = EQBand(type: .peak, design: .vicanek, layer: .taste, freqHz: 1000, gainDB: 0, q: 1.0, enabled: false)
+        var dragged = seededOff; dragged.gainDB = 6; dragged.freqHz = 2000
+        let before = engine.evaluateCurve(bands: [dragged], freqsHz: [2000]).magDB[0]
+        expect(abs(before) < 0.01, "A disabled band dragged to +6 dB leaves the curve flat (the bug the user saw)")
+        let fixed = EQBandEditing.afterUserAdjust(old: seededOff, new: dragged)
+        let after = engine.evaluateCurve(bands: [fixed], freqsHz: [2000]).magDB[0]
+        expect(abs(after - 6.0) < 0.2, "The same drag now turns the band on and the real DSP curve follows (+6 dB at 2 kHz)")
+        for layout in EQBandLayout.allCases {
+            var g = [Double](repeating: 0, count: layout.bandCount); g[layout.bandCount / 2] = 4
+            let lb = EQBandEditing.bands(for: layout, gains: g)
+            let f = lb[layout.bandCount / 2].freqHz
+            expect(engine.evaluateCurve(bands: lb, freqsHz: [f]).magDB[0] > 2.0, "\(layout.rawValue)-band layout: raising a band lifts the real curve at its centre")
+        }
         engine.stopAndDestroyTap()
-        print("  [PASS] OrphanedTapCleanup, ProcessTapEngine P1 invariant & curve metrology")
+        print("  [PASS] OrphanedTapCleanup, ProcessTapEngine P1 invariant, curve metrology & free-PEQ handle follows the curve")
 
         // 5. CompetingNotchDetector matching & safe scan
         expect(CompetingNotchDetector.matchesCompetitor(bundleID: "dev.notchy.Notchy", localizedName: "Notchy"), "Detects Notchy")

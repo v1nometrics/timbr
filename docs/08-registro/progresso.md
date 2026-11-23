@@ -32,6 +32,15 @@
 
 ## Histórico Consolidado
 
+### 2026-11-23 · Equalizador de 4, 5 ou 10 bandas; PEQ livre acompanha a curva e ganha Resetar
+
+- **Pedido:** comparar com o app da Sennheiser, permitir mais ou menos canais no equalizador e corrigir o PEQ livre (curva parada ao mexer nos pontos 1–4; sem botão de resetar).
+- **Pesquisa:** a Sennheiser levou o EQ do Momentum 4 de 3 para 5 bandas (app 4.3); o AutoEq diz que 10 filtros corrigem a maioria dos fones. Frequências deles não encontradas; as nossas são próprias.
+- **Causa do defeito (Comprovado, teste contra o DSP real):** os 4 filtros do PEQ livre nasciam desligados e arrastar não os ligava.
+- **Feito ([ADR-0019](../07-decisoes/ADR-0019-equalizador-de-4-5-10-bandas-e-peq-livre.md)):** seletor 4 · 5 · 10 · PEQ Livre, com ganhos próprios por layout e pontos arrastáveis na curva também nos layouts fixos; PEQ nasce da curva atual com tudo ligado; ajustar um filtro desligado o liga; **Resetar filtros** com um nível de desfazer; novo filtro cai no maior vão livre; teto de filtros respeita as 32 bandas do DSP.
+- **Verificado:** testes de unidade e de motor, capturas reais, `./scripts/ci_check.sh` verde.
+- **Limites:** sem conversão automática da curva entre layouts; 5 e 10 bandas sem Q ajustável.
+
 ### 2026-11-23 · Mudo à prova de falha (o app silenciado não volta a tocar se o timbr. fechar)
 
 - **Relato:** quando o timbr. fechava por algum motivo, os apps silenciados nele voltavam a tocar (ex.: Spotify mudo no meio de uma aula). "Isso em hipótese alguma pode acontecer."

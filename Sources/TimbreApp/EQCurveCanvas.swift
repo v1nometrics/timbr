@@ -25,6 +25,11 @@ public struct EQCurveCanvas: View {
     }
 
 
+    /// Stable identity for a fixed-layout handle (the bands themselves are rebuilt on every render).
+    private func layoutHandleID(_ index: Int) -> UUID {
+        UUID(uuid: (0xE0, 0xE0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, UInt8(index)))
+    }
+
     private var freqs: [Double] {
         (0..<240).map { i in pow(10, log10(EQAxis.fMin) + Double(i) / 239 * (log10(EQAxis.fMax) - log10(EQAxis.fMin))) }
     }
@@ -108,7 +113,36 @@ public struct EQCurveCanvas: View {
                         .position(x: w + 18, y: EQAxis.y(d, h))
                 }
 
-                // Band handles (advanced mode)
+                // Fixed layouts (4 / 5 / 10 bands): one handle per band at its fixed frequency; only the gain moves.
+                if !appState.activePreset.useAdvancedPEQ {
+                    let layout = appState.activePreset.layout
+                    ForEach(Array(layout.slots.enumerated()), id: \.offset) { idx, slot in
+                        let gain = appState.activePreset.gains(for: layout)[idx]
+                        let active = dragged == layoutHandleID(idx)
+                        ZStack {
+                            Circle().fill(c.bg_surface)
+                            Circle().strokeBorder(abs(gain) > 0.01 ? c.accent_signal : c.ink_muted, lineWidth: active ? 2 : 1.5)
+                            Text("\(idx + 1)")
+                                .font(.system(size: 8.5, weight: .semibold, design: .rounded))
+                                .foregroundStyle(abs(gain) > 0.01 ? c.ink_primary : c.ink_muted)
+                        }
+                        .frame(width: active ? 20 : 17, height: active ? 20 : 17)
+                        .position(x: EQAxis.x(slot.freqHz, w), y: EQAxis.y(gain, h))
+                        .gesture(
+                            DragGesture(minimumDistance: 0, coordinateSpace: .named("eq"))
+                                .onChanged { g in
+                                    dragged = layoutHandleID(idx)
+                                    appState.setLayoutGain(EQAxis.db(g.location.y, h), at: idx)
+                                }
+                                .onEnded { _ in dragged = nil }
+                        )
+                        .animation(TimbreMotion.snappy, value: active)
+                        .accessibilityLabel("Band \(idx + 1)")
+                        .accessibilityValue("\(Fmt.hz(slot.freqHz)) Hz, \(Fmt.db(gain)) dB")
+                    }
+                }
+
+                // Band handles (free PEQ)
                 if appState.activePreset.useAdvancedPEQ {
                     ForEach(Array(appState.activePreset.tasteBands.enumerated()), id: \.element.id) { idx, band in
                         let active = dragged == band.id || hovered == band.id

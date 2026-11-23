@@ -95,6 +95,37 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
             appState.needsOnboarding = false
             appState.selectedTab = tab
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak self] in self?.openStudio() }
+            // Design review: `--studio-scroll <0…1>` scrolls the page to that fraction of its height.
+            if let k = args.firstIndex(of: "--studio-scroll"), k + 1 < args.count, let frac = Double(args[k + 1]) {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self] in
+                    func scrollView(in v: NSView?) -> NSScrollView? {
+                        guard let v else { return nil }
+                        if let s = v as? NSScrollView, s.documentView != nil { return s }
+                        for sub in v.subviews { if let s = scrollView(in: sub) { return s } }
+                        return nil
+                    }
+                    guard let sv = scrollView(in: self?.studioWindow?.contentView), let doc = sv.documentView else { return }
+                    let y = max(0, (doc.frame.height - sv.contentView.bounds.height) * CGFloat(frac))
+                    doc.scroll(NSPoint(x: 0, y: doc.isFlipped ? y : doc.frame.height - sv.contentView.bounds.height - y))
+                }
+            }
+        }
+        // Design review: `--eq-mode four|five|ten|free`, optionally with `--eq-demo` (a few bands moved).
+        if let i = args.firstIndex(of: "--eq-mode"), i + 1 < args.count {
+            let mode: AppState.EQMode? = ["four": .four, "five": .five, "ten": .ten, "free": .free][args[i + 1]]
+            if let mode {
+                appState.setEQMode(mode)
+                if args.contains("--eq-demo") {
+                    switch mode {
+                    case .free:
+                        for (n, g) in [(0, 4.0), (2, -3.0)] where n < appState.activePreset.tasteBands.count {
+                            var b = appState.activePreset.tasteBands[n]; b.gainDB = g; b.freqHz = n == 2 ? 2400 : 90; appState.updateTasteBand(b)
+                        }
+                    default:
+                        for (n, g) in [(0, 3.0), (2, -2.0), (3, 2.5)] { appState.setLayoutGain(g, at: n) }
+                    }
+                }
+            }
         }
         if let i = args.firstIndex(of: "--notch"), i + 1 < args.count, let st = NotchState(rawValue: args[i + 1]) {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in

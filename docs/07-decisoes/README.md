@@ -22,4 +22,5 @@ Uma decisão "Proposta" só vira "Aceita" quando (a) o dono aprova, quando é de
 | [ADR-0014](ADR-0014-nome-identidade-e-i18n.md) | Nome oficial `timbr.`, alinhamento `v1torres.dev` e i18n PT/ES/EN na v1 | **Aceito** |
 | [ADR-0015](ADR-0015-tipografia-de-sistema.md) | Tipografia de sistema SF Pro / SF Mono / New York no app; Geist só na web | **Aceito** |
 | [ADR-0016](ADR-0016-identidade-acromatica.md) | Identidade acromática: sem cor de marca; ênfase por tinta; cor só semântica (substitui a cor da ADR-0014) | **Aceito** |
+| [ADR-0019](ADR-0019-equalizador-de-4-5-10-bandas-e-peq-livre.md) | Equalizador de 4, 5 ou 10 bandas + PEQ livre; corrige o ponto que não movia a curva e adiciona Resetar filtros | **Aceito** |
 | [ADR-0017](ADR-0017-mudo-a-prova-de-falha.md) | Mudo à prova de falha: `timbr-mute-keeper` segura apps mudos (e em 0 %) mesmo se o timbr. morrer; emenda P2 só para o mudo | **Aceito** |
