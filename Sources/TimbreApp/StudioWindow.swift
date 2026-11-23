@@ -514,7 +514,7 @@ private struct OutputRow: View {
 
                 if dev.isHWVolumeMasterSettable || dev.isHWVolumeChannelSettable {
                     let isMuted = isDefault
-                        ? appState.activeOutputMuted
+                        ? appState.outputSilenced
                         : (appState.halManager.readOutputMute(deviceID: dev.audioObjectID) ?? false)
                     let rawVol = isDefault
                         ? (appState.activeOutputVolume ?? Double(appState.halManager.readOutputVolumeScalar(deviceID: dev.audioObjectID) ?? 0.5))
@@ -537,8 +537,8 @@ private struct OutputRow: View {
                         if dev.isHWMuteSettable {
                             TChannelButton(
                                 text: "M",
-                                symbol: appState.activeOutputMuted ? "speaker.slash.fill" : nil,
-                                pressed: appState.activeOutputMuted,
+                                symbol: appState.outputSilenced ? "speaker.slash.fill" : nil,
+                                pressed: appState.outputSilenced,
                                 tone: .mute,
                                 size: 24,
                                 help: appState.t("ui.mute")
@@ -864,8 +864,18 @@ private struct EqualizerPage: View {
         .overlay(RoundedRectangle(cornerRadius: TimbreRadius.card, style: .continuous).strokeBorder(c.line_default, lineWidth: 1))
     }
 
+    private static var cachedMatchKey: String = ""
+    private static var cachedMatches: [AutoEqEntry] = []
+
     private var correctionPanel: some View {
-        let matches = AutoEqService.matchDeviceName(appState.activeOutputDevice?.name ?? "")
+        let devName = appState.activeOutputDevice?.name ?? ""
+        let matches: [AutoEqEntry] = {
+            if Self.cachedMatchKey == devName { return Self.cachedMatches }
+            let m = AutoEqService.matchDeviceName(devName)
+            Self.cachedMatchKey = devName
+            Self.cachedMatches = m
+            return m
+        }()
         return panel("02", appState.t("ui.eq.correction_title"), appState.t("ui.eq.correction_sub")) {
             if let meta = appState.activePreset.correctionMetadata {
                 HStack(alignment: .top) {

@@ -367,6 +367,12 @@ struct TimbreCoreTestRunner {
         expect(OutputVolumeBehavior.shouldRestoreAudibleOnUnmute(activeVolume: 0.0), "0% needs audible restore")
         expect(!OutputVolumeBehavior.shouldRestoreAudibleOnUnmute(activeVolume: 0.25), "25% does not bump volume")
         expect(OutputVolumeBehavior.normalizeSourceVolume(0.003) == 0.0, "Source gain below 0.5% snaps to digital silence 0.0")
+        expect(OutputVolumeBehavior.isEffectivelySilenced(volume: 0.0, muted: false), "0% volume is effectively silenced even if CoreAudio mute flag has not synced")
+        expect(OutputVolumeBehavior.isEffectivelySilenced(volume: 0.004, muted: false), "Sub-0.5% volume is effectively silenced")
+        expect(!OutputVolumeBehavior.isEffectivelySilenced(volume: 0.1, muted: false), "10% unmuted is audible")
+        expect(OutputVolumeBehavior.needsZeroVolumeMuteHeal(volume: 0.0, muted: false, isHWMuteSettable: true), "0% with mute=0 needs HW mute self-heal")
+        expect(!OutputVolumeBehavior.needsZeroVolumeMuteHeal(volume: 0.0, muted: true, isHWMuteSettable: true), "0% with mute=1 already healed")
+        expect(!OutputVolumeBehavior.needsZeroVolumeMuteHeal(volume: 0.25, muted: false, isHWMuteSettable: true), "25% with mute=0 does not need heal")
         print("  [PASS] OutputVolumeBehavior (zero-volume hardware mute, media keys, no -63.5 dB bleed)")
 
         // Unified Peek + Expanded spotlight rule across 0 / 1 / 2+ playing apps

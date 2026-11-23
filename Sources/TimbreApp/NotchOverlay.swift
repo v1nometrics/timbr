@@ -1120,7 +1120,7 @@ public struct NotchOverlayView: View {
     /// Nothing playing: the notch is your output — device, its volume, one fader.
     private func outputPeek(wing: CGFloat) -> some View {
         let dev = appState.activeOutputDevice
-        let muted = appState.activeOutputMuted
+        let muted = appState.outputSilenced
         return VStack(spacing: 0) {
             wingRow(wing: wing) {
                 Image(systemName: muted ? "speaker.slash.fill" : (dev?.glyph ?? "speaker.wave.2"))
@@ -1177,7 +1177,7 @@ public struct NotchOverlayView: View {
     private var outputControl: some View {
         if let dev = appState.activeOutputDevice, let v = appState.activeOutputVolume {
             HStack(spacing: 10) {
-                TFader(value: Binding(get: { appState.activeOutputMuted ? 0 : v }, set: { appState.setOutputVolume(dev, value: $0, showHUD: false) }),
+                TFader(value: Binding(get: { appState.outputSilenced ? 0 : v }, set: { appState.setOutputVolume(dev, value: $0, showHUD: false) }),
                        range: 0...1, tint: c.ink_primary, height: 20, label: dev.name, valueText: Fmt.percent(v))
                 masterMuteButton(dev)
             }
@@ -1193,8 +1193,8 @@ public struct NotchOverlayView: View {
     @ViewBuilder
     private func masterMuteButton(_ dev: AudioDeviceDescriptor) -> some View {
         if dev.isHWMuteSettable {
-            IconButton(symbol: appState.activeOutputMuted ? "speaker.slash.fill" : "speaker.wave.2.fill", size: 22,
-                       active: appState.activeOutputMuted, activeColor: c.semantic_warning, help: appState.t("ui.mute")) {
+            IconButton(symbol: appState.outputSilenced ? "speaker.slash.fill" : "speaker.wave.2.fill", size: 22,
+                       active: appState.outputSilenced, activeColor: c.semantic_warning, help: appState.t("ui.mute")) {
                 appState.toggleOutputMute()
             }
         }
@@ -1203,7 +1203,7 @@ public struct NotchOverlayView: View {
     /// The master strip: every per-app fader above feeds this one. Separated by a hairline, like a console.
     private var masterRow: some View {
         let dev = appState.activeOutputDevice
-        let muted = appState.activeOutputMuted
+        let muted = appState.outputSilenced
         return HStack(spacing: 10) {
             Image(systemName: muted ? "speaker.slash.fill" : (dev?.glyph ?? "speaker.wave.2"))
                 .font(.system(size: 11, weight: .medium))
@@ -1235,7 +1235,7 @@ public struct NotchOverlayView: View {
     private var silencedRow: some View {
         HStack(spacing: 8) {
             Image(systemName: "speaker.slash.fill").font(.system(size: 11, weight: .semibold)).foregroundStyle(c.semantic_warning)
-            Text(appState.t(appState.activeOutputMuted ? "ui.notch.output_muted" : "ui.notch.output_zero"))
+            Text(appState.t(appState.outputSilenced ? "ui.notch.output_muted" : "ui.notch.output_zero"))
                 .type(TimbreTypography.caption).foregroundStyle(c.ink_primary).lineLimit(1)
             Spacer(minLength: 0)
             Button(appState.t("ui.notch.unmute_output")) { appState.restoreOutputAudible() }
@@ -1286,7 +1286,7 @@ public struct NotchOverlayView: View {
     /// followed by every playing app on equal footing right below.
     private func multiSourcePeek(wing: CGFloat, sources playing: [AudioSourceDescriptor]) -> some View {
         let dev = appState.activeOutputDevice
-        let muted = appState.activeOutputMuted
+        let muted = appState.outputSilenced
         return VStack(spacing: 0) {
             wingRow(wing: wing) {
                 Image(systemName: muted ? "speaker.slash.fill" : (dev?.glyph ?? "speaker.wave.2"))
@@ -1349,7 +1349,7 @@ public struct NotchOverlayView: View {
     private func expanded(wing: CGFloat) -> some View {
         let target = appState.expandedTarget
         let dev = appState.activeOutputDevice
-        let muted = appState.activeOutputMuted
+        let muted = appState.outputSilenced
         return VStack(alignment: .leading, spacing: 0) {
             wingRow(wing: wing) {
                 switch target {
@@ -1437,7 +1437,7 @@ public struct NotchOverlayView: View {
 
     private var masterFocusBlock: some View {
         let dev = appState.activeOutputDevice
-        let muted = appState.activeOutputMuted
+        let muted = appState.outputSilenced
         let hasPlaying = !appState.playingSources.isEmpty
         let subtitle = hasPlaying
             ? String(format: appState.t("ui.notch.playing_on"), dev?.name ?? "—")
