@@ -393,6 +393,20 @@ public enum OutputVolumeBehavior: Sendable {
         (activeVolume ?? 0.0) < zeroThreshold
     }
 
+    /// True whenever the output device must be completely silent (either HW-muted or at/below the 0% threshold).
+    /// Also detects if CoreAudio has drifted into the unmuted 0% state (`scalar < 0.005` with `muted == false`),
+    /// which leaks ~-63.5 dB on MacBook speakers and must be healed by engaging hardware mute + zeroing DSP gain.
+    public static func isEffectivelySilenced(volume: Double?, muted: Bool) -> Bool {
+        if muted { return true }
+        guard let v = volume else { return false }
+        return v < zeroThreshold
+    }
+
+    public static func needsZeroVolumeMuteHeal(volume: Double?, muted: Bool, isHWMuteSettable: Bool) -> Bool {
+        guard isHWMuteSettable, !muted, let v = volume else { return false }
+        return v < zeroThreshold
+    }
+
     public static func normalizeSourceVolume(_ requested: Double) -> Double {
         let clamped = min(max(requested, 0.0), 4.0)
         return clamped < zeroThreshold ? 0.0 : clamped

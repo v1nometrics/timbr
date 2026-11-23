@@ -133,7 +133,7 @@ public final class HALManager: @unchecked Sendable {
             let srSet = isSettable(id, kAudioDevicePropertyNominalSampleRate, kAudioObjectPropertyScopeGlobal)
             let volMain = isSettable(id, kAudioDevicePropertyVolumeScalar, kAudioObjectPropertyScopeOutput, 0)
             let volCh1 = isSettable(id, kAudioDevicePropertyVolumeScalar, kAudioObjectPropertyScopeOutput, 1)
-            let muteOut = isSettable(id, kAudioDevicePropertyMute, kAudioObjectPropertyScopeOutput, 0)
+            let muteOut = [0, 1, 2].contains { isSettable(id, kAudioDevicePropertyMute, kAudioObjectPropertyScopeOutput, AudioObjectPropertyElement($0)) }
             let hogSet = isSettable(id, kAudioDevicePropertyHogMode, kAudioObjectPropertyScopeGlobal)
             let latOut = getUInt32Prop(id, kAudioDevicePropertyLatency, kAudioObjectPropertyScopeOutput) ?? 0
             let safeOut = getUInt32Prop(id, kAudioDevicePropertySafetyOffset, kAudioObjectPropertyScopeOutput) ?? 0
@@ -282,10 +282,7 @@ public final class HALManager: @unchecked Sendable {
                 )
                 let size = UInt32(MemoryLayout<Float32>.size)
                 if AudioObjectSetPropertyData(deviceID, &addr, 0, nil, size, &clamped) == noErr {
-                    if elem == 0 {
-                        lock.lock(); modifiedOutputVolume = true; persistSnapshotUnlocked(); lock.unlock()
-                        return true
-                    }
+                    if elem == 0 { return true }
                 }
             }
         }
@@ -330,29 +327,39 @@ public final class HALManager: @unchecked Sendable {
     }
 
     public func readOutputMute(deviceID: AudioObjectID) -> Bool? {
-        var addr = AudioObjectPropertyAddress(
-            mSelector: kAudioDevicePropertyMute,
-            mScope: kAudioObjectPropertyScopeOutput,
-            mElement: 0
-        )
-        guard AudioObjectHasProperty(deviceID, &addr) else { return nil }
-        var val: UInt32 = 0
-        var size = UInt32(MemoryLayout<UInt32>.size)
-        guard AudioObjectGetPropertyData(deviceID, &addr, 0, nil, &size, &val) == noErr else { return nil }
-        return val != 0
+        for elem: AudioObjectPropertyElement in [0, 1, 2] {
+            var addr = AudioObjectPropertyAddress(
+                mSelector: kAudioDevicePropertyMute,
+                mScope: kAudioObjectPropertyScopeOutput,
+                mElement: elem
+            )
+            guard AudioObjectHasProperty(deviceID, &addr) else { continue }
+            var val: UInt32 = 0
+            var size = UInt32(MemoryLayout<UInt32>.size)
+            if AudioObjectGetPropertyData(deviceID, &addr, 0, nil, &size, &val) == noErr {
+                return val != 0
+            }
+        }
+        return nil
     }
 
     @discardableResult
     public func setOutputMute(deviceID: AudioObjectID, muted: Bool) -> Bool {
-        guard isSettable(deviceID, kAudioDevicePropertyMute, kAudioObjectPropertyScopeOutput, 0) else { return false }
-        var addr = AudioObjectPropertyAddress(
-            mSelector: kAudioDevicePropertyMute,
-            mScope: kAudioObjectPropertyScopeOutput,
-            mElement: 0
-        )
-        var val: UInt32 = muted ? 1 : 0
-        let size = UInt32(MemoryLayout<UInt32>.size)
-        return AudioObjectSetPropertyData(deviceID, &addr, 0, nil, size, &val) == noErr
+        var anySucceeded = false
+        for elem: AudioObjectPropertyElement in [0, 1, 2] {
+            guard isSettable(deviceID, kAudioDevicePropertyMute, kAudioObjectPropertyScopeOutput, elem) else { continue }
+            var addr = AudioObjectPropertyAddress(
+                mSelector: kAudioDevicePropertyMute,
+                mScope: kAudioObjectPropertyScopeOutput,
+                mElement: elem
+            )
+            var val: UInt32 = muted ? 1 : 0
+            let size = UInt32(MemoryLayout<UInt32>.size)
+            if AudioObjectSetPropertyData(deviceID, &addr, 0, nil, size, &val) == noErr {
+                anySucceeded = true
+            }
+        }
+        return anySucceeded
     }
 
     @discardableResult

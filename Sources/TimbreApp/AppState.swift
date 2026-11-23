@@ -616,7 +616,7 @@ public final class AppState: ObservableObject {
             activePreset.limiterCeilingDBTP = ceiling
         }
         let effectiveAB: ABCompareMode = isProcessingBypassed ? .bypassEqualLatency : abMode
-        let duckFactor: Double = (autoDuckOnCall && isVoIPCallActive) ? 0.25 : 1.0
+        let duckFactor: Double = outputSilenced ? 0.0 : ((autoDuckOnCall && isVoIPCallActive) ? 0.25 : 1.0)
         let mirrorTargets: [MirrorOutputTarget] = outputDevices
             .filter { $0.uid != out?.uid && mirrorOutputUIDs.contains($0.uid) }
             .map { MirrorOutputTarget(device: $0, delayMs: outputDelaysMs[$0.uid] ?? 0.0) }
@@ -760,29 +760,55 @@ public final class AppState: ObservableObject {
     /// notch's own fader) — the HUD would replace the very panel the user is dragging in.
     public func setOutputVolume(_ device: AudioDeviceDescriptor, value: Double, showHUD: Bool = true) {
         let t = OutputVolumeBehavior.evaluateSetVolume(requested: value, isHWMuteSettable: device.isHWMuteSettable)
-        _ = halManager.setOutputVolumeScalar(deviceID: device.audioObjectID, value: Float32(t.scalar))
-        let muteApplied = device.isHWMuteSettable ? halManager.setOutputMute(deviceID: device.audioObjectID, muted: t.muted) : false
-        if device.uid == activeOutputDevice?.uid {
-            activeOutputVolume = t.displayVolume
-            if muteApplied {
-                activeOutputMuted = t.muted
-            } else if !t.muted {
-                activeOutputMuted = false
+        let prevSilenced = outputSilenced
+        if t.muted && device.isHWMuteSettable {
+            // Engage hardware mute FIRST before lowering scalar to 0.0 so CoreAudio never sits in (scalar=0.0, mute=0).
+            let muteApplied = halManager.setOutputMute(deviceID: device.audioObjectID, muted: true)
+            _ = halManager.setOutputVolumeScalar(deviceID: device.audioObjectID, value: Float32(t.scalar))
+            if device.uid == activeOutputDevice?.uid {
+                activeOutputVolume = t.displayVolume
+                if muteApplied { activeOutputMuted = true }
             }
+        } else {
+            _ = halManager.setOutputVolumeScalar(deviceID: device.audioObjectID, value: Float32(t.scalar))
+            let muteApplied = device.isHWMuteSettable ? halManager.setOutputMute(deviceID: device.audioObjectID, muted: t.muted) : false
+            if device.uid == activeOutputDevice?.uid {
+                activeOutputVolume = t.displayVolume
+                if muteApplied {
+                    activeOutputMuted = t.muted
+                } else if !t.muted {
+                    activeOutputMuted = false
+                }
+            }
+        }
+        if device.uid == activeOutputDevice?.uid, outputSilenced != prevSilenced {
+            syncDSPAndTap()
         }
         if showHUD { triggerHUD(title: device.name, value: t.displayVolume, muted: t.hudMuted) }
     }
 
     func refreshActiveOutputVolume() {
-        let muted = activeOutputDevice.flatMap { halManager.readOutputMute(deviceID: $0.audioObjectID) } ?? false
-        if muted != activeOutputMuted { activeOutputMuted = muted }
+        let prevSilenced = outputSilenced
+        var muted = activeOutputDevice.flatMap { halManager.readOutputMute(deviceID: $0.audioObjectID) } ?? false
         guard let out = activeOutputDevice, out.isHWVolumeMasterSettable || out.isHWVolumeChannelSettable,
               let v = halManager.readOutputVolumeScalar(deviceID: out.audioObjectID) else {
+            if muted != activeOutputMuted { activeOutputMuted = muted }
             if activeOutputVolume != nil { activeOutputVolume = nil }
+            if outputSilenced != prevSilenced { syncDSPAndTap() }
             return
         }
         let d = Double(v)
-        if activeOutputVolume.map({ abs($0 - d) > 0.004 }) ?? true { activeOutputVolume = d }
+        // Self-heal: if CoreAudio or an external control left the device at 0% (< 0.005) with mute=0,
+        // engage hardware mute immediately so MacBook speakers never leak their -63.5 dB floor.
+        if OutputVolumeBehavior.needsZeroVolumeMuteHeal(volume: d, muted: muted, isHWMuteSettable: out.isHWMuteSettable) {
+            if halManager.setOutputMute(deviceID: out.audioObjectID, muted: true) {
+                muted = true
+            }
+        }
+        if muted != activeOutputMuted { activeOutputMuted = muted }
+        let displayVol = d < OutputVolumeBehavior.zeroThreshold ? 0.0 : d
+        if activeOutputVolume.map({ abs($0 - displayVol) > 0.004 }) ?? true { activeOutputVolume = displayVol }
+        if outputSilenced != prevSilenced { syncDSPAndTap() }
     }
 
     public func setSourceVolume(bundleID: String, volume: Double) {
@@ -793,7 +819,7 @@ public final class AppState: ObservableObject {
         sources[idx].volume = new
         // Turning an app up while the master is muted would do nothing audible: bring the master back
         // (and bump master out of 0% so unmuting never exposes CoreAudio's -63.5 dB floor).
-        if raising, new >= OutputVolumeBehavior.zeroThreshold, activeOutputMuted { restoreOutputAudible() }
+        if raising, new >= OutputVolumeBehavior.zeroThreshold, outputSilenced { restoreOutputAudible() }
         syncDSPAndTap()
     }
 
@@ -801,7 +827,7 @@ public final class AppState: ObservableObject {
         guard let idx = sources.firstIndex(where: { $0.bundleID == bundleID }) else { return }
         guard !sources[idx].isVoIPExcluded else { return }
         sources[idx].isMuted.toggle()
-        if !sources[idx].isMuted, activeOutputMuted { restoreOutputAudible() }   // unmuting an app = wanting to hear it
+        if !sources[idx].isMuted, outputSilenced { restoreOutputAudible() }   // unmuting an app = wanting to hear it
         syncDSPAndTap()
     }
 
@@ -815,11 +841,12 @@ public final class AppState: ObservableObject {
         }
         if halManager.setOutputMute(deviceID: out.audioObjectID, muted: muted) || !out.isHWMuteSettable {
             activeOutputMuted = muted && out.isHWMuteSettable
+            syncDSPAndTap()
         }
     }
 
     public func toggleOutputMute() {
-        if activeOutputMuted {
+        if outputSilenced {
             restoreOutputAudible()
         } else {
             setOutputMuted(true)
