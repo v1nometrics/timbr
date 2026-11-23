@@ -21,10 +21,10 @@
     "exit": {
       "$type": "cubicBezier",
       "$value": [
-        0.7,
-        0,
-        0.84,
-        0
+        0.23,
+        1,
+        0.32,
+        1
       ]
     },
     "inOut": {
@@ -37,6 +37,33 @@
       ]
     },
     "pressOut": {
+      "$type": "cubicBezier",
+      "$value": [
+        0.23,
+        1,
+        0.32,
+        1
+      ]
+    },
+    "fade": {
+      "$type": "cubicBezier",
+      "$value": [
+        0.23,
+        1,
+        0.32,
+        1
+      ]
+    },
+    "fadeOut": {
+      "$type": "cubicBezier",
+      "$value": [
+        0.23,
+        1,
+        0.32,
+        1
+      ]
+    },
+    "tab": {
       "$type": "cubicBezier",
       "$value": [
         0.23,
@@ -57,7 +84,7 @@
     },
     "exit": {
       "$type": "duration",
-      "$value": "180ms"
+      "$value": "160ms"
     },
     "enter": {
       "$type": "duration",
@@ -95,15 +122,34 @@
     },
     "responsive": {
       "stiffness": 520,
-      "damping": 44
+      "damping": 44,
+      "followsPointer": true
     },
     "notchPop": {
       "duration": 0.26,
       "bounce": 0.35
+    },
+    "dismissFollow": {
+      "response": 0.16,
+      "damping": 0.86,
+      "followsPointer": true
     }
   },
   "stagger": {
     "itemSeconds": 0.035,
     "maxTotalSeconds": 0.35
+  },
+  "curveDurationSeconds": {
+    "enter": 0.24,
+    "standard": 0.24,
+    "exit": 0.16,
+    "inOut": 0.24,
+    "pressOut": 0.14,
+    "fade": 0.12,
+    "fadeOut": 0.09,
+    "tab": 0.14
+  },
+  "linear": {
+    "meter": 0.08
   }
 }

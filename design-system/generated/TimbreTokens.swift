@@ -1,6 +1,7 @@
 // GENERATED FILE - DO NOT EDIT BY HAND (ADR-0012)
 // Source: design-system/tokens/*.tokens.json
 import SwiftUI
+import AppKit
 
 public enum TimbreSurface: String, CaseIterable, Sendable {
     case light, dark, notch
@@ -133,20 +134,32 @@ public struct TimbreColors: Sendable {
 }
 
 public enum TimbreMotion {
-    public static let enter = Animation.timingCurve(0.16, 1, 0.3, 1, duration: 0.24)
-    public static let standard = Animation.timingCurve(0.22, 1, 0.36, 1, duration: 0.24)
-    public static let exit = Animation.timingCurve(0.7, 0, 0.84, 0, duration: 0.18)
-    public static let inOut = Animation.timingCurve(0.65, 0, 0.35, 1, duration: 0.24)
-    public static let pressOut = Animation.timingCurve(0.23, 1, 0.32, 1, duration: 0.14)
-    public static let snappy = Animation.spring(duration: 0.24, bounce: 0.0)
-    public static let smooth = Animation.spring(duration: 0.36, bounce: 0.0)
-    public static let morph = Animation.spring(duration: 0.42, bounce: 0.0)
-    public static let notchOpen = Animation.spring(duration: 0.42, bounce: 0.2)
-    public static let notchClose = Animation.spring(duration: 0.34, bounce: 0.0)
-    public static let responsive = Animation.interpolatingSpring(stiffness: 520, damping: 44)
-    public static let notchPop = Animation.spring(duration: 0.26, bounce: 0.35)
-    public static let staggerItem: Double = 0.035
-    public static let staggerMaxTotal: Double = 0.35
+    /// Tests and design review (`--reduce-motion`) can force the setting.
+    nonisolated(unsafe) public static var reducedOverride: Bool?
+    public static var reduced: Bool { reducedOverride ?? NSWorkspace.shared.accessibilityDisplayShouldReduceMotion }
+    private static let reducedFade = Animation.easeOut(duration: 0.12)
+    /// The animation every decorative token collapses into under Reduce Motion (for tests).
+    public static var reducedFadeForTests: Animation { reducedFade }
+    public static var enter: Animation { reduced ? reducedFade : Animation.timingCurve(0.16, 1, 0.3, 1, duration: 0.24) }
+    public static var standard: Animation { reduced ? reducedFade : Animation.timingCurve(0.22, 1, 0.36, 1, duration: 0.24) }
+    public static var exit: Animation { reduced ? reducedFade : Animation.timingCurve(0.23, 1, 0.32, 1, duration: 0.16) }
+    public static var inOut: Animation { reduced ? reducedFade : Animation.timingCurve(0.65, 0, 0.35, 1, duration: 0.24) }
+    public static var pressOut: Animation { reduced ? reducedFade : Animation.timingCurve(0.23, 1, 0.32, 1, duration: 0.14) }
+    public static var fade: Animation { reduced ? reducedFade : Animation.timingCurve(0.23, 1, 0.32, 1, duration: 0.12) }
+    public static var fadeOut: Animation { reduced ? reducedFade : Animation.timingCurve(0.23, 1, 0.32, 1, duration: 0.09) }
+    public static var tab: Animation { reduced ? reducedFade : Animation.timingCurve(0.23, 1, 0.32, 1, duration: 0.14) }
+    /// Constant motion (live meters): linear on purpose, and short enough to track the data.
+    public static var meter: Animation { reduced ? Animation.linear(duration: 0.0) : Animation.linear(duration: 0.08) }
+    public static var snappy: Animation { reduced ? reducedFade : Animation.spring(duration: 0.24, bounce: 0.0) }
+    public static var smooth: Animation { reduced ? reducedFade : Animation.spring(duration: 0.36, bounce: 0.0) }
+    public static var morph: Animation { reduced ? reducedFade : Animation.spring(duration: 0.42, bounce: 0.0) }
+    public static var notchOpen: Animation { reduced ? reducedFade : Animation.spring(duration: 0.42, bounce: 0.2) }
+    public static var notchClose: Animation { reduced ? reducedFade : Animation.spring(duration: 0.34, bounce: 0.0) }
+    public static var responsive: Animation { Animation.interpolatingSpring(stiffness: 520, damping: 44) }
+    public static var notchPop: Animation { reduced ? reducedFade : Animation.spring(duration: 0.26, bounce: 0.35) }
+    public static var dismissFollow: Animation { Animation.interactiveSpring(response: 0.16, dampingFraction: 0.86) }
+    public static var staggerItem: Double { reduced ? 0 : 0.035 }
+    public static var staggerMaxTotal: Double { reduced ? 0 : 0.35 }
 }
 
 public enum TimbreSpacing {

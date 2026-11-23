@@ -880,7 +880,7 @@ public final class NotchPanelController {
         }
         // Rubber-band: early pixels move a lot, then it resists — like pulling something elastic.
         let eased = 1 - pow(1 - raw, 1.8)
-        withAnimation(.interactiveSpring(response: 0.16, dampingFraction: 0.86)) {
+        withAnimation(TimbreMotion.dismissFollow) {
             interaction.dismissProgress = eased
         }
     }
@@ -916,7 +916,7 @@ public final class NotchPanelController {
         for i in 0...14 {
             at(2.8 + Double(i) * 0.05) {
                 let raw = CGFloat(i) / 15
-                withAnimation(.interactiveSpring(response: 0.16, dampingFraction: 0.86)) {
+                withAnimation(TimbreMotion.dismissFollow) {
                     self.interaction.dismissProgress = 1 - pow(1 - raw, 1.8)
                 }
             }
@@ -1015,7 +1015,7 @@ public struct NotchOverlayView: View {
             .clipShape(shape)
         }
         .frame(width: canvas.width, height: canvas.height, alignment: .topLeading)
-        .animation(reduceMotion ? .easeOut(duration: 0.12) : animation(for: state), value: state)
+        .animation(animation(for: state), value: state)
         .animation(TimbreMotion.smooth, value: Self.listRows(appState))
         .animation(TimbreMotion.smooth, value: appState.playingSources.map(\.bundleID))
         .animation(TimbreMotion.smooth, value: appState.outputSilenced)
@@ -1114,7 +1114,7 @@ public struct NotchOverlayView: View {
             EmptyView()
         case .compact:
             compact(canvas: canvas)
-                .transition(.opacity.animation(.easeOut(duration: 0.12)))
+                .transition(.opacity.animation(TimbreMotion.fade))
         case .hud:
             hud(wing: sp.l - layout.half).frame(width: sp.l + sp.r, height: sp.h, alignment: .top)
                 .offset(x: cx - sp.l)
@@ -1133,9 +1133,11 @@ public struct NotchOverlayView: View {
     /// Content rides the shape's own spring in (blur → sharp, scaled from the top edge)
     /// and leaves almost instantly, so the shape is never seen dragging stale content.
     private var bodyTransition: AnyTransition {
-        .asymmetric(
-            insertion: .modifier(active: Reveal(p: 1), identity: Reveal(p: 0)).animation(.spring(duration: 0.36, bounce: 0)),
-            removal: .opacity.animation(.easeOut(duration: 0.09))
+        // Reduce Motion: a plain fade. No blur, no scale, no spring: nothing travels.
+        if reduceMotion || TimbreMotion.reduced { return .opacity.animation(TimbreMotion.fade) }
+        return .asymmetric(
+            insertion: .modifier(active: Reveal(p: 1), identity: Reveal(p: 0)).animation(TimbreMotion.smooth),
+            removal: .opacity.animation(TimbreMotion.fadeOut)
         )
     }
 
@@ -1218,7 +1220,7 @@ public struct NotchOverlayView: View {
             .frame(height: 4)
             .padding(.horizontal, 18)
             .padding(.top, 3)
-            .animation(.linear(duration: 0.06), value: v)
+            .animation(TimbreMotion.meter, value: v)
             Spacer(minLength: 0)
         }
         .accessibilityElement(children: .ignore)
@@ -1440,7 +1442,7 @@ public struct NotchOverlayView: View {
     }
 
     private func expandFromPeek() {
-        withAnimation(reduceMotion ? .easeOut(duration: 0.12) : TimbreMotion.notchOpen) {
+        withAnimation(TimbreMotion.notchOpen) {
             appState.notchState = .expanded
         }
     }

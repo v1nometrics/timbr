@@ -85,6 +85,7 @@ Fotografe com `screencapture -x` e revise com o checklist acima. As capturas da 
 
 | Versão | Data | Mudança |
 |---|---|---|
+| v2.4 | 2026-11-23 | Auditoria de movimento ([registro](../08-registro/auditoria-animacoes-2026-11-23.md)): `exit` deixa de ser ease-in (e o gerador passa a recusar qualquer ease-in); tokens novos (`fade`, `fadeOut`, `tab`, `meter`, `dismissFollow`) no lugar de valores soltos; todos os tokens respeitam "Reduzir movimento" (testado no CI); faixa de aviso e linhas do mixer entram e saem com transição. |
 | v2.3 | 2026-11-22 | Identidade acromática (ADR-0016): o violeta saiu dos tokens, do ícone e da marca; `accent.*` passa a ser tinta; ênfase por peso e espessura; cor só semântica. |
 | v2.2 | 2026-11-22 | Modelo dos apps de referência (DynamicNotchKit, NotchDrop, boring.notch): forma única que abre para os lados e para baixo, conteúdo nas "asas" ao lado da câmera, ícone viajando só na horizontal, pop imediato no hover + abertura após 150 ms, mola de abrir com bounce 0,2, revelação com blur/escala a partir do topo, sombra preta só aberto, liberação rápida da barra. O pescoço da v2.1 foi abandonado. |
 | v2.1 | 2026-11-21 | Notch em pescoço + corpo (nunca cobre menus), orelhas medidas na barra (CGWindowList + Acessibilidade) com queixo quando não há espaço, canvas fixo, ícone único viajante, fechamento contínuo seguindo o ponteiro, molas mais rápidas (0,38/0,30 s), flag `--demo` para inspeção quadro a quadro. |

@@ -22,8 +22,12 @@
 | `smooth` | mola, 0,36 s, bounce 0 | Entrada/saída de linhas no mixer do notch |
 | `snappy` | mola, 0,24 s, bounce 0 | Switch, segmentado, polegar, alças da curva |
 | `enter` | `cubic-bezier(.16,1,.3,1)`, 240 ms | Conteúdo entrando (com blur 6→0) |
-| `exit` | `cubic-bezier(.7,0,.84,0)`, 180 ms | Conteúdo saindo |
+| `exit` | `cubic-bezier(.23,1,.32,1)`, 160 ms | Conteúdo saindo. Era `(.7,0,.84,0)`, um ease-in, que este documento proíbe (§6) |
 | `pressOut` | `cubic-bezier(.23,1,.32,1)`, 140 ms | Escala 0,97 no pressionar |
+| `fade` / `fadeOut` | `cubic-bezier(.23,1,.32,1)`, 120 ms / 90 ms | Opacidade de conteúdo que entra e que sai do compacto e do corpo do notch |
+| `tab` | `cubic-bezier(.23,1,.32,1)`, 140 ms | Troca de aba do Estúdio |
+| `meter` | linear, 80 ms | Medidores ao vivo. Movimento constante: linear de propósito (era 60 a 90 ms em quatro valores soltos) |
+| `dismissFollow` | mola interativa, `response 0,16`, `damping 0,86` | O notch seguindo o ponteiro ao fechar |
 
 ## 3. Coreografia do notch
 
@@ -47,13 +51,18 @@ Modelo estudado no código dos apps de referência (DynamicNotchKit e NotchDrop,
 - Valores arrastáveis (Pro-Q): cursor `resizeLeftRight`; arraste horizontal; frequência em escala logarítmica (dobra a cada 120 pt).
 - Alças da curva de EQ: crescem 17→20 pt em hover/arraste (`snappy`).
 
-## 5. Movimento reduzido
+## 5. Movimento reduzido (garantido pelos tokens)
+
+Todo token de movimento é **calculado**: lê "Reduzir movimento" do macOS (`NSWorkspace.accessibilityDisplayShouldReduceMotion`) no instante em que a animação começa. Com a opção ligada, molas e curvas viram um **fade de 120 ms**, o escalonamento (`stagger`) some e o corpo do notch troca de estado só por opacidade, sem blur nem escala. **Exceção deliberada:** `dismissFollow` e `responsive` continuam, porque seguir o dedo ou o ponteiro é manipulação direta, não decoração. `Timbr --reduce-motion` força o modo para revisão; `Tests/TimbreTokensTests` confere token por token no CI.
+
+Regras antigas, que continuam valendo:
 
 Com "Reduzir movimento": o notch troca de estado com 120 ms de opacidade, sem mola e sem blur; números trocam sem transição; o resto mantém apenas mudanças de cor/opacidade.
 
 ## 6. Proibições
 
-- `ease-in` em qualquer UI.
+- `ease-in` em qualquer UI. **O gerador de tokens recusa** qualquer curva com os dois pontos de controle no chão (`y1 = 0` e `y2 ≤ 0,2`).
+- Valores de animação escritos à mão nas views (`.easeOut(duration:)`, `.linear(duration:)`, `.interactiveSpring(...)`): use um token.
 - Animar a partir de `scale(0)`.
 - Visualizador "decorativo" que finge picos de áudio: o `MiniMeter` usa a silhueta simétrica de 5 barras do `timbr.` com respiração harmônica sutil (~2,6 s, amplitude ≤ 1,1 pt, opacidade contida em 0,70–0,86) quando ativo sem DSP, acoplamento suave ao nível real quando há medição, silhueta estática com "Reduzir movimento" e pausa total quando inativo ou oculto.
 - Animação em ação de teclado.

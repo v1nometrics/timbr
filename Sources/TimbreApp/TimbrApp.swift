@@ -137,6 +137,8 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
                 }
             }
         }
+        // Design review: `--reduce-motion` behaves as if the system setting were on.
+        if args.contains("--reduce-motion") { TimbreMotion.reducedOverride = true }
         // Latency probe: `--review-crossfeed` keeps the global tap (and so the silence measurement) alive while audio plays.
         if let i = args.firstIndex(of: "--feedback-demo"), i + 1 < args.count { appState.feedbackText = args[i + 1]; appState.feedbackCategory = .suggestion }
         if args.contains("--listening-demo") { appState.applyListeningDemo() }

@@ -175,6 +175,19 @@ public final class ProcessTapEngine: @unchecked Sendable {
         lock.unlock()
     }
 
+    /// True while any of these Core Audio process objects still has output running. One property read
+    /// each (no PID translation, which is a round trip to coreaudiod per process). An object that has
+    /// disappeared fails the read and counts as stopped, which is right: its process is gone.
+    public static func isAnyObjectOutputting(_ objects: [AudioObjectID]) -> Bool {
+        var addr = AudioObjectPropertyAddress(mSelector: kAudioProcessPropertyIsRunningOutput, mScope: kAudioObjectPropertyScopeGlobal, mElement: kAudioObjectPropertyElementMain)
+        for obj in objects {
+            var v: UInt32 = 0
+            var size = UInt32(MemoryLayout<UInt32>.size)
+            if AudioObjectGetPropertyData(obj, &addr, 0, nil, &size, &v) == noErr, v != 0 { return true }
+        }
+        return false
+    }
+
     /// True while any of these processes still has Core Audio output running. A handful of property
     /// reads: cheap enough to ask four times a second, unlike re-enumerating every audio process.
     public static func isAnyProcessOutputting(pids: [pid_t]) -> Bool {

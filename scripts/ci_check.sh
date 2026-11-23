@@ -128,6 +128,15 @@ swiftc -sdk "$SDK" -swift-version 6 -wmo -parse-as-library \
   -framework IOBluetooth -framework CoreBluetooth -framework AppKit
 "$BUILD/TimbreEngineTests"
 
+echo "=== 7b. Swift 6 TimbreTokens Tests (Reduce Motion) ==="
+swiftc -sdk "$SDK" -swift-version 6 -wmo -parse-as-library -I "$BUILD" \
+  -module-name TimbreTokensTests \
+  -emit-executable -o "$BUILD/TimbreTokensTests" \
+  "$ROOT/Tests/TimbreTokensTests/main.swift" \
+  "$BUILD/TimbreTokens.o" \
+  -framework SwiftUI -framework AppKit
+"$BUILD/TimbreTokensTests"
+
 echo "=== 8. Timbr.app Bundle Smoke Launch & Clean Exit ==="
 "$ROOT/dist/Timbr.app/Contents/MacOS/Timbr" --smoke-check
 
