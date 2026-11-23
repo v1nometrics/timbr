@@ -6,7 +6,7 @@
 
 **Sound, precisely yours.** · *Som, precisamente seu.*
 
-Mixer de áudio por aplicativo, equalizador paramétrico `Float64` e Observatório da cadeia sonora para macOS — nativo no notch do MacBook, **100% local, sem driver virtual e sem telemetria**.
+O timbr é um notch audiófilo para macOS que reúne mixer de áudio por aplicativo, equalizador paramétrico `Float64` e Observatório da cadeia sonora. Funciona **100% local, sem driver virtual e sem telemetria**, com código aberto sob a licença **MPL-2.0**.
 
 ![macOS 15+ Apple Silicon](https://img.shields.io/badge/macOS-15%2B%20Apple%20Silicon-111111?style=flat-square)
 ![Swift 6 + C++20](https://img.shields.io/badge/Swift%206%20%2B%20C%2B%2B20-Float64%20DSP-111111?style=flat-square)
@@ -14,7 +14,7 @@ Mixer de áudio por aplicativo, equalizador paramétrico `Float64` e Observatór
 ![100% Local](https://img.shields.io/badge/Privacy-100%25%20Local%20%C2%B7%20Zero%20Telemetry-111111?style=flat-square)
 ![i18n PT ES EN](https://img.shields.io/badge/i18n-PT--BR%20%C2%B7%20ES%20%C2%B7%20EN-111111?style=flat-square)
 
-[Estado atual](#estado-atual-2026-11-23) · [Como compilar e testar](#build-testes-e-instala%C3%A7%C3%A3o-macos-15--apple-silicon) · [Arquitetura](#arquitetura-e-estrutura-do-c%C3%B3digo) · [Documentação](#mapa-da-documenta%C3%A7%C3%A3o) · [Contribuir](CONTRIBUTING.md)
+[Instalar](#instalação-rápida) · [Estado atual](#estado-atual-2026-11-23) · [Como compilar e testar](#build-testes-e-instala%C3%A7%C3%A3o-macos-15--apple-silicon) · [Arquitetura](#arquitetura-e-estrutura-do-c%C3%B3digo) · [Documentação](#mapa-da-documenta%C3%A7%C3%A3o) · [Contribuir](CONTRIBUTING.md)
 
 </div>
 
@@ -67,6 +67,20 @@ O projeto está em **MVP funcional (uso diário / dogfood)** com histórico cons
 | **Consumo em repouso, latência em loopback e MacBook Pro OLED** | **Não medido / Desconhecido** | [Plano de Experimentos](docs/06-plano/plano-de-experimentos.md) |
 
 Compatibilidade documentada com apps de terceiros: [superwhisper e Google Chrome](docs/08-registro/compatibilidade-apps-2026-11-22.md).
+
+---
+
+## Instalação rápida
+
+Em um Mac com **Apple Silicon e macOS 15 ou mais novo**, instale as [Command Line Tools da Apple](https://developer.apple.com/xcode/resources/) e execute no Terminal:
+
+```bash
+git clone https://github.com/v1nometrics/timbr.git && cd timbr && ./scripts/setup_dev_signing.sh && ./scripts/install_local.sh
+```
+
+O comando compila o app, instala em `/Applications/Timbr.app` e abre o timbr. Na primeira execução, conceda **Gravação de áudio do sistema** para volume por app e EQ, e **Acessibilidade** para as teclas de volume e brilho.
+
+**Download do DMG:** ainda não há um instalador publicado. A distribuição depende de assinatura Apple Developer ID e notarização; por enquanto, a instalação é feita pelo código-fonte com o comando acima.
 
 ---
 
