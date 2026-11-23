@@ -32,6 +32,13 @@
 
 ## Histórico Consolidado
 
+### 2026-11-23 · O notch não reage mais ao clique de ação inválida e outros sons do sistema
+
+- **Relato:** ao fazer o sistema soar (ex.: clicar onde não dá), o notch animava, mostrava o ícone de Ajustes e saía rápido.
+- **Causa (Comprovado):** qualquer processo com saída ativa virava "tocando", inclusive o `systemsoundserverd`, cujo ícone de grupo é o de Ajustes do Sistema.
+- **Correção ([ADR-0020](../07-decisoes/ADR-0020-sons-do-sistema-nao-acordam-o-notch.md)):** Sons do sistema e Outro áudio do macOS nunca contam como "tocando" para o notch (compacto, espiada, console). Seguem no Mixer, com volume ajustável.
+- **Verificado:** medição no notch real (quadros da janela do notch): antes, 3 bipes animavam; depois, 24 quadros idênticos; um app de verdade ainda anima. Testes de unidade e `./scripts/ci_check.sh` verdes.
+
 ### 2026-11-23 · Mudo à prova de falha (o app silenciado não volta a tocar se o timbr. fechar)
 
 - **Relato:** quando o timbr. fechava por algum motivo, os apps silenciados nele voltavam a tocar (ex.: Spotify mudo no meio de uma aula). "Isso em hipótese alguma pode acontecer."
