@@ -224,6 +224,12 @@ public final class AppState: ObservableObject {
     @Published public var showOnboarding: Bool = false
 
     private var refreshTimer: Timer?
+    // Feedback by e-mail (ADR-0024). The draft is kept on this Mac so a half-written message survives a quit.
+    @Published public var feedbackCategory: FeedbackCategory = .suggestion
+    @Published public var feedbackText = "" { didSet { if feedbackText != oldValue { scheduleFeedbackDraftSave() } } }
+    @Published public var feedbackOptions = FeedbackOptions()
+    private var feedbackSaveWork: DispatchWorkItem?
+
     /// Time listening through headphones and time at high volume (ADR-0023): minutes and volume, never dB.
     private var listeningTracker = ListeningTracker(day: ListeningPolicy.dayKey(Date()))
     private var lastListeningTick: Date?
@@ -330,6 +336,7 @@ public final class AppState: ObservableObject {
             self.showMenuBarIcon = db.getKV("showMenuBarIcon") == "1"
             self.autoDuckOnCall = (db.getKV("autoDuckOnCall") ?? "1") == "1"
             self.instantPauseDetection = db.getKV("instantPauseDetection") == "1"
+            self.feedbackText = db.getKV("feedbackDraft") ?? ""
             let todayKey = ListeningPolicy.dayKey(Date())
             let saved = db.loadListening(days: 7)
             self.listeningWeek = saved
@@ -681,6 +688,65 @@ public final class AppState: ObservableObject {
         listeningToday = listeningWeek.last!
         listeningStreakSeconds = 75 * 60
         listeningAdvice = true
+    }
+
+    // MARK: Feedback (ADR-0024)
+
+    private func scheduleFeedbackDraftSave() {
+        feedbackSaveWork?.cancel()
+        let text = feedbackText
+        let work = DispatchWorkItem { [weak self] in try? self?.store?.setKV("feedbackDraft", value: text) }
+        feedbackSaveWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0, execute: work)
+    }
+
+    /// Five coarse facts, each switchable. Kinds, never names: no device name, no event, no path.
+    public func feedbackContext() -> FeedbackContext {
+        let info = Bundle.main.infoDictionary
+        let version = (info?["CFBundleShortVersionString"] as? String) ?? "dev"
+        let build = (info?["CFBundleVersion"] as? String).map { " (\($0))" } ?? ""
+        return FeedbackContext(
+            appVersion: version + build,
+            macOS: ProcessInfo.processInfo.operatingSystemVersionString,
+            outputKind: activeOutputDevice.map { FeedbackComposer.outputKind(for: $0.transport) } ?? "nenhuma",
+            equalizerMode: { switch eqMode { case .four: return "4 bandas"; case .five: return "5 bandas"; case .ten: return "10 bandas"; case .free: return "PEQ livre" } }(),
+            language: language.rawValue)
+    }
+
+    /// Exactly what the e-mail will contain: the preview on screen is this same string.
+    public var feedbackPreview: String {
+        FeedbackComposer.body(message: feedbackText, context: feedbackContext(), options: feedbackOptions)
+    }
+
+    public var feedbackSendable: Bool { FeedbackComposer.isSendable(feedbackText) }
+
+    /// Opens the person's own mail app with the message ready. If there is none, copies it instead.
+    public func sendFeedbackEmail() {
+        guard feedbackSendable,
+              let url = FeedbackComposer.mailtoURL(category: feedbackCategory, message: feedbackText, context: feedbackContext(), options: feedbackOptions) else { return }
+        if NSWorkspace.shared.urlForApplication(toOpen: url) != nil, NSWorkspace.shared.open(url) {
+            statusBanner = t("ui.feedback.opened")
+            logEvent(category: "feedback", message: "Opened the feedback e-mail (\(feedbackCategory.rawValue))")   // never the content
+        } else {
+            copyFeedback()
+            statusBanner = String(format: t("ui.feedback.no_mail"), FeedbackComposer.recipient)
+        }
+    }
+
+    public func copyFeedback() {
+        let text = "Para: \(FeedbackComposer.recipient)\nAssunto: \(FeedbackComposer.subject(feedbackCategory))\n\n\(feedbackPreview)"
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
+    }
+
+    public func clearFeedback() {
+        feedbackText = ""
+        try? store?.setKV("feedbackDraft", value: "")
+    }
+
+    public func openFeedback() {
+        selectedTab = .support
+        openStudioHandler?()
     }
 
     public func toggleInstantPauseDetection(_ enabled: Bool) {

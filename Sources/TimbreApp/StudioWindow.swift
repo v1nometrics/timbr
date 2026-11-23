@@ -1675,6 +1675,93 @@ private struct SettingsPage: View {
     }
 }
 
+// MARK: - Feedback by e-mail (ADR-0024)
+
+private struct FeedbackSection: View {
+    @ObservedObject var appState: AppState
+    @Environment(\.palette) private var c
+
+    private func catTitle(_ k: FeedbackCategory) -> String { appState.t("ui.feedback.cat.\(k.rawValue)") }
+
+    var body: some View {
+        let count = FeedbackComposer.normalize(appState.feedbackText).count
+        VStack(alignment: .leading, spacing: 14) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(appState.t("ui.feedback.title")).type(TimbreTypography.sectionTitle).foregroundStyle(c.ink_primary)
+                Text(appState.t("ui.feedback.sub")).type(TimbreTypography.small).foregroundStyle(c.ink_secondary)
+                    .frame(maxWidth: 620, alignment: .leading).fixedSize(horizontal: false, vertical: true)
+            }
+            TSegmented(options: FeedbackCategory.allCases.map { ($0, catTitle($0)) }, selection: $appState.feedbackCategory)
+
+            ZStack(alignment: .topLeading) {
+                TextEditor(text: $appState.feedbackText)
+                    .scrollContentBackground(.hidden)
+                    .font(.system(size: 13))
+                    .foregroundStyle(c.ink_primary)
+                    .padding(8)
+                if appState.feedbackText.isEmpty {
+                    Text(appState.t("ui.feedback.hint.\(appState.feedbackCategory.rawValue)"))
+                        .type(TimbreTypography.body).foregroundStyle(c.ink_faint)
+                        .padding(.horizontal, 13).padding(.vertical, 8).allowsHitTesting(false)
+                }
+            }
+            .frame(maxWidth: 620).frame(height: 120)
+            .background(RoundedRectangle(cornerRadius: TimbreRadius.field, style: .continuous).fill(c.bg_inset))
+            .overlay(RoundedRectangle(cornerRadius: TimbreRadius.field, style: .continuous).strokeBorder(c.line_default, lineWidth: 0.5))
+
+            HStack {
+                Text(count > 0 && count < FeedbackComposer.minMessageLength ? appState.t("ui.feedback.too_short")
+                     : String(format: appState.t("ui.feedback.counter"), count, FeedbackComposer.maxMessageLength))
+                    .type(TimbreTypography.monoSmall).foregroundStyle(c.ink_muted)
+            }
+            .frame(maxWidth: 620, alignment: .trailing)
+
+            VStack(alignment: .leading, spacing: 8) {
+                Eyebrow(text: appState.t("ui.feedback.context"))
+                ctx("ui.feedback.ctx.app", $appState.feedbackOptions.app)
+                ctx("ui.feedback.ctx.system", $appState.feedbackOptions.system)
+                ctx("ui.feedback.ctx.output", $appState.feedbackOptions.output)
+                ctx("ui.feedback.ctx.equalizer", $appState.feedbackOptions.equalizer)
+                ctx("ui.feedback.ctx.language", $appState.feedbackOptions.language)
+                Text(appState.t("ui.feedback.never")).type(TimbreTypography.caption).foregroundStyle(c.ink_muted)
+            }
+
+            VStack(alignment: .leading, spacing: 6) {
+                Eyebrow(text: appState.t("ui.feedback.preview"))
+                Text("Para: \(FeedbackComposer.recipient)\nAssunto: \(FeedbackComposer.subject(appState.feedbackCategory))\n\n\(appState.feedbackPreview.isEmpty ? "…" : appState.feedbackPreview)")
+                    .type(TimbreTypography.monoSmall).foregroundStyle(c.ink_secondary)
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(12)
+                    .background(RoundedRectangle(cornerRadius: TimbreRadius.field, style: .continuous).fill(c.bg_surface))
+                    .overlay(RoundedRectangle(cornerRadius: TimbreRadius.field, style: .continuous).strokeBorder(c.line_default, lineWidth: 0.5))
+            }
+            .frame(maxWidth: 620, alignment: .leading)
+
+            HStack(spacing: 10) {
+                Button(appState.t("ui.feedback.send")) { appState.sendFeedbackEmail() }
+                    .buttonStyle(.t(.primary)).disabled(!appState.feedbackSendable)
+                Button(appState.t("ui.feedback.copy")) { appState.copyFeedback() }
+                    .buttonStyle(.t(.secondary)).disabled(!appState.feedbackSendable)
+                Button(appState.t("ui.feedback.clear")) { appState.clearFeedback() }
+                    .buttonStyle(.t(.ghost)).disabled(appState.feedbackText.isEmpty)
+                Spacer()
+                if let url = URL(string: "https://github.com/v1nometrics/timbr/issues/new") {
+                    Button(appState.t("ui.feedback.github")) { NSWorkspace.shared.open(url) }.buttonStyle(.t(.ghost, compact: true))
+                }
+            }
+            .frame(maxWidth: 620)
+        }
+    }
+
+    private func ctx(_ key: String, _ on: Binding<Bool>) -> some View {
+        HStack(spacing: 10) {
+            TSwitch(isOn: on, label: appState.t(key))
+            Text(appState.t(key)).type(TimbreTypography.small).foregroundStyle(c.ink_primary)
+        }
+    }
+}
+
 // MARK: - About
 
 private struct AboutPage: View {
@@ -1701,6 +1788,8 @@ private struct AboutPage: View {
                     Button(appState.t("ui.about.sponsor")) { NSWorkspace.shared.open(sp) }.buttonStyle(.t(.secondary))
                 }
             }
+            Hairline()
+            FeedbackSection(appState: appState)
             Hairline()
             HStack(spacing: 40) {
                 fact(appState.t("ui.about.version"), Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "dev")

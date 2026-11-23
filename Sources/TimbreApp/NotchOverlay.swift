@@ -770,6 +770,7 @@ public final class NotchPanelController {
         let icon = ClosureMenuItem(appState.t("ui.ctx.show_menubar")) { appState.setShowMenuBarIcon(!appState.showMenuBarIcon) }
         icon.state = appState.showMenuBarIcon ? .on : .off
         menu.addItem(icon)
+        menu.addItem(ClosureMenuItem(appState.t("ui.feedback.menu")) { appState.openFeedback() })
         menu.addItem(.separator())
         menu.addItem(ClosureMenuItem(appState.t("ui.quit") + " timbr.") { NSApp.terminate(nil) })
         return menu

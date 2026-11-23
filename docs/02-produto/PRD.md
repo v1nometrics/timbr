@@ -83,6 +83,7 @@ Coluna "Viab." referencia a seção da matriz de viabilidade. Critérios de acei
 | RF-0309 | EQ por fonte (app), além do EQ por destino | P1 | B |
 | RF-0310 | Troca de parâmetros sem zipper noise (interpolação de coeficientes) | P0 | B |
 | RF-0311 | Fase linear/FIR opcional com latência exibida | P3 | B |
+| RF-0312 | Níveis de controle do EQ de gosto: 4, 5 ou 10 bandas fixas (só o ganho) e PEQ livre, com ganhos próprios por nível, nomes em português com o termo audiófilo entre parênteses e **Resetar filtros** com desfazer ([ADR-0019](../07-decisoes/ADR-0019-equalizador-de-4-5-10-bandas-e-peq-livre.md)) | P1 | B |
 
 ### EP-04 · Correção de fone
 | ID | Requisito | Prior. | Viab. |
@@ -124,8 +125,9 @@ Coluna "Viab." referencia a seção da matriz de viabilidade. Critérios de acei
 | RF-0703 | Medidores de saída: pico de amostra, true peak, RMS, LUFS M/S | P1 | B |
 | RF-0704 | Contador de clipping e de atuação do limiter | P0 | B |
 | RF-0705 | Guardião: alertas para queda HFP, reamostragem, clipping recorrente, EQ duplicado (firmware + app), volume em software num caminho que poderia ser bit-perfect, dispositivo trocado inesperadamente | P1 | C |
-| RF-0706 | Linha do tempo de eventos (trocas de dispositivo, formato, rotas) exportável | P1 | — |
+| RF-0706 | Linha do tempo de eventos (trocas de dispositivo, formato, rotas) exportável. **Implementado:** histórico completo paginado, busca por trecho, filtro por categoria, exportação CSV/JSON ([ADR-0018](../07-decisoes/ADR-0018-linha-do-tempo-busca-e-exportacao.md)) | P1 | — |
 | RF-0707 | Estimativa de exposição sonora (dB SPL **estimado**) com dados de sensibilidade do fone e aviso de limites WHO/ITU H.870 | P2 | C |
+| RF-0709 | Tempo de escuta com fone e com volume alto (regra prática 60/60), aviso no Observatório e no notch, **sem decibéis e sem tap** ([ADR-0023](../07-decisoes/ADR-0023-tempo-de-escuta-e-volume-alto.md)); o RF-0707 (dB estimado) segue à parte | P1 | C |
 | RF-0708 | Selo "bit-perfect" só quando as condições do glossário forem satisfeitas | P1 | B |
 
 ### EP-08 · Bluetooth e drivers de fabricante
@@ -189,6 +191,7 @@ Coluna "Viab." referencia a seção da matriz de viabilidade. Critérios de acei
 | RF-1304 | Estúdio (janela) | P0 (mínimo) / P1 (completo) | E |
 | RF-1305 | Operação completa por teclado e VoiceOver | P0 | E |
 | RF-1306 | Live Activity (macOS 27.3+) | P2 | D |
+| RF-1308 | O notch recolhe sem esperar o macOS: debounce curto, vigia leve e silêncio medido quando há tap; chave opcional "Perceber pausas na hora" ([ADR-0021](../07-decisoes/ADR-0021-notch-percebe-a-pausa-sem-esperar-o-macos.md)); sons curtos do sistema não acordam o notch ([ADR-0020](../07-decisoes/ADR-0020-sons-do-sistema-nao-acordam-o-notch.md)) | P1 | E |
 | RF-1307 | Aparência do notch personalizável (preto contínuo, preto com fio editorial ou modo silencioso na pílula/menu) dentro do design system | P1 | E |
 
 ### EP-14 · Plataforma e confiança
@@ -200,6 +203,8 @@ Coluna "Viab." referencia a seção da matriz de viabilidade. Critérios de acei
 | RF-1404 | Atualizações via Sparkle com notas de versão | P0 | G |
 | RF-1405 | Trilíngue nativo desde a v1: **Português (`pt-BR`), Espanhol (`es`) e Inglês (`en`)** via `.xcstrings` (variantes curtas para notch + preservação de termos universais `dBTP`/`Headroom`/`Bypass`) | P0 | A |
 | RF-1406 | Exportar/importar toda a configuração | P1 | — |
+| RF-1408 | Feedback por e-mail, local e visível: o app só abre o e-mail da pessoa com a mensagem pronta e mostra o que acompanha ([ADR-0024](../07-decisoes/ADR-0024-feedback-por-email-local.md)) | P1 | G |
+| RF-1409 | Mudo à prova de falha: app silenciado continua mudo se o timbr. morrer ([ADR-0017](../07-decisoes/ADR-0017-mudo-a-prova-de-falha.md)) | P0 | A |
 | RF-1407 | Relatório de diagnóstico para bugs, revisável antes de enviar, sem áudio | P1 | — |
 
 ### EP-15 · Extensibilidade e extras audiófilos

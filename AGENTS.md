@@ -37,5 +37,6 @@ Toda afirmação técnica relevante recebe uma das classes abaixo:
 
 - `./scripts/ci_check.sh` precisa passar localmente. O CI do GitHub usa **Swift 6.1** (Xcode 16.4), mais rígido que o 6.3 local: só mescle com o check do PR verde.
 - Mudou o caminho de áudio (taps, DSP, render)? Rode `./scripts/selftest_audio.sh`: mede o ganho real dentro do app instalado. Não confie só em teste unitário.
+- Mudou o mudo por app ou o `timbr-mute-keeper`? Rode `./scripts/selftest_mute_persistence.sh` (mecânica) e, com alguém por perto, `./scripts/listen_mute_crash.sh` (teste de ouvido: o único que mede o alto-falante).
 - Mudou interface? Gere capturas com as flags de revisão (`--studio`, `--notch`, `--review-empty`, `--demo`, `--panel-preview`) e olhe a imagem antes de afirmar.
 - Para trabalhar com o app instalado, assine com a identidade local (`./scripts/setup_dev_signing.sh`). Builds ad-hoc perdem a permissão de Acessibilidade a cada compilação.
