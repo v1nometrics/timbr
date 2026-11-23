@@ -108,3 +108,6 @@
 29. **Swift 6.1 (Xcode 16.4) é mais rígido que o 6.3 com isolamento em SwiftUI (Comprovado, 2026-11-22).** Closures de `Canvas` são `nonisolated` no 6.1, e propriedades estáticas de uma `View` são inferidas como `@MainActor`. O CI do GitHub ficou vermelho do redesign de 21/11 até 22/11 com o build local verde. A matemática do eixo do EQ foi para um `enum` fora da `View`.
 
 30. **Vídeo mudo no player do navegador não gera áudio para o macOS (Comprovado, 2026-11-23).** Com o YouTube em `muted: true`, nenhum processo do Chrome tinha saída ativa. Não aparece como fonte, e está correto.
+
+31. **Volume 0 não é silêncio nos alto-falantes do MacBook, e o macOS não muta sozinho (Comprovado, 2026-11-23).** No `BuiltInSpeakerDevice`, `kAudioDevicePropertyVolumeScalarToDecibels(0.0)` = **−63,5 dB**. Forçando `scalar = 0` e `mute = 0` **com o timbr. fechado**, o dispositivo ficou assim por tempo indefinido: o vazamento baixinho que o dono ouvia num quarto silencioso. **Com o timbr. aberto**, o mesmo estado virou `mute = 1` na hora (autocorreção do PR #9). Regra: tudo que aparece como "0 %" precisa do mudo de hardware ligado.
+

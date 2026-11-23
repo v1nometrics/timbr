@@ -31,6 +31,16 @@
 
 ## Histórico Consolidado
 
+### 2026-11-23 · Verificação no hardware: volume 0 sem vazamento
+
+- **Relato:** com o notch e o menu do Mac mostrando volume 0, ainda dava para ouvir a música baixinho.
+- **Causa (Comprovado):** nos alto-falantes internos, `scalar = 0` equivale a −63,5 dB, não a silêncio, e o macOS não liga o mudo sozinho nesse ponto.
+- **Correção:** PRs #7 e #9, mesclados por outra sessão. O app liga o mudo antes de zerar o volume, se corrige sozinho quando encontra "0 % sem mudo" e zera o ganho digital dos taps.
+- **Verificado nesta sessão:**
+  - Estado forçado `scalar 0 / mute 0`: sem o timbr., fica assim; com o timbr., vira `mute 1` imediatamente.
+  - CI local verde e CI do GitHub verde no `main` (`13911bf`).
+  - Volume do dono restaurado a 53 % após o teste.
+
 ### 2026-11-23 · Dois ou mais apps tocando: compacto e espiada no notch
 
 - **Dúvida de produto:** quando dois apps (ex.: Spotify + Google Chrome) tocam ao mesmo tempo, qual logo aparece no compacto em cima do notch e o que a espiada (hover sem clique) deve priorizar — um dos apps ou o volume geral?
