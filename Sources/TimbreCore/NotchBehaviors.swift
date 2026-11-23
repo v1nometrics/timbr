@@ -127,21 +127,111 @@ public enum FullscreenEvaluator: Sendable {
         "loginwindow"
     ]
 
-    /// Returns true when the target notch display is occupied by a fullscreen video or app.
-    /// Avoids false positives on desktop maximized windows (even when Dock auto-hide is enabled).
+    /// Dedicated media, cinema, and presentation apps that should always suppress the notch in fullscreen.
+    public static let cinemaBundleIDs: Set<String> = [
+        "com.apple.QuickTimePlayerX",
+        "com.apple.TV",
+        "com.apple.DVDPlayer",
+        "com.apple.iWork.Keynote",
+        "com.microsoft.Powerpoint",
+        "com.colliderli.iina",
+        "org.videolan.vlc",
+        "com.firecore.infuse",
+        "io.mpv",
+        "tv.plex.player",
+        "tv.plex.desktop",
+        "com.movist.MovistPro",
+        "com.eltima.elmedia6",
+        "com.apple.FinalCut",
+        "com.blackmagic-design.DaVinciResolve"
+    ]
+
+    public static let cinemaOwners: Set<String> = [
+        "QuickTime Player",
+        "IINA",
+        "VLC",
+        "TV",
+        "Apple TV",
+        "Infuse",
+        "mpv",
+        "Movist",
+        "Movist Pro",
+        "Elmedia Player",
+        "Plex",
+        "Kodi",
+        "Keynote",
+        "Microsoft PowerPoint"
+    ]
+
+    /// Browsers that draw toolbar + content in separate windows or expose WKFullScreenWindow on HTML5 video.
+    public static let multiWindowBrowserOwners: Set<String> = [
+        "Google Chrome",
+        "Google Chrome Canary",
+        "Arc",
+        "Brave Browser",
+        "Microsoft Edge",
+        "Firefox",
+        "Vivaldi",
+        "Opera",
+        "Chromium",
+        "Orion",
+        "Zen",
+        "Zen Browser"
+    ]
+
+    public static let multiWindowBrowserBundleIDs: Set<String> = [
+        "com.google.Chrome",
+        "com.google.Chrome.canary",
+        "company.thebrowser.Browser",
+        "com.brave.Browser",
+        "com.microsoft.edgemac",
+        "org.mozilla.firefox",
+        "com.vivaldi.Vivaldi",
+        "com.operasoftware.Opera",
+        "org.chromium.Chromium",
+        "com.kagi.kagimacOS",
+        "app.zen-browser.zen"
+    ]
+
+    public static let safariBundleID = "com.apple.Safari"
+
+    private static func isCinemaApp(bundleID: String?, ownerName: String?) -> Bool {
+        if let bundleID, cinemaBundleIDs.contains(bundleID) { return true }
+        if let ownerName, cinemaOwners.contains(ownerName) { return true }
+        return false
+    }
+
+    private static func isMultiWindowBrowser(bundleID: String?, ownerName: String?) -> Bool {
+        if let bundleID, multiWindowBrowserBundleIDs.contains(bundleID) { return true }
+        if let ownerName, multiWindowBrowserOwners.contains(ownerName) { return true }
+        return false
+    }
+
+    private static func isSafari(bundleID: String?, ownerName: String?) -> Bool {
+        bundleID == safariBundleID || ownerName == "Safari"
+    }
+
+    /// Returns true when the target notch display should suppress notch chrome for immersive fullscreen:
+    /// - True top-edge / borderless fullscreen (`minY <= 2`, e.g. games, borderless video, non-notched fullscreen).
+    /// - Dedicated cinema / media / presentation apps in native fullscreen (QuickTime, IINA, VLC, TV, Keynote).
+    /// - HTML5 video fullscreen inside browsers (Chrome/Chromium full-height without toolbar, Safari WKFullScreenWindow or Safari playing video).
+    /// Normal browser Spaces (`Cmd+Ctrl+F`) and productivity apps sitting below the physical notch keep the notch active in the black bezel.
     public static func isFullscreen(
         screen: FullscreenScreenSpec,
         windows: [FullscreenWindowSnapshot],
         menuBarVisible: Bool,
         autoHideMenuBarAlways: Bool,
         frontmostAXFullScreen: Bool,
-        ownPID: Int32
+        ownPID: Int32,
+        frontmostBundleID: String? = nil,
+        frontmostOwnerName: String? = nil,
+        playingBundleIDs: Set<String> = [],
+        playingOwnerNames: Set<String> = []
     ) -> Bool {
         guard screen.width > 0, screen.height > 0 else { return false }
-        if frontmostAXFullScreen { return true }
 
         let insetFloor = max(screen.topInset, 24)
-        var splitCoverages: [(Double, Double)] = []
+        var safariFullHeightCount = 0
 
         for w in windows {
             guard w.ownerPID != ownPID,
@@ -154,46 +244,50 @@ public enum FullscreenEvaluator: Sendable {
             let coversTopEdge = w.minY <= screen.minY + 2
             let coversBelowNotch = w.minY <= screen.minY + insetFloor + 4
 
-            // Case A: Borderless / HTML5 / game fullscreen covering top edge (even under the notch).
+            // Case A: Borderless / top-edge / non-notched fullscreen covering the physical top edge.
             if coversWidth && coversTopEdge && coversBottom {
                 if screen.hasPhysicalNotch || !autoHideMenuBarAlways || !menuBarVisible {
                     return true
                 }
             }
 
-            // Case B: Native macOS Fullscreen Space (sits directly below the black notch bezel, no Dock, menu bar hidden).
-            if coversWidth && coversBelowNotch && coversBottom && !autoHideMenuBarAlways && !menuBarVisible {
-                return true
+            guard coversWidth && coversBelowNotch && coversBottom else { continue }
+
+            let isFrontOwner = (frontmostOwnerName != nil && w.ownerName == frontmostOwnerName)
+            let windowBundleID = isFrontOwner ? frontmostBundleID : nil
+
+            // Case B: Dedicated cinema / media / presentation apps in native fullscreen below the notch.
+            if isCinemaApp(bundleID: windowBundleID, ownerName: w.ownerName) {
+                if (frontmostAXFullScreen && isFrontOwner) || (!autoHideMenuBarAlways && !menuBarVisible) {
+                    return true
+                }
             }
 
-            // Case C: Native macOS Fullscreen Split View (2 side-by-side windows covering full height while menu bar hidden).
-            if !autoHideMenuBarAlways && !menuBarVisible && coversBelowNotch && coversBottom {
-                let left = max(screen.minX, w.minX)
-                let right = min(screen.maxX, w.maxX)
-                if right - left >= screen.width * 0.30 {
-                    splitCoverages.append((left, right))
+            // Case C: Multi-window browsers (Chrome, Arc, Brave, Edge, Firefox) only span full height below the notch
+            // when toolbar & tab strip are hidden (e.g. HTML5 YouTube/Netflix fullscreen). Normal browsing starts lower (Y >= 100+).
+            if isMultiWindowBrowser(bundleID: windowBundleID, ownerName: w.ownerName) {
+                if !autoHideMenuBarAlways && !menuBarVisible {
+                    return true
+                }
+                if frontmostAXFullScreen && isFrontOwner {
+                    return true
+                }
+            }
+
+            // Case D: Safari draws toolbar inside its single main window, so distinguish normal browsing from HTML5 video:
+            // WKFullScreenWindow stacks a 2nd full-height window OR Safari itself is actively playing media in fullscreen.
+            if isSafari(bundleID: windowBundleID, ownerName: w.ownerName) {
+                safariFullHeightCount += 1
+                let safariPlaying = playingBundleIDs.contains(safariBundleID) || playingOwnerNames.contains("Safari")
+                if safariFullHeightCount >= 2 || (safariPlaying && ((!autoHideMenuBarAlways && !menuBarVisible) || (frontmostAXFullScreen && isFrontOwner))) {
+                    return true
                 }
             }
         }
 
-        if splitCoverages.count >= 2 {
-            let sorted = splitCoverages.sorted { $0.0 < $1.0 }
-            var mergedSpan = 0.0
-            var curStart = sorted[0].0
-            var curEnd = sorted[0].1
-            for seg in sorted.dropFirst() {
-                if seg.0 <= curEnd + 16 {
-                    curEnd = max(curEnd, seg.1)
-                } else {
-                    mergedSpan += curEnd - curStart
-                    curStart = seg.0
-                    curEnd = seg.1
-                }
-            }
-            mergedSpan += curEnd - curStart
-            if mergedSpan >= screen.width - 16 {
-                return true
-            }
+        // Frontmost dedicated cinema/presentation app in AXFullScreen even if its window is momentarily transitioning.
+        if frontmostAXFullScreen && isCinemaApp(bundleID: frontmostBundleID, ownerName: frontmostOwnerName) {
+            return true
         }
 
         return false

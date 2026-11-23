@@ -245,26 +245,48 @@ struct TimbreCoreTestRunner {
         expect(avgLoud > avgQuiet && liveLoud.allSatisfy { $0.height <= 13.0 && $0.opacity <= 0.91 }, "Live signal lifts harmonic envelope smoothly within calm bounds")
         print("  [PASS] TimbreHarmonicMath (5-bar silhouette, subtle breath, Reduce Motion)")
 
-        // FullscreenEvaluator: Chrome/Safari/video fullscreen vs desktop maximized & multi-display
+        // FullscreenEvaluator: keep notch active in normal browser/work fullscreen Spaces; hide on video/cinema/top-edge fullscreen
         let notchScreen = FullscreenScreenSpec(minX: 0, minY: 0, width: 1470, height: 956, topInset: 32, hasPhysicalNotch: true)
+        let nonNotchScreen = FullscreenScreenSpec(minX: 0, minY: 0, width: 1920, height: 1080, topInset: 0, hasPhysicalNotch: false)
         let dockBackdrop = FullscreenWindowSnapshot(ownerPID: 10, ownerName: "Dock", layer: 20, minX: 0, minY: 0, width: 1470, height: 956)
         let ownWindow = FullscreenWindowSnapshot(ownerPID: 999, ownerName: "Timbr", layer: 0, minX: 0, minY: 0, width: 1470, height: 956)
         let desktopMaxWithDock = FullscreenWindowSnapshot(ownerPID: 200, ownerName: "T3 Code", layer: 0, minX: 0, minY: 33, width: 1470, height: 868)
         let desktopMaxAutoHideDock = FullscreenWindowSnapshot(ownerPID: 200, ownerName: "Safari", layer: 0, minX: 0, minY: 32, width: 1470, height: 924)
-        let html5Fullscreen = FullscreenWindowSnapshot(ownerPID: 201, ownerName: "Google Chrome", layer: 0, minX: 0, minY: 0, width: 1470, height: 956)
-        let nativeFullscreen = FullscreenWindowSnapshot(ownerPID: 202, ownerName: "Safari", layer: 0, minX: 0, minY: 32, width: 1470, height: 924)
+
+        // Chrome normal native fullscreen: toolbar (Y=33..74), tab strip (Y=74..155), content (Y=155..956)
+        let chromeToolbar = FullscreenWindowSnapshot(ownerPID: 201, ownerName: "Google Chrome", layer: 0, minX: 0, minY: 33, width: 1470, height: 41)
+        let chromeTabStrip = FullscreenWindowSnapshot(ownerPID: 201, ownerName: "Google Chrome", layer: 0, minX: 0, minY: 74, width: 1470, height: 81)
+        let chromeBrowsingContent = FullscreenWindowSnapshot(ownerPID: 201, ownerName: "Google Chrome", layer: 0, minX: 0, minY: 155, width: 1470, height: 801)
+        // Chrome HTML5 video fullscreen: toolbar hides and video spans below-notch to bottom (or top edge 0..956)
+        let chromeVideoBelowNotch = FullscreenWindowSnapshot(ownerPID: 201, ownerName: "Google Chrome", layer: 0, minX: 0, minY: 33, width: 1470, height: 923)
+        let html5TopEdgeFullscreen = FullscreenWindowSnapshot(ownerPID: 201, ownerName: "Google Chrome", layer: 0, minX: 0, minY: 0, width: 1470, height: 956)
+
+        // Safari normal native fullscreen vs Safari WKFullScreenWindow / active video
+        let safariSingle = FullscreenWindowSnapshot(ownerPID: 202, ownerName: "Safari", layer: 0, minX: 0, minY: 32, width: 1470, height: 924)
+        let safariWKOverlay = FullscreenWindowSnapshot(ownerPID: 202, ownerName: "Safari", layer: 0, minX: 0, minY: 32, width: 1470, height: 924)
+
+        // Productivity & cinema apps
+        let cursorFullscreen = FullscreenWindowSnapshot(ownerPID: 205, ownerName: "Cursor", layer: 0, minX: 0, minY: 32, width: 1470, height: 924)
+        let vlcFullscreen = FullscreenWindowSnapshot(ownerPID: 206, ownerName: "VLC", layer: 0, minX: 0, minY: 32, width: 1470, height: 924)
         let externalFullscreen = FullscreenWindowSnapshot(ownerPID: 203, ownerName: "VLC", layer: 0, minX: 1470, minY: 0, width: 1920, height: 1080)
         let splitLeft = FullscreenWindowSnapshot(ownerPID: 202, ownerName: "Safari", layer: 0, minX: 0, minY: 32, width: 730, height: 924)
         let splitRight = FullscreenWindowSnapshot(ownerPID: 204, ownerName: "Notes", layer: 0, minX: 740, minY: 32, width: 730, height: 924)
+        let nonNotchNativeFullscreen = FullscreenWindowSnapshot(ownerPID: 201, ownerName: "Google Chrome", layer: 0, minX: 0, minY: 0, width: 1920, height: 1080)
 
         expect(!FullscreenEvaluator.isFullscreen(screen: notchScreen, windows: [dockBackdrop, ownWindow, desktopMaxWithDock], menuBarVisible: true, autoHideMenuBarAlways: false, frontmostAXFullScreen: false, ownPID: 999), "Desktop maximized window is not fullscreen")
         expect(!FullscreenEvaluator.isFullscreen(screen: notchScreen, windows: [dockBackdrop, desktopMaxAutoHideDock], menuBarVisible: true, autoHideMenuBarAlways: false, frontmostAXFullScreen: false, ownPID: 999), "Desktop maximized with auto-hidden Dock (menu bar visible) is not fullscreen")
-        expect(FullscreenEvaluator.isFullscreen(screen: notchScreen, windows: [dockBackdrop, html5Fullscreen], menuBarVisible: false, autoHideMenuBarAlways: false, frontmostAXFullScreen: false, ownPID: 999), "Chrome HTML5 fullscreen covering notch edge hides compact")
-        expect(FullscreenEvaluator.isFullscreen(screen: notchScreen, windows: [dockBackdrop, nativeFullscreen], menuBarVisible: false, autoHideMenuBarAlways: false, frontmostAXFullScreen: false, ownPID: 999), "Native macOS fullscreen Space hides compact")
-        expect(FullscreenEvaluator.isFullscreen(screen: notchScreen, windows: [dockBackdrop, splitLeft, splitRight], menuBarVisible: false, autoHideMenuBarAlways: false, frontmostAXFullScreen: false, ownPID: 999), "Fullscreen Split View hides compact")
+        expect(!FullscreenEvaluator.isFullscreen(screen: notchScreen, windows: [dockBackdrop, chromeToolbar, chromeTabStrip, chromeBrowsingContent], menuBarVisible: false, autoHideMenuBarAlways: false, frontmostAXFullScreen: true, ownPID: 999, frontmostBundleID: "com.google.Chrome", frontmostOwnerName: "Google Chrome", playingBundleIDs: ["com.spotify.client"], playingOwnerNames: ["Spotify"]), "Chrome normal fullscreen browsing keeps notch active in black bezel")
+        expect(!FullscreenEvaluator.isFullscreen(screen: notchScreen, windows: [dockBackdrop, safariSingle], menuBarVisible: false, autoHideMenuBarAlways: false, frontmostAXFullScreen: true, ownPID: 999, frontmostBundleID: "com.apple.Safari", frontmostOwnerName: "Safari", playingBundleIDs: ["com.spotify.client"], playingOwnerNames: ["Spotify"]), "Safari normal fullscreen browsing keeps notch active even with background Spotify")
+        expect(!FullscreenEvaluator.isFullscreen(screen: notchScreen, windows: [dockBackdrop, cursorFullscreen], menuBarVisible: false, autoHideMenuBarAlways: false, frontmostAXFullScreen: true, ownPID: 999, frontmostBundleID: "com.todesktop.230313mzl4w4u92", frontmostOwnerName: "Cursor"), "Productivity app (Cursor) in native fullscreen keeps notch active")
+        expect(!FullscreenEvaluator.isFullscreen(screen: notchScreen, windows: [dockBackdrop, splitLeft, splitRight], menuBarVisible: false, autoHideMenuBarAlways: false, frontmostAXFullScreen: true, ownPID: 999, frontmostBundleID: "com.apple.Safari", frontmostOwnerName: "Safari"), "Fullscreen Split View keeps notch active in black bezel")
+        expect(FullscreenEvaluator.isFullscreen(screen: notchScreen, windows: [dockBackdrop, chromeVideoBelowNotch], menuBarVisible: false, autoHideMenuBarAlways: false, frontmostAXFullScreen: true, ownPID: 999, frontmostBundleID: "com.google.Chrome", frontmostOwnerName: "Google Chrome"), "Chrome HTML5 video fullscreen (toolbars hidden) hides notch")
+        expect(FullscreenEvaluator.isFullscreen(screen: notchScreen, windows: [dockBackdrop, html5TopEdgeFullscreen], menuBarVisible: false, autoHideMenuBarAlways: false, frontmostAXFullScreen: false, ownPID: 999), "Top-edge borderless fullscreen hides notch")
+        expect(FullscreenEvaluator.isFullscreen(screen: notchScreen, windows: [dockBackdrop, safariSingle, safariWKOverlay], menuBarVisible: false, autoHideMenuBarAlways: false, frontmostAXFullScreen: true, ownPID: 999, frontmostBundleID: "com.apple.Safari", frontmostOwnerName: "Safari"), "Safari WKFullScreenWindow HTML5 video hides notch")
+        expect(FullscreenEvaluator.isFullscreen(screen: notchScreen, windows: [dockBackdrop, safariSingle], menuBarVisible: false, autoHideMenuBarAlways: false, frontmostAXFullScreen: true, ownPID: 999, frontmostBundleID: "com.apple.Safari", frontmostOwnerName: "Safari", playingBundleIDs: ["com.apple.Safari"], playingOwnerNames: ["Safari"]), "Safari fullscreen playing video hides notch")
+        expect(FullscreenEvaluator.isFullscreen(screen: notchScreen, windows: [dockBackdrop, vlcFullscreen], menuBarVisible: true, autoHideMenuBarAlways: false, frontmostAXFullScreen: true, ownPID: 999, frontmostBundleID: "org.videolan.vlc", frontmostOwnerName: "VLC"), "Cinema/media player (VLC) hides notch even during brief top-edge menu bar peek")
         expect(!FullscreenEvaluator.isFullscreen(screen: notchScreen, windows: [dockBackdrop, externalFullscreen], menuBarVisible: false, autoHideMenuBarAlways: false, frontmostAXFullScreen: false, ownPID: 999), "Fullscreen on external display does not hide MacBook notch")
-        expect(FullscreenEvaluator.isFullscreen(screen: notchScreen, windows: [dockBackdrop, nativeFullscreen], menuBarVisible: true, autoHideMenuBarAlways: false, frontmostAXFullScreen: true, ownPID: 999), "AXFullScreen keeps fullscreen active during brief top-edge menu bar peek")
-        print("  [PASS] FullscreenEvaluator (HTML5, native Space, Split View, auto-hide Dock, multi-monitor)")
+        expect(FullscreenEvaluator.isFullscreen(screen: nonNotchScreen, windows: [nonNotchNativeFullscreen], menuBarVisible: false, autoHideMenuBarAlways: false, frontmostAXFullScreen: true, ownPID: 999, frontmostBundleID: "com.google.Chrome", frontmostOwnerName: "Google Chrome"), "Non-notched display fullscreen covers top edge and hides pill")
+        print("  [PASS] FullscreenEvaluator (browser normal vs HTML5 video, cinema apps, productivity apps, multi-monitor)")
 
         // MenuBarSpaceEvaluator: Chrome wrapped right menus (Janela/Ajuda), dual-app chin fallback, Accessibility gating
         let freeBoth = MenuBarSpaceEvaluator.freeEars(
