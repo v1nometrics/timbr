@@ -13,7 +13,7 @@ O design system herdou do Órbita / ronda diária a estrutura acromática e um �
 - **A ênfase é feita por tinta, peso e espessura, não por cor.** Os tokens `accent.*` continuam existindo como papéis ("ênfase", "sinal", "controle ligado"), para o código não precisar mudar, mas agora apontam para a tinta da superfície: `#111111` no claro, `#F3F3F1` no escuro, `#FFFFFF` no notch.
 - **A hierarquia do sinal sem cor:** resultado = linha sólida de 2 pt em tinta primária com área de 5–7%; correção = tracejado em tinta secundária; gosto = linha fina em tinta esmaecida. No espectro, área em degradê de tinta. "Processando" = ponto em tinta primária; desligado = tinta esmaecida.
 - **Cor só com significado semântico, e nunca como marca:** verde = caminho nativo / bit-perfect / concedido; âmbar = aviso (boost, volume em software, Guardião); vermelho = destrutivo / crítico; azul = informativo. Nenhuma delas aparece em repouso.
-- **Ícone do app:** monólito `#141414` com as barras da onda e o ponto final da marca, ambos em branco `#F2F2F2`.
+- **Ícone do app:** ~~monólito `#141414` com as barras da onda e o ponto final~~ substituído pela [ADR-0022](ADR-0022-icone-do-app-notch-e-som.md) (notch + som, papel quente, ainda sem cor).
 
 ## Alternativas
 

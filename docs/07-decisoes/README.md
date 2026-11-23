@@ -26,4 +26,5 @@ Uma decisão "Proposta" só vira "Aceita" quando (a) o dono aprova, quando é de
 | [ADR-0018](ADR-0018-linha-do-tempo-busca-e-exportacao.md) | Linha do tempo do Observatório: paginação por cursor, busca FTS5 trigram, filtro e exportação CSV/JSON em fluxo, sem travar o app | **Aceito** |
 | [ADR-0020](ADR-0020-sons-do-sistema-nao-acordam-o-notch.md) | Sons curtos do sistema (clique inválido, alertas) não acordam o notch; seguem no Mixer | **Aceito** |
 | [ADR-0021](ADR-0021-notch-percebe-a-pausa-sem-esperar-o-macos.md) | O notch percebe a pausa sem esperar o macOS: debounce armado uma vez, vigia de 250 ms e silêncio medido quando há tap | **Aceito** |
+| [ADR-0022](ADR-0022-icone-do-app-notch-e-som.md) | Ícone do app: o notch pendurado na borda e as cinco barras de som abaixo, em papel quente (substitui o monólito escuro) | **Aceito** |
 | [ADR-0017](ADR-0017-mudo-a-prova-de-falha.md) | Mudo à prova de falha: `timbr-mute-keeper` segura apps mudos (e em 0 %) mesmo se o timbr. morrer; emenda P2 só para o mudo | **Aceito** |

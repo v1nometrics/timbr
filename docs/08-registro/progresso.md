@@ -32,6 +32,12 @@
 
 ## Histórico Consolidado
 
+### 2026-11-23 · Ícone novo: o notch e o som (ADR-0022)
+
+- **Pedido:** um logo mais original que o das barras de onda com ponto.
+- **Feito:** duas rodadas de propostas; o dono rejeitou a primeira e pediu partir do que é só do timbr.; apliquei a recomendação da segunda (notch + som, papel quente) com autorização geral. Gerado por `scripts/generate_icns.py`, com variante forte para ≤ 64 px.
+- **Limite:** o dono não escolheu entre as opções; trocar é editar o script. O wordmark `timbr.` não mudou.
+
 ### 2026-11-23 · Equalizador de 4, 5 ou 10 bandas; PEQ livre acompanha a curva e ganha Resetar
 
 - **Pedido:** comparar com o app da Sennheiser, permitir mais ou menos canais no equalizador e corrigir o PEQ livre (curva parada ao mexer nos pontos 1–4; sem botão de resetar).
