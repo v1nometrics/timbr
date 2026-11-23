@@ -120,7 +120,7 @@ public final class AppState: ObservableObject {
     /// Review, smoke and self-test instances run next to the real app: they get no mute keeper, so they
     /// can never rewrite or release the mutes the real instance holds (ADR-0017).
     nonisolated static let isAuxiliaryInstance: Bool = {
-        let aux = ["--review-empty", "--review-multi", "--smoke-check", "--demo", "--notch", "--studio", "--panel-preview", "--onboarding"]
+        let aux = ["--review-empty", "--review-multi", "--smoke-check", "--demo", "--notch", "--studio", "--panel-preview", "--onboarding", "--timeline-preview", "--reduce-motion"]
         return ProcessInfo.processInfo.arguments.contains { aux.contains($0) || $0.hasPrefix("--selftest") }
     }()
     public let tapEngine = ProcessTapEngine(muteKeeper: AppState.isAuxiliaryInstance ? nil : MuteKeeperClient())
@@ -129,6 +129,8 @@ public final class AppState: ObservableObject {
     public let mediaKeyTap = MediaKeyTap()
     public let hotKeyManager = GlobalHotKeyManager()
     public let gpTrainer = PairwiseGPTrainer()
+    public let updater = AppUpdater()
+    private var updaterWatch: AnyCancellable?
     public private(set) var store: SQLiteStore?
     public private(set) var ipcServer: ExtensionIPCServer?
 
@@ -277,6 +279,9 @@ public final class AppState: ObservableObject {
         self.activePreset = defaultPreset
         self.trainerPair = gpTrainer.proposeNextPair(history: [], seed: 42)
         self.language = TimbreLanguage.fromSystemLocale()
+        self.updaterWatch = updater.objectWillChange.sink { [weak self] _ in
+            self?.objectWillChange.send()
+        }
     }
 
     public func t(_ key: String) -> String {
@@ -341,6 +346,7 @@ public final class AppState: ObservableObject {
             self.showMenuBarIcon = db.getKV("showMenuBarIcon") == "1"
             self.autoDuckOnCall = (db.getKV("autoDuckOnCall") ?? "1") == "1"
             self.instantPauseDetection = db.getKV("instantPauseDetection") == "1"
+            self.updater.configure(automaticChecks: (db.getKV("autoUpdateChecks") ?? "1") == "1")
             self.feedbackText = db.getKV("feedbackDraft") ?? ""
             let todayKey = ListeningPolicy.dayKey(Date())
             let saved = db.loadListening(days: 7)
@@ -418,6 +424,21 @@ public final class AppState: ObservableObject {
             Task { @MainActor in self?.pollTelemetry() }
         }
 
+        updater.onLog = { [weak self] msg in
+            self?.logEvent(category: "updates", message: msg)
+        }
+        updater.onPersistAutoCheck = { [weak self] enabled in
+            try? self?.store?.setKV("autoUpdateChecks", value: enabled ? "1" : "0")
+        }
+        updater.onPersistSkippedTag = { [weak self] tag in
+            try? self?.store?.setKV("skippedUpdateTag", value: tag ?? "")
+        }
+        updater.skippedTagProvider = { [weak self] in
+            let v = self?.store?.getKV("skippedUpdateTag") ?? ""
+            return v.isEmpty ? nil : v
+        }
+        updater.startAutomaticChecks(isAuxiliaryInstance: Self.isAuxiliaryInstance)
+
         logEvent(category: "lifecycle", message: "timbr started (MPL-2.0, 100% local, 0 telemetry)")
 
         if needsOnboarding {
@@ -476,6 +497,7 @@ public final class AppState: ObservableObject {
         halManager.stopSystemWatchdog()
         hotKeyManager.unregisterAll()
         mediaKeyTap.stop()
+        updater.stop()
         ipcServer?.stop()
         tapEngine.stopAndDestroyTap()
         halManager.restoreSnapshotIfModified()
@@ -752,6 +774,23 @@ public final class AppState: ObservableObject {
     public func openFeedback() {
         selectedTab = .support
         openStudioHandler?()
+    }
+
+    public func toggleAutoUpdateChecks(_ enabled: Bool) {
+        updater.setAutomaticChecksEnabled(enabled, isAuxiliaryInstance: Self.isAuxiliaryInstance)
+    }
+
+    public func openUpdatesSettings() {
+        selectedTab = .settings
+        openStudioHandler?()
+    }
+
+    public func checkForUpdatesFromMenu() {
+        selectedTab = .settings
+        openStudioHandler?()
+        if !updater.hasActionableUpdate {
+            updater.checkForUpdates(manual: true)
+        }
     }
 
     public func toggleInstantPauseDetection(_ enabled: Bool) {

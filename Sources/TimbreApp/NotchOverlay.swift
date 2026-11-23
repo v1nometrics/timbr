@@ -770,6 +770,13 @@ public final class NotchPanelController {
         let icon = ClosureMenuItem(appState.t("ui.ctx.show_menubar")) { appState.setShowMenuBarIcon(!appState.showMenuBarIcon) }
         icon.state = appState.showMenuBarIcon ? .on : .off
         menu.addItem(icon)
+        let updateTitle: String = {
+            if let remote = appState.updater.availableManifest {
+                return String(format: appState.t("ui.updates.ctx_available"), remote.version)
+            }
+            return appState.t("ui.updates.ctx_check")
+        }()
+        menu.addItem(ClosureMenuItem(updateTitle) { appState.checkForUpdatesFromMenu() })
         menu.addItem(ClosureMenuItem(appState.t("ui.feedback.menu")) { appState.openFeedback() })
         menu.addItem(.separator())
         menu.addItem(ClosureMenuItem(appState.t("ui.quit") + " timbr") { NSApp.terminate(nil) })
@@ -1702,6 +1709,12 @@ public struct NotchOverlayView: View {
             }
             footerChip(title: appState.t("notch.ab_neutral"), symbol: "square.split.2x1", on: appState.abMode != .full) { appState.toggleABNeutral() }
             Spacer(minLength: 0)
+            if appState.updater.hasActionableUpdate {
+                footerChip(title: appState.t("ui.updates.notch_pill"), symbol: "arrow.down.circle.fill", on: true) {
+                    appState.notchState = appState.shouldShowCompact ? .compact : .resting
+                    appState.openUpdatesSettings()
+                }
+            }
             Button {
                 appState.notchState = appState.shouldShowCompact ? .compact : .resting
                 appState.openStudioHandler?()

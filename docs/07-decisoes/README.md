@@ -29,3 +29,4 @@ Uma decisão **Proposta** só passa a **Aceita** quando (a) aprovada na revisão
 | [ADR-0023](ADR-0023-tempo-de-escuta-e-volume-alto.md) | Tempo de escuta com fone e volume alto (regra 60/60), sem fingir decibéis; aviso no Observatório e no notch | **Aceito** | — |
 | [ADR-0024](ADR-0024-feedback-por-email-local.md) | Feedback por e-mail, local e visível: o app só abre o cliente de e-mail com a mensagem pronta e contexto mínimo opcional | **Aceito** | — |
 | [ADR-0025](ADR-0025-ilha-refinada-e-marca-sem-ponto.md) | Ícone definitivo *Ilha refinada* e marca `timbr` sem ponto | **Aceito** | — |
+| [ADR-0026](ADR-0026-atualizacoes-github-releases.md) | Atualizações oficiais automáticas via GitHub Releases (`update-manifest.json` + SHA-256 + troca atômica), sem telemetria | **Aceito** | — |
