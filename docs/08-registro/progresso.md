@@ -34,6 +34,12 @@
 
 ## Histórico Consolidado
 
+### 2026-11-23 · Explicação das bandas do equalizador num botão discreto
+
+- **Pedido:** tirar o texto que aparecia ao passar o mouse nas categorias do equalizador e usar um botãozinho de informação no canto superior direito.
+- **Feito:** `InfoHintButton` (ícone "i" pequeno, mais apagado até o mouse chegar perto) nos cartões de 4, 5 e 10 bandas; a nota abre num popover ao clicar. As dicas ao passar o mouse foram removidas. Acessível por VoiceOver (rótulo e descrição).
+- **Verificado:** capturas reais com a nota fechada (10 bandas) e aberta (4 bandas), `./scripts/ci_check.sh` verde.
+
 ### 2026-11-23 · Feedback por e-mail e documentação em dia
 
 - **Pedido:** uma seção de feedback e sugestões perto da doação, direcionada ao e-mail do dono, de forma eficiente e "inteligente"; e deixar tudo publicado e a documentação atualizada.

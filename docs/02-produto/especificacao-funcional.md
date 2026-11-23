@@ -94,7 +94,7 @@ Um seletor **4 · 5 · 10 · PEQ Livre** ([ADR-0019](../07-decisoes/ADR-0019-equ
 - **5 bandas:** 80 Hz shelf, 250 Hz, 1 kHz, 4 kHz, 10 kHz shelf; ±9 dB.
 - **10 bandas:** oitavas ISO de 31,5 Hz a 16 kHz (shelf nas pontas, Q 1,41); ±12 dB. Cada banda mostra a frequência e o nome da região.
 - **PEQ Livre:** tipo, frequência, ganho e Q por filtro; nasce da curva atual com tudo ligado; ajustar um filtro desligado o liga; **Resetar filtros** volta ao padrão plano, com desfazer; o teto respeita as 32 bandas do DSP.
-Os nomes seguem "português (termo)", com dica ao passar o mouse; com o app em inglês aparece só o termo.
+Os nomes seguem "português (termo)", e cada cartão tem um pequeno botão de informação no canto superior direito que abre uma nota curta ao clicar (sem dica ao passar o mouse); com o app em inglês aparece só o termo.
 
 ### 6.4 A/B
 - **A/B neutro**: compara Resultado vs. Correção-apenas vs. sem EQ, com loudness igualado por LUFS de curto prazo medido no próprio sinal (ou ganho calculado pela curva quando não há sinal).
