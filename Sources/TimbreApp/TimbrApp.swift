@@ -7,7 +7,7 @@ import TimbreEngine
 import TimbreDesignSystem
 
 @MainActor
-public final class AppDelegate: NSObject, NSApplicationDelegate {
+public final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     public let appState = AppState()
     private var notchController: NotchPanelController?
     private var menuBarIcon: MenuBarIconController?
@@ -117,6 +117,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
             win.setFrameAutosaveName("timbr.studio")
             win.center()
             win.isReleasedWhenClosed = false
+            win.delegate = self
             studioWindow = win
         }
         NSApp.setActivationPolicy(.regular)
@@ -137,6 +138,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
             win.center()
             win.isReleasedWhenClosed = false
             win.isMovableByWindowBackground = true
+            win.delegate = self
             onboardingWindow = win
         }
         NSApp.setActivationPolicy(.regular)
@@ -146,7 +148,18 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
 
     public func closeOnboarding() {
         onboardingWindow?.orderOut(nil)
-        if studioWindow == nil || !(studioWindow?.isVisible ?? false) {
+        restoreAccessoryPolicyIfIdle(excluding: onboardingWindow)
+    }
+
+    public func windowWillClose(_ notification: Notification) {
+        let closing = notification.object as? NSWindow
+        restoreAccessoryPolicyIfIdle(excluding: closing)
+    }
+
+    private func restoreAccessoryPolicyIfIdle(excluding closing: NSWindow? = nil) {
+        let studioOpen = (studioWindow !== closing) && (studioWindow?.isVisible ?? false)
+        let onboardingOpen = (onboardingWindow !== closing) && (onboardingWindow?.isVisible ?? false)
+        if !studioOpen && !onboardingOpen {
             NSApp.setActivationPolicy(.accessory)
         }
     }

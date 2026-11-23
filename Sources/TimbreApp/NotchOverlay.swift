@@ -13,6 +13,7 @@
 //      sweeping the menu bar), and closing follows the pointer continuously.
 import SwiftUI
 import AppKit
+import Darwin
 import Combine
 import ApplicationServices
 import TimbreCore
@@ -45,7 +46,7 @@ public struct NotchScreenGeometry: Equatable, Sendable {
 
 @MainActor
 private enum FullscreenProbe {
-    static func isActive(on g: NotchScreenGeometry) -> Bool {
+    static func isActive(on g: NotchScreenGeometry, playingBundleIDs: Set<String>, playingOwnerNames: Set<String>) -> Bool {
         let primaryHeight = NSScreen.screens.first?.frame.height ?? g.screenFrame.height
         let screenSpec = FullscreenScreenSpec(
             minX: g.screenFrame.minX,
@@ -73,6 +74,9 @@ private enum FullscreenProbe {
         }
         let gd = UserDefaults.standard.persistentDomain(forName: UserDefaults.globalDomain)
         let autoHideMenu = (gd?["_HIHideMenuBar"] as? Bool) ?? ((gd?["_HIHideMenuBar"] as? Int) == 1)
+        let front = NSWorkspace.shared.frontmostApplication
+        let frontBundleID = front?.bundleIdentifier
+        let frontOwnerName = front?.localizedName
         let axFullscreen = isFrontmostWindowAXFullscreen(on: screenSpec)
         return FullscreenEvaluator.isFullscreen(
             screen: screenSpec,
@@ -80,7 +84,11 @@ private enum FullscreenProbe {
             menuBarVisible: NSMenu.menuBarVisible(),
             autoHideMenuBarAlways: autoHideMenu,
             frontmostAXFullScreen: axFullscreen,
-            ownPID: ownPID
+            ownPID: ownPID,
+            frontmostBundleID: frontBundleID,
+            frontmostOwnerName: frontOwnerName,
+            playingBundleIDs: playingBundleIDs,
+            playingOwnerNames: playingOwnerNames
         )
     }
 
@@ -348,6 +356,73 @@ final class NotchInteraction: ObservableObject {
     @Published var geometry: NotchScreenGeometry = .measure()
 }
 
+// MARK: - Persistent overlay Space (pin across Spaces & 3-finger swipes, public fallback if unavailable)
+
+@MainActor
+private final class NotchSpaceOverlay {
+    private typealias MainConnectionFn = @convention(c) () -> Int32
+    private typealias SpaceCreateFn = @convention(c) (Int32, Int32, CFDictionary?) -> UInt64
+    private typealias SpaceSetAbsoluteLevelFn = @convention(c) (Int32, UInt64, Int32) -> Int32
+    private typealias ShowSpacesFn = @convention(c) (Int32, CFArray) -> Int32
+    private typealias AddAndRemoveFn = @convention(c) (Int32, UInt64, CFArray) -> Int32
+    private typealias SpaceDestroyFn = @convention(c) (Int32, UInt64) -> Int32
+
+    private let handle: UnsafeMutableRawPointer
+    private let cid: Int32
+    private let spaceID: UInt64
+    private let addAndRemoveFn: AddAndRemoveFn
+    private let spaceDestroyFn: SpaceDestroyFn?
+
+    init?() {
+        guard let h = dlopen("/System/Library/PrivateFrameworks/SkyLight.framework/SkyLight", RTLD_LAZY) else { return nil }
+        guard let pMain = dlsym(h, "SLSMainConnectionID"),
+              let pCreate = dlsym(h, "SLSSpaceCreate"),
+              let pSetLevel = dlsym(h, "SLSSpaceSetAbsoluteLevel"),
+              let pShow = dlsym(h, "SLSShowSpaces"),
+              let pAddRemove = dlsym(h, "SLSSpaceAddWindowsAndRemoveFromSpaces") else {
+            dlclose(h)
+            return nil
+        }
+        let mainConn = unsafeBitCast(pMain, to: MainConnectionFn.self)
+        let spaceCreate = unsafeBitCast(pCreate, to: SpaceCreateFn.self)
+        let setLevel = unsafeBitCast(pSetLevel, to: SpaceSetAbsoluteLevelFn.self)
+        let showSpaces = unsafeBitCast(pShow, to: ShowSpacesFn.self)
+        let addRemove = unsafeBitCast(pAddRemove, to: AddAndRemoveFn.self)
+        let destroy = dlsym(h, "SLSSpaceDestroy").map { unsafeBitCast($0, to: SpaceDestroyFn.self) }
+
+        let cid = mainConn()
+        let sid = spaceCreate(cid, 1, nil)
+        guard sid != 0 else {
+            dlclose(h)
+            return nil
+        }
+        // Level 1 sits strictly above all managed Spaces & 3-finger Space-swipe animations (0),
+        // while staying below SetupAssistant (100), SecurityAgent/TouchID (200), and LockScreen (300).
+        guard setLevel(cid, sid, 1) == 0,
+              showSpaces(cid, [NSNumber(value: sid)] as CFArray) == 0 else {
+            _ = destroy?(cid, sid)
+            dlclose(h)
+            return nil
+        }
+        self.handle = h
+        self.cid = cid
+        self.spaceID = sid
+        self.addAndRemoveFn = addRemove
+        self.spaceDestroyFn = destroy
+    }
+
+    func attach(_ window: NSWindow) {
+        let wid = window.windowNumber
+        guard wid > 0 else { return }
+        _ = addAndRemoveFn(cid, spaceID, [NSNumber(value: wid)] as CFArray)
+    }
+
+    func destroy() {
+        _ = spaceDestroyFn?(cid, spaceID)
+        dlclose(handle)
+    }
+}
+
 // MARK: - Panels
 
 private final class NonActivatingNotchPanel: NSPanel {
@@ -397,8 +472,12 @@ public final class NotchPanelController {
     /// menu bar never opens it by accident; the hover "pop" gives feedback before that.
     private static let dwell: TimeInterval = 0.15
 
+    private static let baseNotchLevel = NSWindow.Level(rawValue: NSWindow.Level.mainMenu.rawValue + 3)
+    private static let sensorNotchLevel = NSWindow.Level(rawValue: NSWindow.Level.mainMenu.rawValue + 4)
+
     private var panel: NonActivatingNotchPanel?
     private var sensor: NSPanel?
+    private var notchSpace: NotchSpaceOverlay?
     private weak var appState: AppState?
     private let interaction = NotchInteraction()
     private var cancellables: Set<AnyCancellable> = []
@@ -427,15 +506,20 @@ public final class NotchPanelController {
     }
 
     private func setupPanels() {
+        notchSpace = NotchSpaceOverlay()
+        let behavior: NSWindow.CollectionBehavior = notchSpace != nil
+            ? [.canJoinAllSpaces, .fullScreenAuxiliary, .ignoresCycle]
+            : [.canJoinAllSpaces, .stationary, .fullScreenAuxiliary, .ignoresCycle]
+
         let p = NonActivatingNotchPanel(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         p.isFloatingPanel = true
-        p.level = .statusBar + 1
+        p.level = Self.baseNotchLevel
         p.backgroundColor = .clear
         p.isOpaque = false
         p.hasShadow = false
         p.hidesOnDeactivate = false
         p.isMovable = false
-        p.collectionBehavior = [.canJoinAllSpaces, .stationary, .fullScreenAuxiliary, .ignoresCycle]
+        p.collectionBehavior = behavior
         p.ignoresMouseEvents = true
         if let appState {
             let host = FirstMouseHostingView(rootView: NotchOverlayView(appState: appState, interaction: interaction))
@@ -448,12 +532,12 @@ public final class NotchPanelController {
 
         let s = NSPanel(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         s.isFloatingPanel = true
-        s.level = .statusBar + 2
+        s.level = Self.sensorNotchLevel
         s.backgroundColor = .clear
         s.isOpaque = false
         s.hasShadow = false
         s.hidesOnDeactivate = false
-        s.collectionBehavior = [.canJoinAllSpaces, .stationary, .fullScreenAuxiliary, .ignoresCycle]
+        s.collectionBehavior = behavior
         let v = NotchSensorView()
         v.onEnter = { [weak self] in self?.sensorEntered() }
         v.onExit = { [weak self] in self?.sensorExited() }
@@ -529,7 +613,10 @@ public final class NotchPanelController {
     }
 
     private func refreshFullscreen() {
-        appState?.setFullscreenActive(FullscreenProbe.isActive(on: g))
+        let playing = appState?.playingSources ?? []
+        let bundleIDs = Set(playing.map(\.bundleID))
+        let ownerNames = Set(playing.map(\.name))
+        appState?.setFullscreenActive(FullscreenProbe.isActive(on: g, playingBundleIDs: bundleIDs, playingOwnerNames: ownerNames))
     }
 
     private func refreshEars() {
@@ -567,9 +654,12 @@ public final class NotchPanelController {
             return
         }
         panelOrderOutWork?.cancel()
-        panel.orderFrontRegardless()
+        if !panel.isVisible {
+            panel.orderFrontRegardless()
+            notchSpace?.attach(panel)
+        }
         let interactive = state == .peek || state == .expanded
-        panel.level = (state == .hud || state == .expanded) ? .popUpMenu : .statusBar + 1
+        panel.level = (state == .hud || state == .expanded) ? .popUpMenu : Self.baseNotchLevel
         panel.allowKeyFocus = state == .expanded
         if interactive {
             sensor.orderOut(nil)
@@ -586,7 +676,10 @@ public final class NotchPanelController {
             panel.ignoresMouseEvents = true
             if interaction.dismissProgress != 0 { interaction.dismissProgress = 0 }
             positionSensor(for: state)
-            sensor.orderFrontRegardless()
+            if !sensor.isVisible {
+                sensor.orderFrontRegardless()
+                notchSpace?.attach(sensor)
+            }
         }
         if state == .compact {
             refreshEars()
@@ -790,6 +883,8 @@ public final class NotchPanelController {
         if let keyMonitor { NSEvent.removeMonitor(keyMonitor) }
         panel?.orderOut(nil)
         sensor?.orderOut(nil)
+        notchSpace?.destroy()
+        notchSpace = nil
     }
 }
 
