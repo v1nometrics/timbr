@@ -41,6 +41,80 @@ public struct NotchScreenGeometry: Equatable, Sendable {
     }
 }
 
+// MARK: - Fullscreen probe (live CG/AX/AppKit snapshot fed to pure FullscreenEvaluator)
+
+@MainActor
+private enum FullscreenProbe {
+    static func isActive(on g: NotchScreenGeometry) -> Bool {
+        let primaryHeight = NSScreen.screens.first?.frame.height ?? g.screenFrame.height
+        let screenSpec = FullscreenScreenSpec(
+            minX: g.screenFrame.minX,
+            minY: primaryHeight - g.screenFrame.maxY,
+            width: g.screenFrame.width,
+            height: g.screenFrame.height,
+            topInset: g.notchHeight,
+            hasPhysicalNotch: g.hasPhysicalNotch
+        )
+        let ownPID = ProcessInfo.processInfo.processIdentifier
+        var snapshots: [FullscreenWindowSnapshot] = []
+        if let list = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] {
+            snapshots.reserveCapacity(list.count)
+            for w in list {
+                guard let layer = w[kCGWindowLayer as String] as? Int, layer == 0,
+                      let pid = w[kCGWindowOwnerPID as String] as? Int32,
+                      let bd = w[kCGWindowBounds as String] as? NSDictionary,
+                      let r = CGRect(dictionaryRepresentation: bd as CFDictionary) else { continue }
+                let owner = w[kCGWindowOwnerName as String] as? String ?? ""
+                snapshots.append(FullscreenWindowSnapshot(
+                    ownerPID: pid, ownerName: owner, layer: layer,
+                    minX: r.minX, minY: r.minY, width: r.width, height: r.height
+                ))
+            }
+        }
+        let gd = UserDefaults.standard.persistentDomain(forName: UserDefaults.globalDomain)
+        let autoHideMenu = (gd?["_HIHideMenuBar"] as? Bool) ?? ((gd?["_HIHideMenuBar"] as? Int) == 1)
+        let axFullscreen = isFrontmostWindowAXFullscreen(on: screenSpec)
+        return FullscreenEvaluator.isFullscreen(
+            screen: screenSpec,
+            windows: snapshots,
+            menuBarVisible: NSMenu.menuBarVisible(),
+            autoHideMenuBarAlways: autoHideMenu,
+            frontmostAXFullScreen: axFullscreen,
+            ownPID: ownPID
+        )
+    }
+
+    private static func isFrontmostWindowAXFullscreen(on screen: FullscreenScreenSpec) -> Bool {
+        guard AXIsProcessTrusted(),
+              let app = NSWorkspace.shared.frontmostApplication,
+              app.processIdentifier != ProcessInfo.processInfo.processIdentifier else { return false }
+        let axApp = AXUIElementCreateApplication(app.processIdentifier)
+        var winRef: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(axApp, kAXFocusedWindowAttribute as CFString, &winRef) == .success,
+              let winRef else { return false }
+        // swiftlint:disable:next force_cast
+        let win = winRef as! AXUIElement
+        var fsRef: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(win, "AXFullScreen" as CFString, &fsRef) == .success,
+              let fs = fsRef as? Bool, fs else { return false }
+
+        // Only suppress the notch if the fullscreen window is actually on the notch display.
+        var posRef: CFTypeRef?, sizeRef: CFTypeRef?
+        var pos = CGPoint.zero, size = CGSize.zero
+        if AXUIElementCopyAttributeValue(win, kAXPositionAttribute as CFString, &posRef) == .success, let posRef,
+           AXUIElementCopyAttributeValue(win, kAXSizeAttribute as CFString, &sizeRef) == .success, let sizeRef {
+            // swiftlint:disable:next force_cast
+            AXValueGetValue(posRef as! AXValue, .cgPoint, &pos)
+            // swiftlint:disable:next force_cast
+            AXValueGetValue(sizeRef as! AXValue, .cgSize, &size)
+            let midX = pos.x + size.width / 2
+            let midY = pos.y + size.height / 2
+            return midX >= screen.minX && midX <= screen.maxX && midY >= screen.minY && midY <= screen.maxY
+        }
+        return true
+    }
+}
+
 // MARK: - Menu bar space (what the ears may occupy)
 
 /// Measures how much of the menu bar beside the notch is free.
@@ -299,7 +373,9 @@ public final class NotchPanelController {
     private var keyMonitor: Any?
     private var moveMonitors: [Any] = []
     private var hoverWork: DispatchWorkItem?
+    private var panelOrderOutWork: DispatchWorkItem?
     private var earTimer: Timer?
+    private var fullscreenTimer: Timer?
     /// Open states only start following the pointer once it has been inside the shape.
     private var armed = false
     private var lastState: NotchState = .resting
@@ -312,6 +388,7 @@ public final class NotchPanelController {
         setupPanels()
         bind()
         installStaticMonitors()
+        refreshFullscreen()
         refreshEars()
         apply(state: appState.notchState)
     }
@@ -363,15 +440,17 @@ public final class NotchPanelController {
 
     private func bind() {
         guard let appState else { return }
-        Publishers.CombineLatest3(appState.$notchState, appState.$notchEnabled, appState.$menuBarOnlyMode)
+        Publishers.CombineLatest4(appState.$notchState, appState.$notchEnabled, appState.$menuBarOnlyMode, appState.$hideNotchInFullscreen)
+            .combineLatest(appState.$isFullscreenActive)
             .receive(on: RunLoop.main)
-            .sink { [weak self] state, _, _ in self?.apply(state: state) }
+            .sink { [weak self] left, _ in self?.apply(state: left.0) }
             .store(in: &cancellables)
         NotificationCenter.default.publisher(for: NSApplication.didChangeScreenParametersNotification)
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in
                 guard let self else { return }
                 self.interaction.geometry = .measure()
+                self.refreshFullscreen()
                 self.refreshEars()
                 self.placePanel()
                 self.apply(state: self.appState?.notchState ?? .resting)
@@ -380,10 +459,32 @@ public final class NotchPanelController {
         NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.didActivateApplicationNotification)
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in
+                self?.refreshFullscreen()
                 // Menus change with the frontmost app; re-measure once they have been laid out.
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { self?.refreshEars() }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                    self?.refreshFullscreen()
+                    self?.refreshEars()
+                }
             }
             .store(in: &cancellables)
+        NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.activeSpaceDidChangeNotification)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.refreshFullscreen()
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                    self?.refreshFullscreen()
+                    self?.refreshEars()
+                }
+            }
+            .store(in: &cancellables)
+        // Catch in-space HTML5 / borderless fullscreen toggles (e.g. Chrome YouTube fullscreen) promptly.
+        fullscreenTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.refreshFullscreen() }
+        }
+    }
+
+    private func refreshFullscreen() {
+        appState?.setFullscreenActive(FullscreenProbe.isActive(on: g))
     }
 
     private func refreshEars() {
@@ -399,8 +500,26 @@ public final class NotchPanelController {
     private func apply(state: NotchState) {
         guard let appState, let panel, let sensor else { return }
         if !appState.notchEnabled || appState.menuBarOnlyMode {
+            panelOrderOutWork?.cancel()
             panel.orderOut(nil); sensor.orderOut(nil); stopFollowing(); return
         }
+        if state == .resting && appState.shouldSuppressNotchChrome {
+            // Drop hover sensor immediately so Chrome/Safari top-center exit-fullscreen buttons are never blocked.
+            sensor.orderOut(nil)
+            stopFollowing()
+            panel.ignoresMouseEvents = true
+            panelOrderOutWork?.cancel()
+            let work = DispatchWorkItem { [weak self] in
+                guard let self, let s = self.appState,
+                      s.notchState == .resting, s.shouldSuppressNotchChrome else { return }
+                self.panel?.orderOut(nil)
+            }
+            panelOrderOutWork = work
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.38, execute: work)
+            lastState = state
+            return
+        }
+        panelOrderOutWork?.cancel()
         panel.orderFrontRegardless()
         let interactive = state == .peek || state == .expanded
         panel.level = (state == .hud || state == .expanded) ? .popUpMenu : .statusBar + 1
@@ -482,6 +601,7 @@ public final class NotchPanelController {
     private func open(_ state: NotchState, haptic: Bool = false) {
         hoverWork?.cancel()
         guard let appState, appState.notchEnabled, !appState.menuBarOnlyMode else { return }
+        if state == .peek && appState.shouldSuppressNotchChrome { return }
         if state == .peek, !(appState.notchState == .resting || appState.notchState == .compact) { return }
         if haptic { NSHapticFeedbackManager.defaultPerformer.perform(.levelChange, performanceTime: .now) }
         withAnimation(TimbreMotion.notchOpen) {
@@ -615,7 +735,9 @@ public final class NotchPanelController {
 
     public func teardown() {
         hoverWork?.cancel()
+        panelOrderOutWork?.cancel()
         earTimer?.invalidate()
+        fullscreenTimer?.invalidate()
         stopFollowing()
         if let clickMonitor { NSEvent.removeMonitor(clickMonitor) }
         if let keyMonitor { NSEvent.removeMonitor(keyMonitor) }
@@ -677,7 +799,7 @@ public struct NotchOverlayView: View {
         let canvas = layout.canvas
         let shape = NotchShape(spec: rendered, hardware: g.hasPhysicalNotch)
         let openAmount = Self.isOpen(state) ? Double(1 - p) : 0
-        let hidden = state == .resting && g.hasPhysicalNotch && !interaction.hovering
+        let hidden = state == .resting && (g.hasPhysicalNotch || appState.shouldSuppressNotchChrome) && !interaction.hovering
 
         ZStack(alignment: .topLeading) {
             shape
@@ -918,9 +1040,9 @@ public struct NotchOverlayView: View {
             } else if interaction.ears.left > 0, interaction.ears.right > 0 {
                 indicator.position(x: cx + layout.half + interaction.ears.right / 2, y: H / 2)
             } else if interaction.ears.right >= 40 {
-                indicator.position(x: cx + layout.half + interaction.ears.right - 11, y: H / 2)
+                indicator.position(x: cx + layout.half + interaction.ears.right - 9.5, y: H / 2)
             } else if interaction.ears.left >= 40 {
-                indicator.position(x: cx - layout.half - 11, y: H / 2)
+                indicator.position(x: cx - layout.half - 9.5, y: H / 2)
             }
         }
         .frame(width: canvas.width, height: canvas.height, alignment: .topLeading)

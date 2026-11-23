@@ -649,19 +649,29 @@ struct DeviceGlyph: View {
 
 // MARK: - Meters
 
-/// Three-bar activity meter for the notch ears. Driven by real level; static when silent.
+/// Five-bar symmetric harmonic mark (`timbr.` silhouette) for the notch ears.
+/// Gentle harmonic overtone breathing (~2.6 s cadence, 12 Hz) when active; static with Reduce Motion; zero work when paused.
 struct MiniMeter: View {
-    /// Real level 0…1, or nil when nothing is measured (then a static "playing" glyph, never a fake meter).
+    /// Real level 0…1, or nil on native zero-tap pass-through (subtle harmonic breath, never a fake peak meter).
     var level: Double?
     var active: Bool
     var color: Color
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     var body: some View {
-        HStack(alignment: .center, spacing: 2) {
-            ForEach(0..<3, id: \.self) { i in
-                let weight: [Double] = [0.62, 1.0, 0.78]
-                let glyph: [CGFloat] = [6, 11, 8]
-                let h: CGFloat = !active ? 3 : (level.map { max(3, 13 * CGFloat(min(1, $0 * weight[i]))) } ?? glyph[i])
-                Capsule().fill(color).frame(width: 2.5, height: h)
+        TimelineView(.animation(minimumInterval: 1.0 / 12.0, paused: !active || reduceMotion)) { ctx in
+            let bars = TimbreHarmonicMath.samples(
+                active: active,
+                level: level,
+                time: ctx.date.timeIntervalSinceReferenceDate,
+                reduceMotion: reduceMotion
+            )
+            HStack(alignment: .center, spacing: 1.5) {
+                ForEach(0..<bars.count, id: \.self) { i in
+                    Capsule()
+                        .fill(color.opacity(bars[i].opacity))
+                        .frame(width: 1.5, height: bars[i].height)
+                }
             }
         }
         .frame(height: 14)

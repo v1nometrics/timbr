@@ -136,6 +136,8 @@ public final class AppState: ObservableObject {
     @Published public var notchState: NotchState = .resting
     @Published public var notchEnabled: Bool = true
     @Published public var showCompactActivity: Bool = true
+    @Published public var hideNotchInFullscreen: Bool = true
+    @Published public private(set) var isFullscreenActive: Bool = false
     @Published public var menuBarOnlyMode: Bool = false
     /// User preference: also show the icon in the menu bar while the notch is active (default off —
     /// the notch is the app's home; right-click it for Studio, Settings and Quit).
@@ -295,6 +297,7 @@ public final class AppState: ObservableObject {
             self.mutedGuardianPairs = db.loadMutedPairs()
             self.silentStudioMode = (db.getKV("silentStudioMode") == "1")
             self.showCompactActivity = (db.getKV("showCompactActivity") ?? "1") == "1"
+            self.hideNotchInFullscreen = (db.getKV("hideNotchInFullscreen") ?? "1") == "1"
             self.showMenuBarIcon = db.getKV("showMenuBarIcon") == "1"
             self.autoDuckOnCall = (db.getKV("autoDuckOnCall") ?? "1") == "1"
             self.savedPresets = db.loadPresets()
@@ -474,8 +477,12 @@ public final class AppState: ObservableObject {
         }
     }
 
+    public var shouldSuppressNotchChrome: Bool {
+        hideNotchInFullscreen && isFullscreenActive
+    }
+
     public var shouldShowCompact: Bool {
-        showCompactActivity && !menuBarOnlyMode && notchEnabled && sources.contains(where: { $0.isPlaying })
+        showCompactActivity && !menuBarOnlyMode && notchEnabled && !shouldSuppressNotchChrome && sources.contains(where: { $0.isPlaying })
     }
 
     public func toggleExpandedNotch() {
@@ -1087,7 +1094,33 @@ public final class AppState: ObservableObject {
         showCompactActivity = enabled
         try? store?.setKV("showCompactActivity", value: enabled ? "1" : "0")
         if !enabled && notchState == .compact {
+            compactDismissWorkItem?.cancel()
             notchState = .resting
+        } else if enabled && notchState == .resting && shouldShowCompact {
+            notchState = .compact
+        }
+    }
+
+    public func toggleHideNotchInFullscreen(_ enabled: Bool) {
+        hideNotchInFullscreen = enabled
+        try? store?.setKV("hideNotchInFullscreen", value: enabled ? "1" : "0")
+        syncFullscreenSuppression()
+    }
+
+    public func setFullscreenActive(_ active: Bool) {
+        guard isFullscreenActive != active else { return }
+        isFullscreenActive = active
+        syncFullscreenSuppression()
+    }
+
+    private func syncFullscreenSuppression() {
+        if shouldSuppressNotchChrome {
+            compactDismissWorkItem?.cancel()
+            if notchState == .compact || notchState == .peek {
+                notchState = .resting
+            }
+        } else if notchState == .resting && shouldShowCompact {
+            notchState = .compact
         }
     }
 

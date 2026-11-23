@@ -327,3 +327,8 @@
 4. **AutoEq:** match específico AirPods 4/Pro/Max; allowlist de `relativePath`; aviso Spatial no painel.
 5. **IPC:** clamp BOPLA de volume/título; CI `permissions: contents: read`; rollback de taps `mutedWhenTapped` em falha parcial (mirrors best-effort).
 7. **Passe D:** `requestScanBurst` rearmável; match Continuity same-family por tokens HAL; writes GAIA `0x1001`/`0x1003`/… na denylist; docs duty-cycle alinhadas.
+
+### 2026-11-23 · Marca harmônica sutil no notch e ocultação em tela cheia
+
+1. **Marca `timbr.` no Compacto (`TimbreHarmonicMath` + `MiniMeter`):** substitui as 3 barras genéricas pela silhueta simétrica de 5 barras do ícone do app (`Timbr.icns`), com respiração harmônica contida (~2,6 s, 12 Hz, variação ≤ 1,1 pt, opacidade 0,70–0,86) para indicar atividade sem distrair em vídeos janelados; respeita `Reduzir movimento` e pausa em repouso/tela cheia.
+2. **Ocultação em tela cheia (`FullscreenEvaluator` + `FullscreenProbe`):** detecta vídeo/app em tela cheia na tela do notch (YouTube HTML5 em Chrome/Safari, Spaces nativos, Split View e `AXFullScreen` sem falso positivo em janela maximizada ou monitor externo), suprime o indicador compacto e o sensor de hover imediatamente (preservando o botão `×` de saída e zero distração) e mantém HUD de teclas e `⌥⌘V` funcionais. Preferência **Ocultar em tela cheia** ligada por padrão em Ajustes → Notch (PT-BR/ES/EN).
