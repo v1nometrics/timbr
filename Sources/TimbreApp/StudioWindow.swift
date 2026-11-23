@@ -34,6 +34,11 @@ public struct StudioWindow: View {
             Hairline(vertical: true)
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
+                    if appState.updater.shouldShowStudioBanner {
+                        UpdateBannerView(appState: appState)
+                            .padding(.bottom, TimbreSpacing.s5)
+                            .transition(.opacity.combined(with: .offset(y: -8)))
+                    }
                     if let banner = appState.statusBanner {
                         BannerView(text: banner) { appState.statusBanner = nil }
                             .padding(.bottom, TimbreSpacing.s5)
@@ -43,7 +48,7 @@ public struct StudioWindow: View {
                         .id(appState.selectedTab)
                         .transition(.opacity)
                 }
-                .animation(TimbreMotion.standard, value: appState.statusBanner != nil)   // the page slides down with it
+                .animation(TimbreMotion.standard, value: appState.statusBanner != nil || appState.updater.shouldShowStudioBanner)   // the page slides down with it
                 .padding(.horizontal, 40)
                 .padding(.top, 44)
                 .padding(.bottom, 56)
@@ -145,6 +150,10 @@ private struct StudioSidebar: View {
                     Text("\(appState.guardianAlerts.count)")
                         .type(TimbreTypography.monoSmall)
                         .foregroundStyle(c.semantic_warning)
+                } else if tab == .settings, appState.updater.hasActionableUpdate {
+                    Circle()
+                        .fill(c.semantic_info)
+                        .frame(width: 6, height: 6)
                 }
             }
             .padding(.horizontal, 10)
@@ -1629,7 +1638,17 @@ private struct SettingsPage: View {
                     .disabled(!appState.ipcPortActive)
                 }
             }
-            group("05", appState.t("ui.settings.data")) {
+            group("05", appState.t("ui.settings.updates")) {
+                row(appState.t("ui.updates.auto"), appState.t("ui.updates.auto_sub")) {
+                    TSwitch(isOn: Binding(
+                        get: { appState.updater.automaticChecksEnabled },
+                        set: { appState.toggleAutoUpdateChecks($0) }
+                    ))
+                }
+                Hairline().padding(.leading, 20)
+                UpdateStatusRow(appState: appState)
+            }
+            group("06", appState.t("ui.settings.data")) {
                 row(appState.t("ui.settings.diagnostics"), appState.t("ui.settings.diagnostics_sub")) {
                     Button(appState.t("ui.settings.export")) { appState.exportSanitizedDiagnostics() }.buttonStyle(.t(.secondary, compact: true))
                 }
@@ -1779,7 +1798,7 @@ private struct AboutPage: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 28) {
             VStack(alignment: .leading, spacing: 14) {
-                TimbrBrandIcon(size: 88)
+                TimbrBrandIcon(size: 72)
                 HStack(alignment: .firstTextBaseline, spacing: 0) {
                     Text("timbr").font(.system(size: 56, weight: .semibold)).tracking(-2.6)
                 }
@@ -1795,12 +1814,26 @@ private struct AboutPage: View {
                 if let sp = URL(string: "https://github.com/sponsors/v1nometrics") {
                     Button(appState.t("ui.about.sponsor")) { NSWorkspace.shared.open(sp) }.buttonStyle(.t(.secondary))
                 }
+                if let remote = appState.updater.availableManifest {
+                    Button(appState.updater.canInstallInPlace ? appState.t("ui.updates.install_restart") : appState.t("ui.updates.download_dmg")) {
+                        appState.updater.downloadAndInstall(remote)
+                    }
+                    .buttonStyle(.t(.secondary))
+                    .disabled(appState.updater.isBusy)
+                } else {
+                    Button(appState.updater.isBusy ? appState.t("ui.updates.checking") : appState.t("ui.updates.check_now")) {
+                        appState.openUpdatesSettings()
+                        appState.updater.checkForUpdates(manual: true)
+                    }
+                    .buttonStyle(.t(.ghost))
+                    .disabled(appState.updater.isBusy)
+                }
             }
             Hairline()
             FeedbackSection(appState: appState)
             Hairline()
             HStack(spacing: 40) {
-                fact(appState.t("ui.about.version"), Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "dev")
+                fact(appState.t("ui.about.version"), appState.updater.currentVersion.displayLabel)
                 fact(appState.t("ui.about.license"), "MPL-2.0")
                 fact(appState.t("ui.about.engine"), "Float64 · vDSP")
                 fact(appState.t("ui.about.privacy"), appState.t("ui.about.local"))
@@ -1812,6 +1845,246 @@ private struct AboutPage: View {
         VStack(alignment: .leading, spacing: 4) {
             Eyebrow(text: l)
             Text(v).type(TimbreTypography.body).foregroundStyle(c.ink_primary)
+        }
+    }
+}
+
+
+// MARK: - Updates (ADR-0026)
+
+private struct UpdateProgressBar: View {
+    let progress: Double?
+    @Environment(\.palette) private var c
+
+    var body: some View {
+        GeometryReader { geo in
+            let w: CGFloat = geo.size.width
+            let fraction: CGFloat = progress.map { CGFloat(min(1.0, max(0.0, $0))) } ?? 0.35
+            let fillW: CGFloat = max(6, w * fraction)
+            ZStack(alignment: .leading) {
+                Capsule().fill(c.bg_inset)
+                Capsule()
+                    .fill(c.ink_primary)
+                    .frame(width: fillW)
+            }
+        }
+        .frame(height: 4)
+        .frame(maxWidth: 260)
+    }
+}
+
+private struct UpdateBannerView: View {
+    @ObservedObject var appState: AppState
+    @Environment(\.palette) private var c
+
+    var body: some View {
+        if let manifest = appState.updater.availableManifest {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 12) {
+                    Badge(text: appState.t("ui.updates.available_badge"), tone: .info)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(headline(for: manifest))
+                            .type(TimbreTypography.body)
+                            .fontWeight(.medium)
+                            .foregroundStyle(c.ink_primary)
+                        if let sub = subtitle(for: manifest) {
+                            Text(sub)
+                                .type(TimbreTypography.caption)
+                                .foregroundStyle(c.ink_muted)
+                                .lineLimit(2)
+                        }
+                    }
+                    Spacer(minLength: 12)
+                    actions(for: manifest)
+                }
+                if case .downloading(_, let progress) = appState.updater.status {
+                    UpdateProgressBar(progress: progress)
+                } else if case .verifying = appState.updater.status {
+                    UpdateProgressBar(progress: nil)
+                } else if case .installing = appState.updater.status {
+                    UpdateProgressBar(progress: 1.0)
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .background(RoundedRectangle(cornerRadius: TimbreRadius.card, style: .continuous).fill(c.bg_surface))
+            .overlay(RoundedRectangle(cornerRadius: TimbreRadius.card, style: .continuous).strokeBorder(c.line_default, lineWidth: 0.5))
+        }
+    }
+
+    private func headline(for manifest: UpdateManifest) -> String {
+        switch appState.updater.status {
+        case .downloading(_, let progress):
+            return String(format: appState.t("ui.updates.downloading"), manifest.displayVersion, Int((progress * 100).rounded()))
+        case .verifying:
+            return appState.t("ui.updates.verifying")
+        case .installing:
+            return appState.t("ui.updates.installing")
+        default:
+            return String(format: appState.t("ui.updates.available_title"), manifest.displayVersion)
+        }
+    }
+
+    private func subtitle(for manifest: UpdateManifest) -> String? {
+        if case .available = appState.updater.status {
+            if let summary = manifest.summary, !summary.isEmpty { return summary }
+            return appState.t("ui.updates.available_sub")
+        }
+        return nil
+    }
+
+    @ViewBuilder
+    private func actions(for manifest: UpdateManifest) -> some View {
+        switch appState.updater.status {
+        case .downloading:
+            Button(appState.t("ui.updates.cancel")) { appState.updater.cancelDownload() }
+                .buttonStyle(.t(.ghost, compact: true))
+        case .verifying, .installing:
+            EmptyView()
+        default:
+            HStack(spacing: 8) {
+                Button(appState.updater.canInstallInPlace ? appState.t("ui.updates.install_restart") : appState.t("ui.updates.download_dmg")) {
+                    appState.updater.downloadAndInstall(manifest)
+                }
+                .buttonStyle(.t(.primary, compact: true))
+                Button(appState.t("ui.updates.view_notes")) {
+                    appState.updater.openReleaseNotes(manifest)
+                }
+                .buttonStyle(.t(.ghost, compact: true))
+                Button {
+                    appState.updater.dismissBanner()
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(c.ink_muted)
+                        .frame(width: 22, height: 22)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+}
+
+private struct UpdateStatusRow: View {
+    @ObservedObject var appState: AppState
+    @Environment(\.palette) private var c
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 16) {
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack(spacing: 8) {
+                        Text(appState.t("ui.updates.current"))
+                            .type(TimbreTypography.body)
+                            .foregroundStyle(c.ink_primary)
+                        Text(appState.updater.currentVersion.displayLabel)
+                            .type(TimbreTypography.monoSmall)
+                            .foregroundStyle(c.ink_secondary)
+                        statusBadge
+                    }
+                    Text(statusDetail)
+                        .type(TimbreTypography.caption)
+                        .foregroundStyle(c.ink_muted)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 16)
+                trailingActions
+            }
+
+            if case .downloading(_, let progress) = appState.updater.status {
+                UpdateProgressBar(progress: progress)
+            } else if case .verifying = appState.updater.status {
+                UpdateProgressBar(progress: nil)
+            } else if case .installing = appState.updater.status {
+                UpdateProgressBar(progress: 1.0)
+            }
+
+            if appState.updater.hasActionableUpdate {
+                Text(appState.t("ui.updates.tcc_note"))
+                    .type(TimbreTypography.caption)
+                    .foregroundStyle(c.ink_muted)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 12)
+        .frame(minHeight: 54)
+    }
+
+    @ViewBuilder
+    private var statusBadge: some View {
+        switch appState.updater.status {
+        case .available, .downloading, .verifying, .installing:
+            Badge(text: appState.t("ui.updates.available_badge"), tone: .info)
+        case .upToDate:
+            Badge(text: appState.t("tcc.status.ok"), tone: .positive)
+        case .unsupportedOS, .failed:
+            Badge(text: "!", tone: .warning, dot: false)
+        default:
+            EmptyView()
+        }
+    }
+
+    private var statusDetail: String {
+        switch appState.updater.status {
+        case .idle:
+            return appState.t("ui.updates.up_to_date")
+        case .checking:
+            return appState.t("ui.updates.checking")
+        case .upToDate:
+            return appState.t("ui.updates.up_to_date")
+        case .available(let m):
+            let title = String(format: appState.t("ui.updates.available_title"), m.displayVersion)
+            if let summary = m.summary, !summary.isEmpty {
+                return "\(title) — \(summary)"
+            }
+            return title
+        case .downloading(let m, let progress):
+            return String(format: appState.t("ui.updates.downloading"), m.displayVersion, Int((progress * 100).rounded()))
+        case .verifying:
+            return appState.t("ui.updates.verifying")
+        case .installing:
+            return appState.t("ui.updates.installing")
+        case .downloadedToFolder(_, let fileURL):
+            return String(format: appState.t("ui.updates.downloaded_folder"), fileURL.lastPathComponent)
+        case .unsupportedOS(let required):
+            return String(format: appState.t("ui.updates.unsupported_os"), required)
+        case .failed(let message):
+            return String(format: appState.t("ui.updates.failed"), message)
+        }
+    }
+
+    @ViewBuilder
+    private var trailingActions: some View {
+        switch appState.updater.status {
+        case .available(let m):
+            HStack(spacing: 8) {
+                Button(appState.updater.canInstallInPlace ? appState.t("ui.updates.install_restart") : appState.t("ui.updates.download_dmg")) {
+                    appState.updater.downloadAndInstall(m)
+                }
+                .buttonStyle(.t(.primary, compact: true))
+                Button(appState.t("ui.updates.view_notes")) {
+                    appState.updater.openReleaseNotes(m)
+                }
+                .buttonStyle(.t(.ghost, compact: true))
+                Button(appState.t("ui.updates.skip")) {
+                    appState.updater.skipUpdate(m)
+                }
+                .buttonStyle(.t(.ghost, compact: true))
+            }
+        case .downloading:
+            Button(appState.t("ui.updates.cancel")) {
+                appState.updater.cancelDownload()
+            }
+            .buttonStyle(.t(.ghost, compact: true))
+        case .verifying, .installing:
+            EmptyView()
+        default:
+            Button(appState.updater.isBusy ? appState.t("ui.updates.checking") : appState.t("ui.updates.check_now")) {
+                appState.updater.checkForUpdates(manual: true)
+            }
+            .buttonStyle(.t(.secondary, compact: true))
+            .disabled(appState.updater.isBusy)
         }
     }
 }

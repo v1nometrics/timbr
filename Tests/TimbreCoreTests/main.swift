@@ -834,6 +834,72 @@ struct TimbreCoreTestRunner {
             print("  [PASS] Feedback (local mailto, preview == body, per-fact switches, safe encoding, no device names)")
         }
 
+        // Auto-updates: SemVer, manifest fail-closed validation, no downgrade, trusted GitHub URLs (ADR-0026)
+        do {
+            expect(SemVer(parsing: "0.1.0") == SemVer(major: 0, minor: 1, patch: 0), "SemVer 3-part parse")
+            expect(SemVer(parsing: "v15.0") == SemVer(major: 15, minor: 0, patch: 0), "SemVer 2-part with v prefix")
+            expect(SemVer(parsing: "0.2.0")! > SemVer(parsing: "0.1.9")!, "SemVer minor beats patch")
+            expect(SemVer(parsing: "1.0.0")! > SemVer(parsing: "0.99.99")!, "SemVer major beats minor")
+            expect(SemVer(parsing: "abc") == nil && SemVer(parsing: "1.2.3.4") == nil && SemVer(parsing: "-1.0.0") == nil, "Invalid SemVer rejected")
+
+            let goodSHA = String(repeating: "a1b2c3d4", count: 8)
+            let goodDL = "https://github.com/v1nometrics/timbr/releases/download/v0.1.0-b86/Timbr.dmg"
+            let goodNotes = "https://github.com/v1nometrics/timbr/releases/tag/v0.1.0-b86"
+            expect(UpdatePolicy.isTrustedReleaseURL(goodDL), "Official GitHub download URL trusted")
+            expect(UpdatePolicy.isTrustedReleaseURL(goodNotes), "Official GitHub release notes URL trusted")
+            expect(!UpdatePolicy.isTrustedReleaseURL("http://github.com/v1nometrics/timbr/releases/download/v1/Timbr.dmg"), "Plain HTTP rejected")
+            expect(!UpdatePolicy.isTrustedReleaseURL("https://evil.example/v1nometrics/timbr/releases/download/v1/Timbr.dmg"), "Third-party host rejected")
+            expect(!UpdatePolicy.isTrustedReleaseURL("https://github.com/other/timbr/releases/download/v1/Timbr.dmg"), "Other GitHub owner rejected")
+            expect(!UpdatePolicy.isTrustedReleaseURL("https://github.com/v1nometrics/timbr/releases/../../other/repo"), "Path traversal rejected")
+            expect(UpdatePolicy.isValidSHA256(goodSHA) && !UpdatePolicy.isValidSHA256("deadbeef") && !UpdatePolicy.isValidSHA256(String(repeating: "z", count: 64)), "Strict 64-hex SHA-256 check")
+
+            let baseManifest = UpdateManifest(
+                version: "0.1.0",
+                build: 86,
+                tag: "v0.1.0-b86",
+                commit: "abc1234",
+                publishedAt: "2026-04-20T12:00:00Z",
+                minimumMacOS: "15.0",
+                downloadURL: goodDL,
+                releaseNotesURL: goodNotes,
+                sha256: goodSHA,
+                summary: "Automatic update test"
+            )
+            let current = AppVersion(version: "0.1.0", build: 85, commit: "051fa43")
+            let macOS15 = SemVer(major: 15, minor: 4, patch: 0)
+
+            expect(UpdatePolicy.evaluate(manifest: baseManifest, current: current, currentMacOS: macOS15) == .available(baseManifest), "Newer build on same version is available")
+            expect(UpdatePolicy.evaluate(manifest: baseManifest, current: AppVersion(version: "0.1.0", build: 86), currentMacOS: macOS15) == .upToDate, "Same version and build is up to date")
+            expect(UpdatePolicy.evaluate(manifest: baseManifest, current: AppVersion(version: "0.1.0", build: 90), currentMacOS: macOS15) == .upToDate, "Older build never downgrades")
+            expect(UpdatePolicy.evaluate(manifest: baseManifest, current: AppVersion(version: "0.2.0", build: 1), currentMacOS: macOS15) == .upToDate, "Older SemVer never downgrades even with higher build")
+            expect(UpdatePolicy.evaluate(manifest: baseManifest, current: current, currentMacOS: macOS15, skippedTag: "v0.1.0-b86", ignoreSkipped: false) == .skipped(baseManifest), "Skipped tag respected on automatic check")
+            expect(UpdatePolicy.evaluate(manifest: baseManifest, current: current, currentMacOS: macOS15, skippedTag: "v0.1.0-b86", ignoreSkipped: true) == .available(baseManifest), "Manual check overrides skipped tag")
+
+            if case .unsupportedOS = UpdatePolicy.evaluate(manifest: baseManifest, current: current, currentMacOS: SemVer(major: 14, minor: 6)) {} else {
+                expect(false, "macOS below minimumMacOS must return unsupportedOS")
+            }
+
+            let badSchema = UpdateManifest(schemaVersion: 99, version: "0.2.0", build: 90, tag: "v0.2.0-b90", commit: "abc", publishedAt: "2026-04-20T00:00:00Z", minimumMacOS: "15.0", downloadURL: goodDL, releaseNotesURL: goodNotes, sha256: goodSHA)
+            if case .invalid = UpdatePolicy.evaluate(manifest: badSchema, current: current, currentMacOS: macOS15) {} else {
+                expect(false, "Unsupported schemaVersion must fail closed")
+            }
+
+            let badURL = UpdateManifest(version: "0.2.0", build: 90, tag: "v0.2.0-b90", commit: "abc", publishedAt: "2026-04-20T00:00:00Z", minimumMacOS: "15.0", downloadURL: "https://evil.example/Timbr.dmg", releaseNotesURL: goodNotes, sha256: goodSHA)
+            if case .invalid = UpdatePolicy.evaluate(manifest: badURL, current: current, currentMacOS: macOS15) {} else {
+                expect(false, "Untrusted download URL must fail closed")
+            }
+
+            let encoded = try! JSONEncoder().encode(baseManifest)
+            let decoded = try! JSONDecoder().decode(UpdateManifest.self, from: encoded)
+            expect(decoded == baseManifest, "UpdateManifest JSON round-trip matches")
+
+            expect(UpdatePolicy.isStandardApplicationsPath("/Applications/Timbr.app", homeDirectory: "/Users/alice"), "/Applications/Timbr.app allows in-place install")
+            expect(UpdatePolicy.isStandardApplicationsPath("/Users/alice/Applications/Timbr.app", homeDirectory: "/Users/alice"), "~/Applications/Timbr.app allows in-place install")
+            expect(!UpdatePolicy.isStandardApplicationsPath("/Users/alice/Documents/timbre/dist/Timbr.app", homeDirectory: "/Users/alice"), "Dev dist checkout does not self-overwrite")
+            expect(!UpdatePolicy.isStandardApplicationsPath("/Volumes/timbr/Timbr.app", homeDirectory: "/Users/alice"), "Mounted DMG volume does not self-overwrite")
+            print("  [PASS] UpdatePolicy (SemVer/build ordering, fail-closed URL/SHA-256/schema/OS checks, skip/manual override, safe install paths)")
+        }
+
         print("[TimbreCoreTests] ALL PASSED")
     }
 }

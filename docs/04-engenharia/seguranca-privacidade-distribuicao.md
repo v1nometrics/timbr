@@ -13,6 +13,7 @@
 - **Helper XPC do motor completo (§3.2): não implementado**; o motor de áudio roda no processo do app. Existe um auxiliar dedicado e isolado (`timbr-mute-keeper`, ADR-0017) apenas para sustentar mutes persistentes em falha.
 - **Alvo de sistema e verificação binária:** `build_app.sh` compila app, C++ e `timbr-mute-keeper` com `-target <arch>-apple-macosx15.0` e `Info.plist` em `15.0`, conferidos no CI por `scripts/check_deployment_target.py`.
 - **Feedback local sem telemetria (ADR-0024):** a seção de feedback só abre o cliente de e-mail local do usuário (`mailto:`) com prévia transparente e contexto mínimo opcional (versão, macOS, tipo de saída, modo EQ, idioma) — nunca envia dados em segundo plano.
+- **Atualizações oficiais automáticas sem telemetria (ADR-0026):** todo push em `main` que altera o app executa `./scripts/ci_check.sh`, empacota `Timbr.dmg` + `update-manifest.json` e publica no GitHub Releases. O app consulta o manifesto estático por HTTPS sem cookies/IDs (desligável em Ajustes), valida URL oficial + SHA-256 + `CFBundleIdentifier` + `codesign` e aplica troca atômica com rollback em `/Applications` (enquanto usar assinatura ad-hoc, o macOS pode pedir reconfirmação de TCC após atualizar).
 
 ---
 

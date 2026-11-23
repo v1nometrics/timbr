@@ -78,7 +78,12 @@ cp "$ROOT/Resources/Timbr.icns" "$APP/Contents/Resources/Timbr.icns"
 cp "$ROOT/Resources/TimbrMenuTemplate.png" "$APP/Contents/Resources/TimbrMenuTemplate.png"
 cp "$ROOT/Resources/Brand/timbr-icon-1024.png" "$APP/Contents/Resources/TimbrBrandIcon.png"
 
-cat > "$APP/Contents/Info.plist" <<'PLIST'
+APP_VERSION="${TIMBR_VERSION:-$(tr -d '[:space:]' < "$ROOT/VERSION" 2>/dev/null || echo "0.1.0")}"
+APP_BUILD="${TIMBR_BUILD_NUMBER:-$(git -C "$ROOT" rev-list --count HEAD 2>/dev/null || echo "1")}"
+APP_COMMIT="${TIMBR_COMMIT_SHA:-$(git -C "$ROOT" rev-parse --short=7 HEAD 2>/dev/null || echo "dev")}"
+echo "==> Version metadata: $APP_VERSION (build $APP_BUILD, commit $APP_COMMIT)"
+
+cat > "$APP/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -98,9 +103,11 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
   <key>CFBundlePackageType</key>
   <string>APPL</string>
   <key>CFBundleShortVersionString</key>
-  <string>0.1.0</string>
+  <string>${APP_VERSION}</string>
   <key>CFBundleVersion</key>
-  <string>1</string>
+  <string>${APP_BUILD}</string>
+  <key>TimbrCommitSHA</key>
+  <string>${APP_COMMIT}</string>
   <key>LSMinimumSystemVersion</key>
   <string>15.0</string>
   <key>LSUIElement</key>

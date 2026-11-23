@@ -92,6 +92,30 @@ struct MenuBarPanel: View {
             }
             .padding(.horizontal, 8).padding(.bottom, 10)
 
+            if let remote = appState.updater.availableManifest {
+                Hairline()
+                Button {
+                    appState.openUpdatesSettings()
+                } label: {
+                    HStack(spacing: 8) {
+                        Circle().fill(c.semantic_info).frame(width: 6, height: 6)
+                        Text(String(format: appState.t("ui.updates.available_title"), remote.displayVersion))
+                            .type(TimbreTypography.caption)
+                            .fontWeight(.medium)
+                            .foregroundStyle(c.ink_primary)
+                            .lineLimit(1)
+                        Spacer()
+                        Image(systemName: "arrow.up.right")
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundStyle(c.ink_secondary)
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 8)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+
             Hairline()
 
             HStack(spacing: 6) {
