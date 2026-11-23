@@ -4,7 +4,7 @@
 
 ## 1. Cor
 
-O sistema é **acromático** (estrutura herdada do Órbita: nenhum cinza azulado, nenhum gradiente decorativo) e **não tem cor de marca** (ADR-0016): a ênfase é feita por tinta, peso e espessura; matizes só com significado semântico. Três superfícies: `light` (Estúdio claro, papel quente da ronda), `dark` (Estúdio escuro, grafite) e `notch` (preto do hardware).
+O sistema é **acromático** (nenhum cinza azulado, nenhum gradiente decorativo) e **não tem cor de marca** (ADR-0016): a ênfase é feita por tinta, peso e espessura; matizes só existem com significado semântico. Três superfícies: `light` (Estúdio claro, papel quente), `dark` (Estúdio escuro, grafite) e `notch` (preto absoluto do hardware).
 
 ### 1.1 Fundos
 
@@ -44,7 +44,7 @@ Linhas internas são **hairlines de 0,5 pt** (um pixel em Retina). Bordas de car
 
 | Token | Claro | Escuro | Notch | Regra |
 |---|---|---|---|---|
-| `accent.signal` / `accent.base` | `#111111` | `#F3F3F1` | `#FFFFFF` | Ênfase em tinta: curva de resultado (2 pt), espectro, "processando", índice de banda ativa, ponto da marca |
+| `accent.signal` / `accent.base` | `#111111` | `#F3F3F1` | `#FFFFFF` | Ênfase em tinta: curva de resultado (2 pt), espectro, "processando", índice de banda ativa |
 | `accent.strong` | `#000000` | `#FFFFFF` | `#FFFFFF` | Ênfase máxima |
 | `accent.subtle` | `rgba(17,17,17,.08)` | `rgba(255,255,255,.10)` | `rgba(255,255,255,.12)` | Fundo de destaque |
 | `accent.fill` | `rgba(17,17,17,.05)` | `rgba(255,255,255,.06)` | `rgba(255,255,255,.07)` | Área sob a curva de resultado |
@@ -54,7 +54,7 @@ Linhas internas são **hairlines de 0,5 pt** (um pixel em Retina). Bordas de car
 | `semantic.negative` | `#C2334D` | `#F2637E` | `#F2637E` | Ação destrutiva, crítico |
 | `semantic.info` | `#2D6CB0` | `#6AB0E8` | `#6AB0E8` | Alerta informativo |
 
-**Por que não há cor de marca:** decisão do dono (ADR-0016). Do Órbita fica a estrutura: papel quente, tinta, eyebrows em mono, números grandes. O violeta dele não vem junto. Os tokens `accent.*` continuam como papéis de ênfase, mas apontam para a tinta da superfície. O sinal processado se distingue por forma (linha sólida de 2 pt contra tracejado e linhas finas), não por matiz.
+**Por que não há cor de marca:** decisão de arquitetura visual (ADR-0016). Permanece a estrutura editorial — papel quente, hierarquia de tinta, eyebrows em mono e números grandes tabulares — sem qualquer matiz decorativa. Os tokens `accent.*` continuam como papéis de ênfase, apontando para a tinta da superfície; o sinal processado se distingue por forma (linha sólida de 2 pt contra tracejado e linhas finas), não por cor.
 
 ### 1.5 Contraste (texto sobre fundo, WCAG 2.2)
 
@@ -86,7 +86,7 @@ Linhas internas são **hairlines de 0,5 pt** (um pixel em Retina). Bordas de car
 | `displayValue` | sans | 34 | 500 | −1,3 | — (tabular) | Número herói |
 | `lyric` | serif | 16 | 400 | −0,1 | — | Letras sincronizadas |
 
-**Marca:** "timbr" em SF Pro Semibold com tracking −0,6 a −2,6 conforme o tamanho; o ponto final em `accent.signal`. Nunca outra fonte, nunca contorno.
+**Marca:** "timbr" em SF Pro Semibold com tracking −0,6 a −2,6 conforme o tamanho; sem ponto final (ADR-0025). Nunca outra fonte, nunca contorno.
 
 ## 3. Espaço
 

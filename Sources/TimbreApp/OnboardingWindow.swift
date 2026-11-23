@@ -64,6 +64,7 @@ public struct OnboardingWindow: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: TimbreSpacing.s3) {
+            TimbrBrandIcon(size: 80)
             Text(appState.t("app.name"))
                 .type(TimbreTypography.heroTitle)
                 .foregroundStyle(colors.ink_primary)

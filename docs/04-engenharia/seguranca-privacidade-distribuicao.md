@@ -1,6 +1,6 @@
 # Segurança, Privacidade, Direitos e Distribuição
 
-> **Produto:** **`timbr.`** ([ADR-0014](../07-decisoes/ADR-0014-nome-identidade-e-i18n.md)) · **Princípios vinculados:** P7 (*Local primeiro, privado por padrão*), P3 (*Nunca deixar rastro*), P12 (*Open source sustentável*), [ADR-0001](../07-decisoes/ADR-0001-licenca.md), [ADR-0007](../07-decisoes/ADR-0007-distribuicao.md), [ADR-0008](../07-decisoes/ADR-0008-ia-propoe-dsp-decide.md).
+> **Produto:** **`timbr`** ([ADR-0014](../07-decisoes/ADR-0014-nome-identidade-e-i18n.md)) · **Princípios vinculados:** P7 (*Local primeiro, privado por padrão*), P3 (*Nunca deixar rastro*), P12 (*Open source sustentável*), [ADR-0001](../07-decisoes/ADR-0001-licenca.md), [ADR-0007](../07-decisoes/ADR-0007-distribuicao.md), [ADR-0008](../07-decisoes/ADR-0008-ia-propoe-dsp-decide.md).
 
 ---
 
@@ -9,8 +9,10 @@
 - **Acessibilidade** é usada para duas coisas: interceptar as teclas de volume, mudo e brilho (`CGEventTap`, com HUD no notch) e ler os menus do app em primeiro plano, para medir o espaço livre da barra (orelhas do notch). Sem ela, as teclas seguem o HUD do macOS e a orelha esquerda é tratada como ocupada.
 - **A permissão é presa à assinatura (Comprovado).** Em builds ad-hoc, o TCC guarda o `cdhash`, e cada build novo perde a permissão em silêncio. Por isso existe `scripts/setup_dev_signing.sh`: identidade local num keychain próprio, com senha em `~/.timbr-dev/` (modo 600), nunca no repositório. Se o app percebe que a permissão sumiu, ele registra o evento e pede de novo.
 - **Brilho** via `DisplayServices` (framework privado, buscado em runtime), com IOKit de reserva. Se não der para ler o brilho, a tecla segue para o macOS.
-- **Gravação de áudio do sistema:** qualquer tap acende o ponto roxo do macOS e marca o processo do timbr. como "usando entrada" (`IsRunningInput = 1`), sem usar o microfone. O tap global só existe com áudio tocando.
-- **Helper XPC e validação por code signing (§3.2): não implementados**; o motor roda no processo do app.
+- **Gravação de áudio do sistema:** qualquer tap acende o ponto roxo do macOS e marca o processo do timbr como "usando entrada" (`IsRunningInput = 1`), sem usar o microfone. O tap global só existe com áudio tocando.
+- **Helper XPC do motor completo (§3.2): não implementado**; o motor de áudio roda no processo do app. Existe um auxiliar dedicado e isolado (`timbr-mute-keeper`, ADR-0017) apenas para sustentar mutes persistentes em falha.
+- **Alvo de sistema e verificação binária:** `build_app.sh` compila app, C++ e `timbr-mute-keeper` com `-target <arch>-apple-macosx15.0` e `Info.plist` em `15.0`, conferidos no CI por `scripts/check_deployment_target.py`.
+- **Feedback local sem telemetria (ADR-0024):** a seção de feedback só abre o cliente de e-mail local do usuário (`mailto:`) com prévia transparente e contexto mínimo opcional (versão, macOS, tipo de saída, modo EQ, idioma) — nunca envia dados em segundo plano.
 
 ---
 

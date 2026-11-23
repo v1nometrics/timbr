@@ -1,13 +1,13 @@
 # ADR-0022 · Ícone do app: o notch e o som que ele controla
 
-- **Status:** Aceito · 2026-11-23 (o dono pediu um ícone mais original e autorizou aplicar a recomendação)
-- **Substitui:** a linha "Ícone do App (`.icns`)" da [ADR-0014](ADR-0014-nome-identidade-e-i18n.md) e o item "Ícone do app" da [ADR-0016](ADR-0016-identidade-acromatica.md). O wordmark `timbr.` (com o ponto final) **não muda**.
+- **Status:** Substituído por [ADR-0025](ADR-0025-ilha-refinada-e-marca-sem-ponto.md) · 2026-11-23
+- **Substitui:** a linha "Ícone do App (`.icns`)" da [ADR-0014](ADR-0014-nome-identidade-e-i18n.md) e o item "Ícone do app" da [ADR-0016](ADR-0016-identidade-acromatica.md). Decisão histórica; símbolo e assinatura vigentes estão na ADR-0025.
 
 ## Contexto
 
-O ícone anterior (fundo `#141414`, cinco barras de onda brancas e um ponto) é praticamente o símbolo padrão de qualquer app de áudio, e o dono disse que não gostava dele. Duas rodadas de propostas deram esta leitura:
+O ícone inicial (fundo `#141414`, cinco barras de onda brancas e um ponto) era genérico demais em relação a outros utilitários de áudio. Duas rodadas de exploração visual levaram à seguinte síntese:
 
-- **Rodada 1 (ponto final como símbolo, lissajous, "t" com fader):** rejeitadas. O dono achou o ponto "viagem" como símbolo isolado, o lissajous "muita viagem" e o "t" com fader com cara de DJ.
+- **Rodada 1 (ponto final como símbolo, curvas de Lissajous, "t" com fader):** descartadas por se afastarem da linguagem minimalista do produto (ponto isolado abstrato demais, Lissajous excessivamente ornamental e "t" com fader associado a apps de DJ).
 - **Rodada 2:** o ponto saiu do ícone (ele continua no nome escrito, onde passa precisão). Propus três: A (notch + som), B ("t" serifado) e C (a ilha). A recomendação foi a A.
 
 ## Decisão
@@ -20,6 +20,6 @@ Aplicar a **A**: um bloco de papel quente (`#F3F3F1`) com o **notch pendurado na
 
 ## Limites
 
-- O dono não escolheu entre as opções; esta é a recomendação aplicada por autorização geral. Trocar é só editar a função de desenho do script e regenerar.
+- Aplicado como solução intermediária antes da definição final da marca (posteriormente substituído pela [ADR-0025](ADR-0025-ilha-refinada-e-marca-sem-ponto.md)).
 - Em 16 px as barras viram uma faixa cinza: o notch preto continua sendo o reconhecível.
 - O ícone da barra de menus (que só aparece sem notch) não mudou.

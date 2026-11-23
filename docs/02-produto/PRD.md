@@ -1,4 +1,4 @@
-# PRD · `timbr.`
+# PRD · `timbr`
 
 > Status: v1.0 · 2026-11-21 · Dono: Vinicius. Documento vivo: toda mudança de escopo atualiza este arquivo e o `progresso.md`.
 > Leitura prévia: `01-visao/visao-e-principios.md`, `03-viabilidade/matriz-de-viabilidade.md`.
@@ -25,7 +25,7 @@ Separação de stems; player de música próprio; efeitos "3D/realce" por padrã
 
 | Persona | Trabalho principal | Momento crítico |
 |---|---|---|
-| **Ana, audiófila de fone** (o dono) | "Quero que o meu Momentum 4 soe como eu gosto, igual em qualquer app, e saber que nada está estragando o sinal" | Conectar o fone → o perfil certo entra sozinho; um app abre o mic → é avisada antes do som piorar |
+| **Ana, audiófila de fone** (persona primária) | "Quero que o meu Momentum 4 soe como eu gosto, igual em qualquer app, e saber que nada está estragando o sinal" | Conectar o fone → o perfil certo entra sozinho; um app abre o mic → é avisada antes do som piorar |
 | **Bruno, controlador do som** | "Reunião no fone, música baixinha nas caixas, notificações mudas" | Entrar numa call → a música abaixa sozinha e volta depois |
 | **Carla, criadora** | "Quero ver níveis reais, rotear e não ter surpresas" | Gravar sem áudio duplicado, com medidores confiáveis |
 
@@ -204,7 +204,7 @@ Coluna "Viab." referencia a seção da matriz de viabilidade. Critérios de acei
 | RF-1405 | Trilíngue nativo desde a v1: **Português (`pt-BR`), Espanhol (`es`) e Inglês (`en`)** via `.xcstrings` (variantes curtas para notch + preservação de termos universais `dBTP`/`Headroom`/`Bypass`) | P0 | A |
 | RF-1406 | Exportar/importar toda a configuração | P1 | — |
 | RF-1408 | Feedback por e-mail, local e visível: o app só abre o e-mail da pessoa com a mensagem pronta e mostra o que acompanha ([ADR-0024](../07-decisoes/ADR-0024-feedback-por-email-local.md)) | P1 | G |
-| RF-1409 | Mudo à prova de falha: app silenciado continua mudo se o timbr. morrer ([ADR-0017](../07-decisoes/ADR-0017-mudo-a-prova-de-falha.md)) | P0 | A |
+| RF-1409 | Mudo à prova de falha: app silenciado continua mudo se o timbr morrer ([ADR-0017](../07-decisoes/ADR-0017-mudo-a-prova-de-falha.md)) | P0 | A |
 | RF-1407 | Relatório de diagnóstico para bugs, revisável antes de enviar, sem áudio | P1 | — |
 
 ### EP-15 · Extensibilidade e extras audiófilos

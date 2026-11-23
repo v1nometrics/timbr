@@ -772,7 +772,7 @@ public final class NotchPanelController {
         menu.addItem(icon)
         menu.addItem(ClosureMenuItem(appState.t("ui.feedback.menu")) { appState.openFeedback() })
         menu.addItem(.separator())
-        menu.addItem(ClosureMenuItem(appState.t("ui.quit") + " timbr.") { NSApp.terminate(nil) })
+        menu.addItem(ClosureMenuItem(appState.t("ui.quit") + " timbr") { NSApp.terminate(nil) })
         return menu
     }
 
@@ -1502,7 +1502,6 @@ public struct NotchOverlayView: View {
                 case .empty:
                     HStack(alignment: .firstTextBaseline, spacing: 0) {
                         Text("timbr").font(.system(size: 13, weight: .semibold)).tracking(-0.3)
-                        Text(".").font(.system(size: 13, weight: .semibold)).foregroundStyle(c.accent_base)
                     }
                     .foregroundStyle(c.ink_primary)
                 }

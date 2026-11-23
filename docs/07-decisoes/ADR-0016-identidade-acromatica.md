@@ -1,11 +1,11 @@
 # ADR-0016 · Identidade acromática: sem acento de matiz
 
-- **Status:** Aceito · 2026-11-22 (decisão do dono do produto)
+- **Status:** Aceito · 2026-11-22
 - **Substitui:** a linha "Uso de Cor" da ADR-0014 (1 acento violeta) e a lei L3 da v2.x do design system ("violeta só para o sinal")
 
 ## Contexto
 
-O design system herdou do Órbita / ronda diária a estrutura acromática e um único acento violeta, que no timbr. marcava o sinal processado: a curva de resultado, o espectro, o estado "processando", o ponto da marca e o ponto do ícone. O dono pediu para tirar do timbr. qualquer obrigação com o roxo: "a Órbita é perfeita, mas ignore o roxo dela".
+A primeira versão do design system combinava superfícies acromáticas editoriais com um único acento violeta para marcar o sinal processado (curva de resultado, espectro, estado "processando" e ponto da marca). Optou-se por remover qualquer cor de marca decorativa do `timbr`, preservando apenas a estrutura editorial neutra e cores estritamente semânticas.
 
 ## Decisão
 
@@ -19,7 +19,7 @@ O design system herdou do Órbita / ronda diária a estrutura acromática e um �
 
 | Alternativa | Por que não |
 |---|---|
-| Trocar o violeta por outra matiz (azul, verde, laranja) | Mantém a obrigação de uma cor de marca, que o dono não quer; e o verde e o âmbar já têm significado semântico |
+| Trocar o violeta por outra matiz (azul, verde, laranja) | Mantém uma cor de marca arbitrária; além disso, verde e âmbar já possuem significado semântico reservado |
 | Permitir que o usuário escolha um acento | Pode vir depois como personalização, com ADR própria; não pode ser a identidade |
 | Remover os tokens `accent.*` | Força uma refatoração ampla sem ganho visual; o papel "ênfase" continua útil |
 
@@ -36,8 +36,12 @@ O design system herdou do Órbita / ronda diária a estrutura acromática e um �
 ## Consequências
 
 - Leis L3 e o checklist da bíblia foram reescritos. Docs 01, 03, 04 e 05 do design system foram atualizados.
-- Notas de pesquisa antigas (`docs/00-pesquisa/…`) continuam citando o violeta do Órbita como registro histórico. Os "pontos roxos" citados na pesquisa de captura são o **indicador de gravação do macOS**, não a nossa marca.
+- Notas históricas de pesquisa (`docs/00-pesquisa/…`) registram a evolução anterior do sistema. Os "pontos roxos" citados na pesquisa de captura referem-se ao **indicador de gravação de áudio do macOS**, não à identidade do `timbr`.
 
 ## Condição de revisão
 
-Só volta a existir uma matiz de marca com uma nova ADR aprovada pelo dono.
+Qualquer retorno de uma cor de marca exige uma nova ADR formal.
+
+## Atualização de símbolo · ADR-0025
+
+A paleta acromática continua vigente. Ícone e nome agora seguem a Ilha refinada original e a assinatura sem ponto. As descrições anteriores do ponto e do ícone são histórico, não instruções atuais.

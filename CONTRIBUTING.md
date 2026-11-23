@@ -1,6 +1,6 @@
-# Contributing to timbr.
+# Contributing to timbr
 
-Obrigado por contribuir com o **timbr.** (*Sound, precisely yours.*).
+Obrigado por contribuir com o **timbr** (*Sound, precisely yours.*).
 
 ## Dúvidas, sugestões e problemas
 

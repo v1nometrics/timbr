@@ -74,7 +74,7 @@ fi
 
 echo "==> Launching $DEST"
 open "$DEST"
-echo "Installed. Look for the timbr. welcome window (first run) or the menu-bar waveform icon."
+echo "Installed. Look for the timbr welcome window (first run) or the menu-bar island icon."
 if [ -f "$DMG" ]; then
   echo "DMG also available at: $DMG"
 fi

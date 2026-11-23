@@ -6,11 +6,11 @@
 
 ## 1. Posição de Licenciamento e Fronteira Copyleft
 
-Enquanto `ADR-0001` permanecer como **Proposto** aguardando aprovação final do dono, aplica-se a regra estrita do `AGENTS.md`:
+Com a aprovação da [ADR-0001](../07-decisoes/ADR-0001-licenca.md) (**Aceito**), o projeto é distribuído sob **Mozilla Public License 2.0 (`MPL-2.0`)** com **DCO (`Signed-off-by`)**, sob fronteira rígida contra copyleft forte:
 - **Permitido:** estudar arquitetura, protocolos e fórmulas públicas de projetos GPL/AGPL (`FineTune`, `boring.notch`, `Atoll`, `LosslessSwitcher`, `BlackHole`, `LibrePods`).
-- **Proibido:** copiar, traduzir linha a linha ou portar trechos de código de repositórios GPL/AGPL/LGPL-incompatíveis para a árvore do Timbre.
+- **Proibido:** copiar, traduzir linha a linha ou portar trechos de código de repositórios GPL/AGPL/LGPL-incompatíveis para a árvore do `timbr` (verificado na etapa 3 do CI).
 
-### 1.1 Escolha recomendada: `MPL-2.0 + DCO`
+### 1.1 Fundamentos da escolha: `MPL-2.0 + DCO`
 - **Copyleft em nível de arquivo:** qualquer modificação nos arquivos `.swift`, `.cpp`, `.rs` ou `.json` do Timbre permanece aberta sob MPL-2.0, evitando apropriação fechada do núcleo do projeto.
 - **Compatibilidade estratégica:** permite vincular `CamillaDSP v5` (que adotou licença dupla `GPL-3.0 OR MPL-2.0`), bibliotecas `MIT`/`BSD-2`/`BSD-3`/`0BSD`/`Apache-2.0`, e não fecha a porta para uma eventual edição *Pro* ou versão *lite* na Mac App Store com módulos proprietários isolados em arquivos separados.
 - **DCO (`Signed-off-by`) no lugar de CLA:** dispensa transferência jurídica de copyright (que costuma afastar contribuidores experientes de áudio e Swift) enquanto documenta a origem legítima de cada commit.

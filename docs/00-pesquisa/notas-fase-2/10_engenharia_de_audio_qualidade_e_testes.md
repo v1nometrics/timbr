@@ -28,7 +28,7 @@ Em áudio digital no Core Audio, cada ciclo de I/O (`IOProc`) possui um orçamen
 - Operar o grafo interno em **64 bits ponto flutuante (`Float64`)** mantém ruído de quantização e acumulação abaixo de **`−300 dBFS`** mesmo com 20 bandas em cascata a 192 kHz (**Comprovado** em teoria de filtros IIR e adotado por CamillaDSP, FabFilter Pro-Q e DAWs de masterização), antes de converter para `Float32` (Core Audio padrão) ou inteiro de saída no último estágio.
 
 ### 2.2 Topologia de Filtros: Bilinear Clássica vs. Orfanidis vs. Vicanek vs. TPT SVF
-| Topologia | Problema resolvido | Trade-off | Decisão para o `timbr.` |
+| Topologia | Problema resolvido | Trade-off | Decisão para o `timbr` |
 |---|---|---|---|
 | **Audio EQ Cookbook (RBJ Bilinear)** | Simples e clássico | Sofre **cramping** (compressão de largura) perto de Nyquist em `44.1 / 48 kHz` para picos acima de `~8–10 kHz`. | Bom para compatibilidade exata com EqualizerAPO quando usuário pedir *"modo legado RBJ"* (verificado em E-06). |
 | **Orfanidis (1997, JAES)** | Prescreve ganho exato em Nyquist no pico paramétrico | Resolve cramping para peaking EQ sem oversampling. | Referência analítica; porém não cobre shelves casados tão uniformemente quanto Vicanek. |
@@ -48,7 +48,7 @@ Em áudio digital no Core Audio, cada ciclo de I/O (`IOProc`) possui um orçamen
 ### 3.1 O Fenômeno `0 dBFS+` (Nielsen & Lund, AES 2000/2003)
 - Mesmo quando nenhuma amostra PCM excede `0,0 dBFS`, o filtro de reconstrução DAC (e o upsampling/AAC encoder Bluetooth!) gera **picos inter-amostra (*inter-sample peaks*)** que em gravações comerciais modernas altamente limitadas ultrapassam **`+3 dBTP`**, chegando frequentemente a **`+5,8 dB`** em casos extremos (**Comprovado**, Lund/TC Electronic AES 23rd Conf. Table 4).
 - **Por que isso quebra a fidelidade no macOS:** ao aplicar +3 dB em um slider de EQ (ou enviar sinal a 0 dBFS para o encoder AAC Bluetooth ou DAC com pouca folga no estágio analógico), sem headroom prévio o sinal ceifa com distorção intermodular severa.
-- **Arquitetura obrigatória de headroom no `timbr.`:**
+- **Arquitetura obrigatória de headroom no `timbr`:**
   1. **Preamp automático conservador:** calcular o pico máximo positivo da resposta composta somada (`max_f H_total(f)`) + **margem de segurança configurável (padrão `-1,0 dB` ou `-1,5 dBTP` para Bluetooth)**, garantindo que ganho positivo do EQ nunca empurre o teto para `> 0 dBTP`.
   2. **Medidor True Peak real (`ITU-R BS.1770-4 / BS.1770-5 Annex 2`):** filtro polifásico com **oversampling 4×** (48 fases / 12 taps por fase a 48 kHz = 192 kHz efetivo) antes de detectar o módulo máximo — exibindo valor exato em **`dBTP`** com retenção de pico e flag de overload.
   3. **Limiter de proteção True-Peak (Safety Limiter):** estágio final com look-ahead mínimo (ou modo *soft-clip transparente* opcional vs *brickwall TP*) que **só atua se `> −0,2 dBTP`** (ou limiar configurado) para evitar estouros sem colorir sinais normais; **acende indicador visível no Observatório sempre que entrar em redução de ganho (> 0,0 dB GR)** para nunca mascarar clipping silenciosamente.
@@ -70,10 +70,10 @@ Em áudio digital no Core Audio, cada ciclo de I/O (`IOProc`) possui um orçamen
      - **Short-term (`S`):** janela deslizante de **`3,0 s`**
      - **Integrated (`I`):** acumulado com **duplo gate** (`-70 LUFS` absoluto e `-10 LU` relativo à média preliminar)
    - Implementação MIT de referência: **`libebur128`** (C, MIT) ou port puro `ebur128` (Rust/Swift validado contra vetores oficiais EBU Tech 3341).
-   - **Uso prático essencial no `timbr.`:** **Nivelamento automático de A/B (`Δ ≤ 0,1 dB`)**! Sem compensação de loudness entre curva A e curva B, o ouvido humano quase sempre prefere o sinal mais alto por apenas `0,5 dB` (**Comprovado**, literatura de testes cegos).
+   - **Uso prático essencial no `timbr`:** **Nivelamento automático de A/B (`Δ ≤ 0,1 dB`)**! Sem compensação de loudness entre curva A e curva B, o ouvido humano quase sempre prefere o sinal mais alto por apenas `0,5 dB` (**Comprovado**, literatura de testes cegos).
 2. **Proteção Auditiva (`WHO-ITU H.870`, 2022):**
    - Teto semanal de referência: **`80 dBA` por `40 horas/semana`** (taxa de troca de `3 dB`: `83 dBA` = 20 h, `86 dBA` = 10 h, `92 dBA` = 2,5 h, `100 dBA` = 24 min).
-   - **Regra de honestidade metrológica (P6):** Em fones Bluetooth via USB/A2DP arbitrários no macOS, o sistema **não conhece com precisão científica a curva de sensibilidade (`dB SPL / mW`), a impedância real e o ganho analógico pós-DAC** (diferente da Apple com AirPods Pro + iOS/FDA DEN230081). Portanto, o monitor de exposição do `timbr.` opera em **dois modos claramente rotulados**:
+   - **Regra de honestidade metrológica (P6):** Em fones Bluetooth via USB/A2DP arbitrários no macOS, o sistema **não conhece com precisão científica a curva de sensibilidade (`dB SPL / mW`), a impedância real e o ganho analógico pós-DAC** (diferente da Apple com AirPods Pro + iOS/FDA DEN230081). Portanto, o monitor de exposição do `timbr` opera em **dois modos claramente rotulados**:
      - **`ESTIMADO (dBFS + Sensibilidade do Modelo)`** quando houver dado de sensibilidade/impedância do fone;
      - **`EXPOSIÇÃO RELATIVA (dBFS · LUFS)`** quando não houver calibração — nunca exibindo um número falso de "dB SPL exato" sem calibração física.
 

@@ -4,7 +4,7 @@
 
 ## Contexto
 
-O dono quer usar fortemente bibliotecas web gratuitas (shadcn/ui e seus gráficos, spell.sh, bencho.dev, libraries.dev/waves) e uma estética derivada do Órbita e da ronda diária, que são web. O produto, porém, é um app de sistema: overlay no notch acima da barra de menus, motor de áudio em tempo real, eventos de teclado globais, Bluetooth, Core Audio.
+O projeto aproveita bibliotecas web abertas (`shadcn/ui`, `audiocn/ui`, `spell.sh`, `bencho.dev`, `libraries.dev/waves`) e uma estética editorial limpa na documentação e no playground. O produto em si, porém, é um app de sistema: overlay no notch acima da barra de menus, motor de áudio em tempo real, eventos de teclado globais, Bluetooth e Core Audio.
 
 ## Decisão
 

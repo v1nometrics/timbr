@@ -24,7 +24,7 @@ mkdir -p "$STAGE"
 cp -R "$APP" "$STAGE/Timbr.app"
 ln -s /Applications "$STAGE/Applications"
 
-hdiutil create -volname "timbr." -srcfolder "$STAGE" -ov -format UDZO "$DMG"
+hdiutil create -volname "timbr" -srcfolder "$STAGE" -ov -format UDZO "$DMG"
 rm -rf "$STAGE"
 
 if [ -n "${DEVELOPER_ID:-}" ]; then

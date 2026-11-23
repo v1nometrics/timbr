@@ -56,7 +56,7 @@ extension AppState {
 
     var playingCount: Int { sources.filter(\.isPlaying).count }
 
-    /// One sentence that tells the whole signal-path story (ronda headline pattern).
+    /// One sentence that tells the whole signal-path story (editorial headline pattern).
     var signalSummary: String {
         let device = activeOutputDevice?.name ?? "—"
         if isProcessingBypassed { return String(format: t("ui.summary.bypassed"), device) }

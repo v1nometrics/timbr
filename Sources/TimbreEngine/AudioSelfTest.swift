@@ -2,10 +2,10 @@
 // End-to-end measurement of the per-app volume path, run inside the signed app (which holds the
 // System Audio Recording grant): `Timbr --selftest-audio <report.json>`.
 //
-// It plays a known tone with afplay (a child process, so timbr. is its responsible app), drives the
+// It plays a known tone with afplay (a child process, so timbr is its responsible app), drives the
 // real ProcessTapEngine exactly like the UI does, and measures with two independent unmuted taps:
-//   • SOURCE  — a tap on afplay itself: the signal before timbr. touches it;
-//   • OUTPUT  — a tap on timbr.'s own process: what timbr. actually sends to the output device.
+//   • SOURCE  — a tap on afplay itself: the signal before timbr touches it;
+//   • OUTPUT  — a tap on timbr's own process: what timbr actually sends to the output device.
 // gain = 20·log10(rms(OUTPUT) / rms(SOURCE)). Nothing here is simulated (AGENTS.md: no invented results).
 import Foundation
 import CoreAudio
@@ -153,7 +153,7 @@ public enum AudioSelfTest {
                 cases.append(Case(name: name, requestedVolume: vol, muted: muted, toneDBFS: tone, expectedGainDB: expected, sourceRMSdBFS: -180, outputRMSdBFS: -180, outputPeakdBFS: -180, measuredGainDB: 0, pass: false, note: "could not create the source meter (System Audio Recording permission?)"))
                 continue
             }
-            // Baseline first: a second tap on a process that timbr. is already tapping (muted) stops
+            // Baseline first: a second tap on a process that timbr is already tapping (muted) stops
             // receiving audio, so the source level is measured before the engine takes the process.
             try? await Task.sleep(for: .milliseconds(300))
             srcMeter.reset()

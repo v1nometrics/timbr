@@ -1,4 +1,4 @@
-# Packaging · `timbr.`
+# Packaging · `timbr`
 
 ## Instalação local (primeira abertura)
 

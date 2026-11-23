@@ -2,15 +2,15 @@
 // End-to-end check of the fail-closed mute mechanics (ADR-0017), run inside the signed app:
 //   `Timbr --selftest-mute-persistence <report.json>`
 //
-// A player process (timbr. in `--selftest-tone` mode) plays a quiet tone. A *second timbr. process*
+// A player process (timbr in `--selftest-tone` mode) plays a quiet tone. A *second timbr process*
 // (`--selftest-mute-holder`) mutes it through the production MuteKeeperClient — which starts the
 // real `timbr-mute-keeper` — waits for the keeper to confirm, and is then killed with SIGKILL, the
-// harshest way timbr. can die. The keeper must still be running and holding the mute; a fresh
-// client (= timbr. relaunched) must adopt it; releasing must make the keeper exit. Everything runs in
+// harshest way timbr can die. The keeper must still be running and holding the mute; a fresh
+// client (= timbr relaunched) must adopt it; releasing must make the keeper exit. Everything runs in
 // a private state directory, never touching the real app's mutes.
 //
 // What this cannot measure: the speaker. Process taps read audio *before* the mute is applied and
-// timbr. has no microphone grant. Audibility is checked by ear: scripts/listen_mute_crash.sh.
+// timbr has no microphone grant. Audibility is checked by ear: scripts/listen_mute_crash.sh.
 import Foundation
 import CoreAudio
 import TimbreCore
@@ -32,7 +32,7 @@ public enum MutePersistenceSelfTest {
 
     static let testBundleID = "selftest.player"
 
-    // MARK: Holder (the timbr. process that gets SIGKILLed)
+    // MARK: Holder (the timbr process that gets SIGKILLed)
 
     /// `--selftest-mute-holder <pid> <state dir>`: mute `pid` through the keeper, wait until it confirms,
     /// write `ready`, then idle until killed. Never releases: dying with the mute held is the point.
@@ -84,7 +84,7 @@ public enum MutePersistenceSelfTest {
         }
         check("player is producing audio", playing, "pid \(player.processIdentifier)")
 
-        // 1. A second timbr. process mutes the player through the keeper, then dies by SIGKILL.
+        // 1. A second timbr process mutes the player through the keeper, then dies by SIGKILL.
         let holder = Process()
         holder.executableURL = Bundle.main.executableURL
         holder.arguments = ["--selftest-mute-holder", String(player.processIdentifier), dir.path]
@@ -104,14 +104,14 @@ public enum MutePersistenceSelfTest {
         holder.waitUntilExit()
         try? await Task.sleep(for: .milliseconds(800))
         let status = MuteKeeperProtocol.read(MuteKeeperProtocol.Status.self, from: MuteKeeperProtocol.statusURL(dir))
-        check("keeper outlives timbr. killed with SIGKILL and still holds the mute",
+        check("keeper outlives timbr killed with SIGKILL and still holds the mute",
               MuteKeeperProtocol.isKeeperRunning(in: dir) && (status?.held.contains(testBundleID) ?? false),
               "holder exit: \(holder.terminationReason == .uncaughtSignal ? "signal" : "status") \(holder.terminationStatus); keeper running \(MuteKeeperProtocol.isKeeperRunning(in: dir)); held \(status?.held ?? [])")
 
-        // 2. timbr. relaunched: adopt, then the user unmutes.
+        // 2. timbr relaunched: adopt, then the user unmutes.
         let relaunched = MuteKeeperClient(directory: dir)
         let adopted = relaunched.survivingMutes().map(\.bundleID)
-        check("a relaunched timbr. adopts the surviving mute", adopted.contains(testBundleID), "adopted \(adopted)")
+        check("a relaunched timbr adopts the surviving mute", adopted.contains(testBundleID), "adopted \(adopted)")
         relaunched.releaseAll()
         var exited = false
         for _ in 0..<40 {

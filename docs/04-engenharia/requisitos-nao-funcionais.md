@@ -40,7 +40,7 @@
 
 ## 2. Arquitetura Explícita: 100% Local em Essência vs. Dependências de Rede/Nuvem
 
-> **Princípio P7 (Local primeiro, privado por padrão):** O **`timbr.`** funciona integralmente com o cabo de rede desconectado (modo avião). **Nenhuma funcionalidade central de áudio, EQ, mixagem, drivers, automação ou interface depende de nuvem, login ou telemetria.** Recursos que exigem acesso externo são **explicitamente opcionais (opt-in ou acionamento manual)** e degradam de forma silenciosa e útil offline.
+> **Princípio P7 (Local primeiro, privado por padrão):** O **`timbr`** funciona integralmente com o cabo de rede desconectado (modo avião). **Nenhuma funcionalidade central de áudio, EQ, mixagem, drivers, automação ou interface depende de nuvem, login ou telemetria.** Recursos que exigem acesso externo são **explicitamente opcionais (opt-in ou acionamento manual)** e degradam de forma silenciosa e útil offline.
 
 | Camada / Funcionalidade | Modo de Execução | Rede Necessária? | Dependência Externa | Comportamento Offline (Sem Internet) |
 |---|---|---|---|---|
@@ -58,7 +58,7 @@
 | **Reconhecimento acústico (`EP-11`, RF-1105)** | **Híbrido (assinatura local → match remoto)** | Sim, apenas ao clicar *"Identificar"* | **Apple ShazamKit** (envia apenas hash espectral, nunca áudio bruto) | Botão informa *"Sem conexão para identificar faixa"*. |
 | **Scrobbling opcional (`EP-11`, RF-1106)** | **Rede opt-in** | Sim (HTTPS POST com token do usuário) | **ListenBrainz** / Last.fm | Enfileira localmente ou desativa sem perda de reprodução. |
 | **LLM em Nuvem BYOK (`EP-12`, fallback opcional)** | **Rede opt-in com chave do usuário** | Sim (HTTPS API do provedor escolhido) | OpenAI / Anthropic / Google (chave própria do usuário) | Volta automaticamente para Apple Foundation Models / Ollama ou sugestões determinísticas locais. |
-| **Atualizações automáticas (`EP-14`)** | **Rede opt-in (Sparkle 2 HTTPS + EdDSA)** | Sim (check periódico ou manual) | Appcast HTTPS assinado (`timbr.`) + Homebrew | Ignora silenciosamente até próxima conexão; nunca impede abertura do app. |
+| **Atualizações automáticas (`EP-14`)** | **Rede opt-in (Sparkle 2 HTTPS + EdDSA)** | Sim (check periódico ou manual) | Appcast HTTPS assinado (`timbr`) + Homebrew | Ignora silenciosamente até próxima conexão; nunca impede abertura do app. |
 
 ---
 

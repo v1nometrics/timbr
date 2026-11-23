@@ -121,7 +121,7 @@ public enum EqualizerAPOParser {
 
     public static func export(preampDB: Double, bands: [EQBand]) -> String {
         var lines: [String] = [
-            "# Exported by timbr. (ADR-0009 EqualizerAPO ParametricEQ interchange)",
+            "# Exported by timbr (ADR-0009 EqualizerAPO ParametricEQ interchange)",
             String(format: "Preamp: %.2f dB", preampDB)
         ]
         for (i, b) in bands.enumerated() {

@@ -108,6 +108,6 @@
 
 ## Gaps
 
-- Os 41 arquivos de teste do `camilladsp` v5, `rubato` e `sdroege/ebur128` não foram executados localmente com `cargo test` nesta sessão (`não medido`).
+- Os 41 arquivos de teste do `camilladsp` v5, `rubato` e `sdroege/ebur128` não foram executados localmente com `cargo test` durante a auditoria (`não medido`).
 - `SoundTouch` foi avaliado via documentação oficial/busca (não clonado de repositório upstream Codeberg/GitLab).
 - O comportamento exato do bug de zoom/taps (`jatinindia/MacEQ#3`) e do under-read de True Peak (`sdroege/ebur128#69`) precisa de verificação prática no laboratório (E-04 / E-06).

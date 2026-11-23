@@ -505,7 +505,7 @@ public final class ProcessTapEngine: @unchecked Sendable {
         manageMutes: Bool = true
     ) -> Bool {
         // Fail-closed mutes (ADR-0017): hand the silenced apps to the keeper. Until it confirms an app,
-        // timbr. keeps muting that app itself (below), so there is no instant where nobody holds it.
+        // timbr keeps muting that app itself (below), so there is no instant where nobody holds it.
         let keeper = manageMutes ? muteKeeper : nil
         let muteTargets = keeper == nil ? [] : sources.compactMap(MuteKeeperClient.target(for:))
         keeper?.publish(muteTargets)

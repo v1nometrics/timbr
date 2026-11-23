@@ -1,4 +1,4 @@
-timbr. — Third-Party Notices & Attributions
+timbr — Third-Party Notices & Attributions
 SPDX-License-Identifier: MPL-2.0
 
 This project is licensed under the Mozilla Public License 2.0 (see LICENSE).
@@ -55,4 +55,4 @@ Adapted in: Sources/TimbreEngine/AirPodsFamilyDriver.swift
    - Project: https://github.com/audiocn/ui (https://www.audiocn.dev)
    - Authors: fortysevenfx & orcdev
    - License: MIT
-   - Note: timbr. models its native SwiftUI audio UI primitives (`TKnob`, `TLCDDisplay`, `TLCDMeterRow`, `TLevelMeter`, `TdBScale`, `TdBReadout`, `TClipIndicator`, `TChannelButton`, and enhanced `TFader`) and `AudioUIMath` metrology/ballistics after the component anatomy, audio-taper exponent (`1.65`), whole-segment LCD quantization, and bipolar rotary arc patterns specified by audiocn. No GPL/AGPL code is linked or bundled.
+   - Note: timbr models its native SwiftUI audio UI primitives (`TKnob`, `TLCDDisplay`, `TLCDMeterRow`, `TLevelMeter`, `TdBScale`, `TdBReadout`, `TClipIndicator`, `TChannelButton`, and enhanced `TFader`) and `AudioUIMath` metrology/ballistics after the component anatomy, audio-taper exponent (`1.65`), whole-segment LCD quantization, and bipolar rotary arc patterns specified by audiocn. No GPL/AGPL code is linked or bundled.

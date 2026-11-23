@@ -7,7 +7,7 @@
 
 ## 1. Síntese
 
-Para o `timbr.`, a linha Apple **não** é um segundo Momentum 4 (GAIA write/read). É um produto com **fronteira dura** no macOS:
+Para o `timbr`, a linha Apple **não** é um segundo Momentum 4 (GAIA write/read). É um produto com **fronteira dura** no macOS:
 
 1. **HAL + Guardião G-01** — o que o audiófilo precisa todos os dias (sem queda HFP).
 2. **Continuity BLE passivo** — bateria L/R/Case, in-ear, lid e flip primary/secondary quando o case anuncia proximity-pairing.
@@ -19,7 +19,7 @@ Para o `timbr.`, a linha Apple **não** é um segundo Momentum 4 (GAIA write/rea
 
 ## 2. Inventário OSS (estado da arte)
 
-| Projeto | Licença | Plataforma | Valor | Uso no `timbr.` |
+| Projeto | Licença | Plataforma | Valor | Uso no `timbr` |
 |---|---|---|---|---|
 | **LibrePods** | GPL-3.0 | Linux / Android | Mapa AACP completo (L2CAP `0x1001`), Magic Pairing, Hearing Aid EQ | **Estudo apenas** — prova que macOS Developer ID não abre `0x1001` |
 | **airpods-macfeel** | GPL-3.0 | Linux (LibrePods fork) | UX “Mac-feel”, handoff; alerta fw 9A348 vs VendorID spoof | Estudo de UX / anti-padrões de spoof |
@@ -36,7 +36,7 @@ Para o `timbr.`, a linha Apple **não** é um segundo Momentum 4 (GAIA write/rea
 - Canal de controle: L2CAP PSM **`0x1001`**.
 - Header típico AACP: `04 00 04 00` + opcode LE16 + payload.
 - macOS: `bluetoothd` reserva o canal; apps Developer ID **não** obtêm o socket (sem SIP off / entitlements privados).
-- Consequência de produto: **nenhum slider ANC** no `timbr.` para AirPods. Copy honesta no Observatório (`dev.apple.aacp_closed`).
+- Consequência de produto: **nenhum slider ANC** no `timbr` para AirPods. Copy honesta no Observatório (`dev.apple.aacp_closed`).
 
 ---
 

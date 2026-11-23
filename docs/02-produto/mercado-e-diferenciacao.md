@@ -6,7 +6,7 @@
 
 ## 1. Mapa Competitivo Detalhado (Onde Todos Sangram Hoje)
 
-| Concorrente | Categoria / Modelo | Pontos Fortes Reais | Falhas Reais Comprovadas (Voz do Usuário & Arquitetura) | Como o `timbr.` Vence com Rigor |
+| Concorrente | Categoria / Modelo | Pontos Fortes Reais | Falhas Reais Comprovadas (Voz do Usuário & Arquitetura) | Como o `timbr` Vence com Rigor |
 |---|---|---|---|---|
 | **SoundSource** (Rogue Amoeba) | Pago (~US$ 45) · Fechado | Referência de estabilidade em Process Taps (v6.2+), suporte amplo a AU, política "Output Only" anti-HFP, EQ sólido. | Interface utilitária tradicional (menu bar), sem camada inteligente/AutoEq nativa no fluxo principal, sem telemetria de cadeia/transparência honesta, sem drivers Bluetooth (Momentum 4), sem abas individuais de browser, código fechado. | Paridade de confiabilidade HAL + **Notch Editorial vivo**, **Observatório + Guardião**, **AutoEq integrado**, **Correção × Gosto** e **driver Momentum 4**, em **open source MPL-2.0**. |
 | **FineTune** | OSS (`GPL-3.0`) · Gratuito | Pioneiro em Process Taps gratuitos, leve, simples por app. | Issues recorrentes de *loudness glitches*, *crackling*, **estouro de volume nos primeiros ms** ao abrir stream, falhas com AirPods e áudio duplicado em OBS/Discord; sem Observatório, sem notch, sem DSP Float64 avançado; `GPL-3.0`. | Nasce exatamente dos aprendizados de **E-02** (sem estouro inicial) e **E-01/E-03** (watchdog + null test), adiciona DSP `Float64` + True-Peak limiter + Guardião HFP + Notch. |
@@ -21,29 +21,29 @@
 | **OmniMac** (`BySergiMM/OmniMac`) | OSS (`MIT`) | App nativo multi-utilitário no notch com mixer por app, `Equalizer.swift` 10 bandas, `Limiter`, bateria BT e `NotchGeometry`. | EQ gráfico fixo de 10 bandas (`Float32` RBJ Biquad Cookbook, sem PEQ livre, sem shelving Vicanek, sem `dBTP`, sem AutoEq e sem Guardião de sinal). | Mantém a precisão **`Float64` + Vicanek + True-Peak Lookahead + BS.1770 + AutoEq + Correção × Gosto + Guardião**, mantendo código 100% compatível (`MIT`/`MPL-2.0`). |
 | **ILoveNotch** (`niyamvora/ILoveNotch`) | OSS (`MIT`) | Notch multi-tool limpo em SwiftUI com espectro e controles básicos por app/mídia. | Foco generalista (calendário, clipboard, mirror) com áudio básico; sem PEQ paramétrico, sem metrologia e sem driver de fones. | Especialização audiófila profunda + P4 ("verdade no sinal") + ecossistema Momentum 4 / abas de browser. |
 | **Tapline** (`belugaming/tapline`) | OSS (`GPL-3.0`) | Process Taps no macOS com EQ por app, `LinearPhaseEQ`, `RoomAdvisor` e fix para HFP `< 40 kHz` (PR #33). | Sem notch, `GPL-3.0` (incompatível com projetos MPL-2.0/híbridos), sem driver Momentum 4 nem `PairwiseGP`. | Mesma proteção Nyquist HFP implementada em `CTimbreDSP` (`Float64` C++20), somada a Notch Editorial, Guardião e licença **MPL-2.0**. |
-| **AudioRouter** (`AbhisekGanguly/AudioRouter`) | OSS (`MIT`) | Roteamento per-app via Process Taps + extensão Chrome Tabs e **`OrphanedTapCleanup`** para evitar apps presos em mudo após crash. | Sem EQ, sem notch, sem metrologia DSP nem proteção HFP/driver BT. | **Padrão `OrphanedTapCleanup` adaptado (MIT, em `NOTICE`)** dentro de `ProcessTapEngine`, somado a todo o pipeline DSP `Float64`, Guardião e Notch do `timbr.`. |
+| **AudioRouter** (`AbhisekGanguly/AudioRouter`) | OSS (`MIT`) | Roteamento per-app via Process Taps + extensão Chrome Tabs e **`OrphanedTapCleanup`** para evitar apps presos em mudo após crash. | Sem EQ, sem notch, sem metrologia DSP nem proteção HFP/driver BT. | **Padrão `OrphanedTapCleanup` adaptado (MIT, em `NOTICE`)** dentro de `ProcessTapEngine`, somado a todo o pipeline DSP `Float64`, Guardião e Notch do `timbr`. |
 | **M4 Companion** (`Zhengyang-Liu/m4-companion`) | OSS (`MIT`) | Cliente Swift nativo exemplar para Sennheiser Momentum 4 via `IOBluetooth` RFCOMM GAIA v3 (bateria, SoundMode, ANC, EQ 5 bandas, multiponto). | Focado apenas em utilitário menu bar do Momentum 4; sem Process Tap, sem EQ do sistema, sem AutoEq e sem proteção `G-04` integrada ao DSP do Mac. | **Framing `GaiaSPP` (`0xFF 0x03`) + opcodes read-only adaptados (MIT, em `NOTICE`)** em `Momentum4Driver`, alimentando diretamente o Guardião `G-04` (Duplo EQ). |
 | **LibrePods / AirBattery / apple-ble / mubar** | GPL-3 / AGPL-3 / MIT / MIT | Estado da arte AACP (Linux) e Continuity BLE no macOS. | AACP bloqueado no macOS user-space; AirBattery AGPL. | **HAL + Continuity parser próprio (MPL-2.0)** + AutoEq; zero GPL/AGPL; UI honesta AACP fechado (Nota 12). |
 
 ---
 
-## 2. Proposta de Valor Única (Sweet Spot do `timbr.`)
+## 2. Proposta de Valor Única (Sweet Spot do `timbr`)
 
-O **`timbr.`** ocupa um espaço hoje **vazio** no macOS: a interseção entre:
+O **`timbr`** ocupa um espaço hoje **vazio** no macOS: a interseção entre:
 1. **Confiabilidade de engenharia de áudio real-time** (nível SoundSource / CamillaDSP, com testes metrológicos públicos e fail-safe em `< 1s`);
 2. **Controle hardware-aware profundo** (Momentum 4 via GAIA v3 + linha Apple via HAL/Continuity + proteção anti-HFP para qualquer fone BT);
 3. **Arquitetura de EQ em duas camadas (Correção × Gosto) + Observatório + Guardião** — elimina erro de iniciante e dá controle cirúrgico ao audiófilo;
-4. **Notch Editorial silencioso e elegante** (baseado no Design System `timbr.`, sem ruído visual);
+4. **Notch Editorial silencioso e elegante** (baseado no Design System `timbr`, sem ruído visual);
 5. **100% local-first, open source MPL-2.0 e trilíngue (`PT`, `ES`, `EN`) desde a v1.**
 
 ### Veredito Honesto sobre Ineditismo vs. Mercado
 
-O **`timbr.`** **não é inédito nas peças isoladas** — e reconhecer isso torna o produto melhor:
+O **`timbr`** **não é inédito nas peças isoladas** — e reconhecer isso torna o produto melhor:
 - Já existem apps de notch com áudio básico e mixer (**Notchy**, **OmniMac**, **ILoveNotch**, **R9-EQ**);
 - Já existem apps de Process Tap + EQ/roteamento (**SoundSource**, **FineTune**, **Tapline**, **AudioRouter**);
 - Já existe cliente nativo macOS para Momentum 4 via GAIA v3 (**M4 Companion**).
 
-**Onde o `timbr.` continua genuinamente único hoje no macOS** é na **convergência integrada** dessas frentes com rigor metrológico:
+**Onde o `timbr` continua genuinamente único hoje no macOS** é na **convergência integrada** dessas frentes com rigor metrológico:
 1. **Motor DSP `Float64` verificável (Null Test, Vicanek Nyquist-matched, True-Peak `dBTP` lookahead, `ITU-R BS.1770`)** exposto no **Notch + Estúdio** — nenhum app de notch existente (nem `Notchy` com 3 bandas nem `OmniMac` com `Float32` RBJ) entrega esse nível de engenharia;
 2. **Separação Correção Física (AutoEq/APO) × Gosto Pessoal + `PairwiseGP` A/B cego nivelado por LUFS**;
 3. **Guardião Proativo (`G-01..G-07`) conectado à telemetria real de hardware** (detectando HFP, resampling oculto, clipping inter-amostra e **Duplo EQ no Momentum 4 via GAIA v3 read-only**);

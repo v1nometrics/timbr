@@ -1,11 +1,11 @@
 # ADR-0023 · Tempo de escuta e volume alto, sem fingir decibéis
 
-- **Status:** Aceito · 2026-11-23 (o dono pediu um jeito de saber se a escuta é saudável; apliquei a opção que propus, sem tap)
+- **Status:** Aceito · 2026-11-23 (acompanhamento local de exposição sem tap adicional e sem decibéis simulados)
 - **Relaciona-se com:** RF-0707 do PRD (estimativa de dB SPL, continua **não implementada**)
 
 ## Contexto
 
-O AirPods mostra decibéis no iPhone porque a Apple controla a cadeia inteira (volume absoluto, amplificador, sensor). Para outros fones, a própria Apple diz que o número é uma estimativa a partir do volume. No Mac, o HealthKit não tem repositório de dados, e o timbr. só vê o sinal digital quando há um tap. Sem a sensibilidade do fone e o ganho do amplificador, o nível que chega ao ouvido tem erro de **±6 dB ou mais**, que é o dobro da pressão sonora e muda a dose segura de horas para minutos. Dizer "saudável" com esse erro é pior que não dizer nada.
+O AirPods mostra decibéis no iPhone porque a Apple controla a cadeia inteira (volume absoluto, amplificador, sensor). Para outros fones, a própria Apple diz que o número é uma estimativa a partir do volume. No Mac, o HealthKit não tem repositório de dados, e o timbr só vê o sinal digital quando há um tap. Sem a sensibilidade do fone e o ganho do amplificador, o nível que chega ao ouvido tem erro de **±6 dB ou mais**, que é o dobro da pressão sonora e muda a dose segura de horas para minutos. Dizer "saudável" com esse erro é pior que não dizer nada.
 
 ## Decisão
 

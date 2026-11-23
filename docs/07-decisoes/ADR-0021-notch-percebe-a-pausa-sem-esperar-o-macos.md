@@ -1,6 +1,6 @@
 # ADR-0021 · O notch percebe a pausa sem esperar o macOS
 
-- **Status:** Aceito · 2026-11-23 (pedido do dono do produto: "muito delay para perceber que o áudio parou")
+- **Status:** Aceito · 2026-11-23 (redução de latência na detecção de pausa no notch)
 
 ## Contexto
 
@@ -26,7 +26,7 @@ O notch decidia "está tocando" só por `kAudioProcessPropertyIsRunningOutput`. 
 1. **Debounce armado uma vez** (`updateCompactState`): 0,35 s depois do último som, em vez de 3 s reiniciados. O atraso do macOS já funciona como debounce.
 2. **Vigia de 250 ms enquanto algo toca**, barato (algumas leituras de propriedade; só relê tudo quando uma fonte que tocava parou), porque o macOS não avisa.
 3. **Silêncio medido pelo nosso DSP quando já há tap** (EQ, crossfeed, ducking ou volume por app): `SilenceTracker` marca um slot como silencioso depois de 1,0 s abaixo de −75 dB e deixa de marcar no primeiro bloco alto. A pausa é percebida em ~1,6 s. Sem EQ ou volume por app, não há tap e não há sinal para medir: vale o tempo do macOS.
-4. Mudo, volume zero e VoIP ficam de fora dessa lógica: um app mudo pelo timbr. gera silêncio por construção, mas continua "tocando".
+4. Mudo, volume zero e VoIP ficam de fora dessa lógica: um app mudo pelo timbr gera silêncio por construção, mas continua "tocando".
 
 ## Medido (janela real do notch, ~7 quadros/s; "some" = pílula preta sai da faixa do notch)
 
@@ -45,5 +45,5 @@ Em Ajustes > Notch, **"Perceber pausas na hora"** (desligada por padrão) manté
 
 ## Limites
 
-- **Com a chave desligada, no caminho nativo, sem tap, a pausa leva o tempo do macOS** (2 a ~8 s, ~4 s no Spotify). Para ter ~1,6 s também aí seria preciso um tap permanente, o que tira o "caminho nativo" (o áudio passaria pelo DSP) e acende o indicador de gravação. Fica como opção para o dono decidir, não ligada por padrão.
+- **Com a chave desligada, no caminho nativo, sem tap, a pausa leva o tempo do macOS** (2 a ~8 s, ~4 s no Spotify). Obter ~1,6 s também nesse modo exigiria um tap permanente, removendo o caminho nativo e mantendo o indicador de gravação aceso; por isso permanece opt-in (desligado por padrão).
 - Entre duas faixas, um silêncio maior que 1 s é visto como pausa e o compacto recolhe; volta no primeiro som.

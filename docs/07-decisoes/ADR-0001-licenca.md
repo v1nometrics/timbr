@@ -1,6 +1,6 @@
 # ADR-0001 · Licença do projeto
 
-- **Status:** Aceito · 2026-11-21 (aprovado pelo dono: open-source MPL-2.0 para portfólio/doações, mantendo viabilidade comercial futura)
+- **Status:** Aceito · 2026-11-21 (open source sob MPL-2.0 com DCO, mantendo sustentabilidade futura)
 - **Data:** 2026-11-21
 
 ## Contexto
@@ -32,4 +32,4 @@ Nenhum trecho de código de projeto GPL/AGPL é copiado. Ao estudar um projeto G
 
 ## Condição de revisão
 
-Se o dono preferir proteger o ecossistema com GPL-3.0 (opção A), a mudança é barata **antes** do primeiro commit de código e cara depois.
+Uma eventual migração para GPL-3.0 (opção A) teria baixo custo apenas antes dos primeiros commits públicos; com a aprovação em MPL-2.0, a escolha fica consolidada.

@@ -1,0 +1,101 @@
+{
+  "collected_at": "2026-11-23T20:35:50.918727+00:00",
+  "method": "GitHub REST issues state=all, all pages, pull requests excluded; comments are counts, not downloaded",
+  "repositories": [
+    {
+      "repo": "MrKai77/DynamicNotchKit",
+      "count": 31,
+      "complete_pagination": true
+    },
+    {
+      "repo": "Sakuleta/tapmix",
+      "count": 0,
+      "complete_pagination": true
+    },
+    {
+      "repo": "jatinindia/MacEQ",
+      "count": 1,
+      "complete_pagination": true
+    },
+    {
+      "repo": "Lakr233/NotchDrop",
+      "count": 52,
+      "complete_pagination": true
+    },
+    {
+      "repo": "ungive/mediaremote-adapter",
+      "count": 28,
+      "complete_pagination": true
+    },
+    {
+      "repo": "Torteous44/radioform",
+      "count": 14,
+      "complete_pagination": true
+    },
+    {
+      "repo": "HEnquist/camilladsp",
+      "count": 271,
+      "complete_pagination": true
+    },
+    {
+      "repo": "vincentneo/LosslessSwitcher",
+      "count": 100,
+      "complete_pagination": true
+    },
+    {
+      "repo": "belugaming/tapline",
+      "count": 3,
+      "complete_pagination": true
+    },
+    {
+      "repo": "MonitorControl/MonitorControl",
+      "count": 1042,
+      "complete_pagination": true
+    },
+    {
+      "repo": "sparkle-project/Sparkle",
+      "count": 1432,
+      "complete_pagination": true
+    },
+    {
+      "repo": "Ebullioscopic/Atoll",
+      "count": 396,
+      "complete_pagination": true
+    },
+    {
+      "repo": "jaakkopasanen/AutoEq",
+      "count": 985,
+      "complete_pagination": true
+    },
+    {
+      "repo": "ExistentialAudio/BlackHole",
+      "count": 420,
+      "complete_pagination": true
+    },
+    {
+      "repo": "bitgapp/eqMac",
+      "count": 900,
+      "complete_pagination": true
+    },
+    {
+      "repo": "TheBoredTeam/boring.notch",
+      "count": 948,
+      "complete_pagination": true
+    },
+    {
+      "repo": "kyleneideck/BackgroundMusic",
+      "count": 729,
+      "complete_pagination": true
+    },
+    {
+      "repo": "insidegui/AudioCap",
+      "count": 0,
+      "complete_pagination": true
+    },
+    {
+      "repo": "ronitsingh10/FineTune",
+      "count": 330,
+      "complete_pagination": true
+    }
+  ]
+}

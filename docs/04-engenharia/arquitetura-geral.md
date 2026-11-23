@@ -9,15 +9,16 @@
 > O resto deste documento descreve a **arquitetura alvo**. Esta seção diz o que o código faz hoje. Classe de evidência: **Comprovado** (código executado, CI e autoteste E2E).
 
 ```
-Timbr.app (um processo · Swift 6 + SwiftUI/AppKit)
-├─ TimbreApp      AppState (estado e orquestração) · NotchOverlay (NSPanel + sensor) · MenuBarIconController
-│                 (NSStatusItem condicional) · StudioWindow · OnboardingWindow · DSComponents
-├─ TimbreEngine   HALManager (dispositivos, snapshot P3) · ProcessTapEngine (taps + agregados + TapRenderer)
-│                 AudioProcessMonitor (eventos do Core Audio) · AudioProcessAttribution (dono do processo)
-│                 AudioSelfTest (medição E2E) · DisplayBrightness · MediaKeyTap · drivers M4 e linha Apple
-├─ TimbreCore     modelos, presets/APO, i18n PT/ES/EN, Guardião, SQLite, AutoEq, IA com limites, IPC,
-│                 SystemAudioClient / SilentOutputApps
-└─ CTimbreDSP     C++20 Float64 + vDSP via C ABI (EQ, preamp, limiter true-peak, LUFS, FFT, crossfeed, atraso)
+Timbr.app (Swift 6 + SwiftUI/AppKit · alvo Mach-O macOS 15.0)
+├─ TimbreApp      AppState (estado e orquestração) · NotchOverlay (NSPanel + sensor + NotchSpaceOverlay + FullscreenEvaluator)
+│                 MenuBarIconController (NSStatusItem condicional) · StudioWindow · OnboardingWindow · DSComponents (audiocn + InfoHintButton)
+├─ TimbreEngine   HALManager (dispositivos, snapshot P3) · ProcessTapEngine (taps + agregados + TapRenderer) · MuteKeeperClient
+│                 AudioProcessMonitor (eventos do Core Audio) · AudioProcessAttribution · AudioSelfTest · MutePersistenceSelfTest
+│                 DisplayBrightness · MediaKeyTap · drivers M4 e linha Apple
+├─ TimbreCore     modelos, presets/APO, i18n PT/ES/EN, Guardião, SQLite + FTS5 trigram (ADR-0018), ListeningTime (ADR-0023),
+│                 FeedbackComposer (ADR-0024), PersistentMutePolicy / MuteKeeperProtocol (ADR-0017), AutoEq, IA local, IPC
+├─ CTimbreDSP     C++20 Float64 + vDSP via C ABI (EQ, preamp, limiter true-peak, LUFS, FFT, crossfeed, atraso)
+└─ TimbrMuteKeeper  binário auxiliar isolado em `Contents/Helpers/timbr-mute-keeper` (ADR-0017, mantém mudo ativo se o app encerrar)
 ```
 
 | Tema | Alvo (abaixo) | Implementado |
@@ -28,7 +29,9 @@ Timbr.app (um processo · Swift 6 + SwiftUI/AppKit)
 | Detecção de fontes | Listeners do HAL | `AudioProcessMonitor` (lista de processos, `IsRunning`, `IsRunningOutput`, coalescência de 120 ms) + varredura de reserva a cada 2 s |
 | Atribuição | Árvore de processos | Processo responsável → pacote `.app` do executável → cadeia de pais → bundle ID do Core Audio; serviços do macOS agrupados |
 | Snapshot e fail-safe (P3) | Snapshot + restauração | Implementado; 20× `kill -9` sem agregado órfão no CI |
-| Verificação | Bancada | `ci_check.sh` (headless) + `selftest_audio.sh` (mede o ganho real no app instalado) |
+| Mudo à prova de falha (ADR-0017) | — | `timbr-mute-keeper` (`Contents/Helpers/`), processo auxiliar independente que mantém apps mudos mesmo após crash/`kill -9`; validado por `selftest_mute_persistence.sh` e `listen_mute_crash.sh` |
+| Resiliência & alvo macOS 15 | Recuperação de `coreaudiod` e sleep/wake | Binários fixados em `macosx15.0` (verificado por `check_deployment_target.py`); recuperação completa pós-reset do `coreaudiod` e sleep/wake seguem abertas em [`auditoria-resiliencia-2026-11-23.md`](../08-registro/auditoria-resiliencia-2026-11-23.md) |
+| Verificação | Bancada | `ci_check.sh` (headless + `TimbreTokensTests` + `check_deployment_target.py` + 20× `kill -9`) + `selftest_audio.sh` + `selftest_mute_persistence.sh` |
 
 ---
 

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 // Studio window (docs/05-design-system/03-superficies.md §Estúdio).
-// Editorial layout inherited from the Órbita/ronda reports: numbered sections, KPI tiles,
+// Editorial studio layout: numbered sections, KPI tiles,
 // hairline tables, one accent used only for the audio signal. Progressive disclosure:
 // the primary task of each page is above the fold; secondary tools sit below in columns.
 import SwiftUI
@@ -102,7 +102,6 @@ private struct StudioSidebar: View {
             Color.clear.frame(height: 44)
             HStack(alignment: .firstTextBaseline, spacing: 0) {
                 Text("timbr").font(.system(size: 19, weight: .semibold)).tracking(-0.6)
-                Text(".").font(.system(size: 19, weight: .semibold)).foregroundStyle(c.accent_signal)
             }
             .foregroundStyle(c.ink_primary)
             .padding(.horizontal, 20)
@@ -1780,9 +1779,9 @@ private struct AboutPage: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 28) {
             VStack(alignment: .leading, spacing: 14) {
+                TimbrBrandIcon(size: 88)
                 HStack(alignment: .firstTextBaseline, spacing: 0) {
                     Text("timbr").font(.system(size: 56, weight: .semibold)).tracking(-2.6)
-                    Text(".").font(.system(size: 56, weight: .semibold)).foregroundStyle(c.accent_signal)
                 }
                 .foregroundStyle(c.ink_primary)
                 Text(appState.language.tagline).type(TimbreTypography.prose).foregroundStyle(c.ink_secondary)

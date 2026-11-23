@@ -1,11 +1,11 @@
 # ADR-0019 · Equalizador de 4, 5 ou 10 bandas, e a correção do PEQ livre
 
-- **Status:** Aceito · 2026-11-23 (pedido do dono do produto)
+- **Status:** Aceito · 2026-11-23
 - **Relaciona-se com:** [ADR-0010](ADR-0010-correcao-e-gosto.md) (correção e gosto em camadas), [ADR-0009](ADR-0009-formato-de-presets.md) (formato de preset)
 
 ## Contexto
 
-O equalizador simples tinha **quatro** ajustes fixos (Graves 105 Hz, Calor 250 Hz, Presença 3 kHz, Ar 10 kHz) e, no outro extremo, o PEQ livre. O dono pediu poder alternar entre mais e menos canais, e relatou dois defeitos no PEQ livre: as curvas não acompanhavam os pontos 1, 2, 3, 4 ao arrastá-los, e não havia botão para resetar os filtros como no modo comum.
+O equalizador simples oferecia apenas **quatro** ajustes fixos (Graves 105 Hz, Calor 250 Hz, Presença 3 kHz, Ar 10 kHz) e, no outro extremo, o PEQ livre. Era necessário permitir alternar entre mais ou menos bandas fixas e corrigir dois defeitos no PEQ livre: a curva não acompanhava os pontos 1–4 durante o arraste e faltava ação de resetar os filtros com a mesma facilidade do modo simples.
 
 ## O que se sabe do mercado (e o que não se sabe)
 

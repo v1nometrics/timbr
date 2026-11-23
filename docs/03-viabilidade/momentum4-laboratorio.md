@@ -18,7 +18,7 @@
 
 ## 2. Contrato Arquitetural `DeviceDriver` (Extensível Multi-Marca)
 
-O núcleo de dispositivos do `timbr.` opera pelo protocolo `DeviceDriver` (em processo/actor isolado do motor de áudio, conforme [ADR-0006](../07-decisoes/ADR-0006-processo-do-motor.md) e [ADR-0011](../07-decisoes/ADR-0011-drivers-de-dispositivo.md)):
+O núcleo de dispositivos do `timbr` opera pelo protocolo `DeviceDriver` (em processo/actor isolado do motor de áudio, conforme [ADR-0006](../07-decisoes/ADR-0006-processo-do-motor.md) e [ADR-0011](../07-decisoes/ADR-0011-drivers-de-dispositivo.md)):
 
 ```swift
 public enum CapabilityAccess: String, Sendable { case readOnly, readWrite }
@@ -77,7 +77,7 @@ public protocol DeviceDriver: Actor {
 
 ## 4. Matriz de Conexões e Perfis do Momentum 4
 
-| Conexão | Chave de Perfil no Banco Local | Impedância / DSP Interno | Comportamento Esperado no `timbr.` |
+| Conexão | Chave de Perfil no Banco Local | Impedância / DSP Interno | Comportamento Esperado no `timbr` |
 |---|---|---|---|
 | **Bluetooth A2DP** | `bt:<BD_ADDR>:active` | DSP & ANC ativos | Driver GAIA v3 ativo; Guardião G-01 anti-HFP; AutoEq para M4 BT/Ativo. |
 | **USB-C (`Momentum 4 USB`)** | `usb:<DeviceUID>:uac1` | UAC 1.0 (teto 16-bit/48 kHz), DSP ativo | Alerta informativo de UAC 1.0 (48 kHz max); fallback automático de volume em software se slider HAL estiver bloqueado no macOS. |
@@ -90,7 +90,7 @@ public protocol DeviceDriver: Actor {
 
 > **Documento dedicado (paridade M4):** [`airpods-laboratorio.md`](airpods-laboratorio.md) · Nota [`12_airpods_linha_apple.md`](../00-pesquisa/notas-fase-2/12_airpods_linha_apple.md).
 
-| Recurso | Status no macOS (App Developer ID) | Estratégia no `timbr.` |
+| Recurso | Status no macOS (App Developer ID) | Estratégia no `timbr` |
 |---|---|---|
 | **Volume, mute, balanço, seleção, Spatial status** | **Comprovado (Core Audio HAL)** | Totalmente suportado nativamente. |
 | **Proteção anti-HFP ("Output Only")** | **Comprovado (Core Audio HAL)** | Impede queda automática para mic BT de 16 kHz / 24 kHz mono em chamadas ou ao abrir Discord/Slack/Meet. |

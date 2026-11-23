@@ -31,8 +31,8 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
             }
             return
         }
-        // Emergency exit for the fail-closed mute (ADR-0017): unmutes every app timbr. ever muted, even
-        // after timbr. crashed or was removed. `Timbr --release-all-mutes`
+        // Emergency exit for the fail-closed mute (ADR-0017): unmutes every app timbr ever muted, even
+        // after timbr crashed or was removed. `Timbr --release-all-mutes`
         if launchArgs.contains("--release-all-mutes") {
             let dir = launchArgs.firstIndex(of: "--mute-dir").flatMap { $0 + 1 < launchArgs.count ? URL(fileURLWithPath: launchArgs[$0 + 1]) : nil }
             let client = MuteKeeperClient(directory: dir ?? MuteKeeperProtocol.defaultDirectory())
@@ -192,7 +192,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
         return true
     }
 
-    /// Quitting from our own UI while apps are muted asks whether the silence should outlive timbr.
+    /// Quitting from our own UI while apps are muted asks whether the silence should outlive timbr
     /// (ADR-0017). Logout, restart, shutdown and scripted quits never block: they keep the mutes.
     public func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         let muted = appState.persistentlyMutedAppNames
@@ -227,7 +227,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
             let view = StudioWindow(appState: appState)
             let hosting = NSHostingController(rootView: view)
             let win = NSWindow(contentViewController: hosting)
-            win.title = "timbr."
+            win.title = "timbr"
             // Full-size content: the sidebar runs under the traffic lights (no stock title bar).
             win.styleMask = [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView]
             win.titlebarAppearsTransparent = true
@@ -251,7 +251,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
             let view = OnboardingWindow(appState: appState)
             let hosting = NSHostingController(rootView: view)
             let win = NSWindow(contentViewController: hosting)
-            win.title = "timbr."
+            win.title = "timbr"
             win.styleMask = [.titled, .closable, .fullSizeContentView]
             win.titlebarAppearsTransparent = true
             win.titleVisibility = .hidden

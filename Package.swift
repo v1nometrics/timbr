@@ -12,7 +12,8 @@ let package = Package(
         .library(name: "TimbreDesignSystem", targets: ["TimbreDesignSystem"]),
         .library(name: "TimbreCore", targets: ["TimbreCore"]),
         .library(name: "TimbreEngine", targets: ["TimbreEngine"]),
-        .executable(name: "Timbr", targets: ["TimbreApp"])
+        .executable(name: "Timbr", targets: ["TimbreApp"]),
+        .executable(name: "timbr-mute-keeper", targets: ["TimbrMuteKeeper"])
     ],
     targets: [
         .target(
@@ -55,6 +56,15 @@ let package = Package(
             ]
         ),
         .executableTarget(
+            name: "TimbrMuteKeeper",
+            dependencies: ["TimbreCore"],
+            path: "Sources/TimbrMuteKeeper",
+            linkerSettings: [
+                .linkedFramework("CoreAudio"),
+                .linkedFramework("AudioToolbox")
+            ]
+        ),
+        .executableTarget(
             name: "TimbreApp",
             dependencies: ["TimbreDesignSystem", "TimbreCore", "TimbreEngine"],
             path: "Sources/TimbreApp",
@@ -78,6 +88,11 @@ let package = Package(
             name: "TimbreEngineTests",
             dependencies: ["TimbreEngine", "TimbreCore", "CTimbreDSP"],
             path: "Tests/TimbreEngineTests"
+        ),
+        .testTarget(
+            name: "TimbreTokensTests",
+            dependencies: ["TimbreDesignSystem"],
+            path: "Tests/TimbreTokensTests"
         )
     ],
     cxxLanguageStandard: .cxx20

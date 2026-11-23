@@ -80,6 +80,7 @@ fi
 
 echo "=== 4. Build Full App Bundle & Compile Modules ==="
 "$ROOT/scripts/build_app.sh"
+python3 "$ROOT/scripts/check_deployment_target.py"
 
 echo "=== 5. C++ DSP Tests (Address + Undefined Sanitizers) ==="
 clang++ -isysroot "$SDK" -std=c++20 -O1 -g -fsanitize=address,undefined \

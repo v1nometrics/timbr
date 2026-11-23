@@ -9,14 +9,14 @@
 | Camada | Como rodar | O que cobre |
 |---|---|---|
 | CI local e GitHub | `./scripts/ci_check.sh` (GitHub: `macos-15`, **Swift 6.1**) | Tokens e playground; extensões; zero GPL; trava de design (controles padrão, contorno no notch, nenhuma cor de marca); build completo; DSP C++ com **ASan + UBSan** (incluindo corrida do buffer triplo e render com stride ou mono); TimbreCore (parsers, i18n com 3 idiomas, Guardião, ordem de fontes, catálogo do macOS…); TimbreEngine (HAL, taps, invariante P1, drivers); smoke do bundle; **20× `kill -9`** sem agregado órfão |
-| E2E de áudio | `./scripts/selftest_audio.sh` (no app instalado, com a permissão de gravação do sistema) | Toca um tom de 1 kHz com `afplay`, aciona o `ProcessTapEngine` real e mede com dois taps independentes (fonte e saída do timbr.): 50/25/200/150 %, mudo e limiter |
+| E2E de áudio | `./scripts/selftest_audio.sh` (no app instalado, com a permissão de gravação do sistema) | Toca um tom de 1 kHz com `afplay`, aciona o `ProcessTapEngine` real e mede com dois taps independentes (fonte e saída do timbr): 50/25/200/150 %, mudo e limiter |
 | Revisão visual | Flags `--studio`, `--notch`, `--review-empty`, `--demo`, `--panel-preview` + `screencapture` | Cada superfície num estado conhecido; `--demo` grava a coreografia do notch para análise quadro a quadro |
 
 **Ainda não existe:** RTSan, null test bit-exact com tap real, vetores EBU Tech 3341, fuzzing contínuo, snapshot tests de UI, loopback com BlackHole, soak de 24 h e ABX. As seções abaixo continuam sendo o alvo.
 
 ---
 
-## 1. Pirâmide de Testes do `timbr.`
+## 1. Pirâmide de Testes do `timbr`
 
 ```
                  /\
@@ -62,7 +62,7 @@ Mais de 85% das regressões de qualidade sonora e segurança RT podem ser detect
 
 ## 3. Testes em Bancada Real (MacBook com Notch + Hardware)
 
-1. **Loopback Digital com BlackHole (E-01, E-02, E-04, E-06):** captura digital direta da saída roteada pelo `timbr.` para medir latência por correlação cruzada, descontinuidades no início de stream (primeiros `500 ms` — estouro E-02) e estabilidade de clock em multissaída.
+1. **Loopback Digital com BlackHole (E-01, E-02, E-04, E-06):** captura digital direta da saída roteada pelo `timbr` para medir latência por correlação cruzada, descontinuidades no início de stream (primeiros `500 ms` — estouro E-02) e estabilidade de clock em multissaída.
 2. **Instruments *Audio System Trace* & `powermetrics` (E-03, E-10):** gravação de 1h sob estresse verificando `0 overloads`, `engine jitter` dentro da margem do buffer, CPU `< 1,5%` e RAM estável.
 3. **Teste de Falha e Restauração (`kill -9`):** script que dispara `kill -9` no processo do motor/app durante música tocando e mede tempo de recuperação de áudio (`≤ 1,0 s`) e integridade do snapshot do sistema ao reiniciar.
 4. **24h Soak Test Automatizado:** alternância cíclica de apps (Safari, Music, Spotify, Zoom), troca de dispositivos (Interno ↔ Momentum 4 BT ↔ USB-C ↔ AirPods Pro), sleep/wake do MacBook e `killall coreaudiod` simulado.
@@ -76,4 +76,4 @@ Para comprovar o objetivo de 1.0 (*"neutro indistinguível e equalizado preferid
 - **Regra absoluta de nivelamento:** medir `Integrated LUFS` (ou `Short-term` do trecho em loop) de A e B via `libebur128` e igualar ganho com precisão **`≤ ±0,1 dB`** antes de qualquer julgamento humano (neutralizando o viés de "mais alto = melhor").
 - **Estatística:** teste ABX com **20 tentativas** (mínimo matemático para `p < 0,05` unilateral é `5/5`, mas `20` tentativas dá poder estatístico real exigindo **`≥ 15/20` acertos**, `p = 0,0207`).
   - *Comparação Neutro vs. Original:* esperamos resultado próximo ao acaso (`8–12/20`), provando transparência auditiva.
-  - *Comparação `timbr.` vs. SoundSource/FineTune com mesma curva:* audição cega para detectar diferenças de ringing, fase ou clipper.
+  - *Comparação `timbr` vs. SoundSource/FineTune com mesma curva:* audição cega para detectar diferenças de ringing, fase ou clipper.
