@@ -517,14 +517,27 @@ public final class AppState: ObservableObject {
             expectedOutputUID = activeOutputDevice?.uid
         }
 
-        // `--review-empty`: design review of the "nothing playing" surfaces without pausing the user's audio.
-        self.sources = ProcessInfo.processInfo.arguments.contains("--review-empty")
-            ? [] : tapEngine.enumerateRunningAudioSources(existing: self.sources, recentlyStarted: processMonitor.drainRecentlyStarted()).map { src in
+        // `--review-empty` / `--review-multi`: visual review states without touching live audio taps.
+        let launchArgs = ProcessInfo.processInfo.arguments
+        if launchArgs.contains("--review-empty") {
+            self.sources = []
+        } else if launchArgs.contains("--review-multi") {
+            if self.sources.isEmpty {
+                let now = Date()
+                var chrome = AudioSourceDescriptor(bundleID: "com.google.Chrome", name: "Google Chrome", volume: 0.72, isPlaying: true, lastActiveAt: now)
+                chrome.playingSince = now
+                var spotify = AudioSourceDescriptor(bundleID: "com.spotify.client", name: "Spotify", volume: 1.0, isPlaying: true, lastActiveAt: now.addingTimeInterval(-35))
+                spotify.playingSince = now.addingTimeInterval(-35)
+                self.sources = [chrome, spotify]
+            }
+        } else {
+            self.sources = tapEngine.enumerateRunningAudioSources(existing: self.sources, recentlyStarted: processMonitor.drainRecentlyStarted()).map { src in
                 guard let client = SystemAudioClient(bundleID: src.bundleID) else { return src }
                 var s = src
                 s.name = t(client.nameKey)
                 return s
             }
+        }
         self.competingNotchApps = CompetingNotchDetector.detectRunningCompetitors()
         // Permission granted (or regained) while running → take the keys over without a restart.
         if MediaKeyTap.isAccessibilityGranted != accessibilityGranted || (accessibilityGranted && !mediaKeyTap.isRunning) {

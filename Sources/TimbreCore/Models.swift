@@ -379,6 +379,23 @@ public struct AudioSourceDescriptor: Identifiable, Codable, Hashable, Sendable {
     }
 }
 
+/// Resolves what the notch Peek (hover without clicking) controls as the primary target:
+/// - 0 playing sources: master output device (even if paused/recent sources exist).
+/// - 1 playing source: that single source directly.
+/// - 2+ playing sources: Master/Geral at top, followed by every playing app equally.
+public enum NotchPeekTarget: Equatable, Sendable {
+    case output
+    case single(AudioSourceDescriptor)
+    case masterWithSources([AudioSourceDescriptor])
+
+    public static func resolve(from sources: [AudioSourceDescriptor], limit: Int = 4) -> NotchPeekTarget {
+        let playing = sources.filter(\.isPlaying).sorted(by: AudioSourceDescriptor.displayOrder)
+        if playing.isEmpty { return .output }
+        if playing.count == 1, let sole = playing.first { return .single(sole) }
+        return .masterWithSources(Array(playing.prefix(max(2, limit))))
+    }
+}
+
 public struct SignalStage: Identifiable, Hashable, Sendable {
     public let id: String
     public let titleKey: String

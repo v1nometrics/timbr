@@ -200,6 +200,28 @@ struct TimbreCoreTestRunner {
         expect(SilentOutputApps.contains("com.superduper.superwhisper") && !SilentOutputApps.contains("com.spotify.client"), "Dictation apps with silent output engines are not 'playing'")
         print("  [PASS] System audio clients catalog")
 
+        // NotchPeekTarget resolution: 0 playing → output, 1 playing → single, 2+ playing → Master + playing apps.
+        let pausedSafari = AudioSourceDescriptor(bundleID: "com.apple.Safari", name: "Safari", isPlaying: false, lastActiveAt: t0.addingTimeInterval(120))
+        expect(NotchPeekTarget.resolve(from: []) == .output, "Empty sources resolve to .output")
+        expect(NotchPeekTarget.resolve(from: [pausedSafari, mutedSrc]) == .output, "Paused/muted-only sources resolve to .output")
+        expect(NotchPeekTarget.resolve(from: [pausedSafari, spotify]) == .single(spotify), "Single playing source wins over paused sources")
+        if case .masterWithSources(let multiList) = NotchPeekTarget.resolve(from: [pausedSafari, spotify, chrome]) {
+            expect(multiList.map(\.bundleID) == ["com.google.Chrome", "com.spotify.client"], "2+ playing resolves to Master + playing apps in displayOrder: \(multiList.map(\.bundleID))")
+        } else {
+            expect(false, "Expected .masterWithSources for 2 playing apps")
+        }
+        let fivePlaying = (1...5).map { i in
+            var s = AudioSourceDescriptor(bundleID: "app.\(i)", name: "App \(i)", isPlaying: true, lastActiveAt: t0.addingTimeInterval(Double(i)))
+            s.playingSince = t0.addingTimeInterval(Double(i))
+            return s
+        }
+        if case .masterWithSources(let capped) = NotchPeekTarget.resolve(from: fivePlaying, limit: 4) {
+            expect(capped.count == 4 && capped.first?.bundleID == "app.5", "Multi-source peek caps at 4 playing sources keeping newest first")
+        } else {
+            expect(false, "Expected capped .masterWithSources")
+        }
+        print("  [PASS] NotchPeekTarget resolution (0 / 1 / 2+ playing)")
+
         print("[TimbreCoreTests] ALL PASSED")
     }
 }

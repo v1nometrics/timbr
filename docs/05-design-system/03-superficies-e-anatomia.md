@@ -65,9 +65,9 @@ Estudamos o código dos apps de notch abertos mais usados: DynamicNotchKit (base
 | Estado | Largura | Altura total | Raio de baixo / ombro | Conteúdo |
 |---|---|---|---|---|
 | Repouso | W | H | 10 / 7 | nada desenhado (só o hardware); no hover aparece +5 pt de cada lado e +3 pt para baixo |
-| Compacto | W + orelhas medidas | H (ou H + 20 de queixo) | 10 / 7 | ícone e medidor nas orelhas livres |
+| Compacto | W + orelhas medidas | H (ou H + 20 de queixo) | 10 / 7 | 1 app tocando: ícone + medidor nas orelhas livres (ou queixo). **2+ apps tocando:** os dois logos visíveis com recorte preto de 1,5 pt entre si, em qualquer arranjo de orelha/queixo |
 | HUD | W + 2 × 58 | H + 18 | 14 / 11 | asas: ícone e valor; queixo: barra de nível |
-| Espiada | W + 2 × 128 | H + 44 (+ 34 por outro app tocando) | 20 / 14 | asas: ícone, nome, volume, mudo; abaixo: fader. **Nada tocando:** a espiada vira a saída. Asa esquerda: ícone do dispositivo e "Saída"; asa direita: volume do hardware; abaixo: nome completo do dispositivo e fader (ou "o volume é ajustado no próprio dispositivo") |
+| Espiada | W + 2 × 128 | H + 44 (+ 34 por app listado abaixo) | 20 / 14 | **0 tocando:** controla a saída (ícone do dispositivo e "Saída" na asa esquerda; volume/mudo na direita; nome completo + fader de hardware abaixo). **1 tocando:** controla esse app nas asas (ícone, nome, volume, mudo) e fader abaixo (se VoIP protegido, mostra o controle da saída). **2+ tocando:** **Geral** (master) lidera nas asas e na faixa de hardware, seguido de hairline e de cada app tocando (até 4) em igualdade abaixo |
 | Expandido | máx(W + 2 × 140, 464) | H + 8 + foco 66 + faixa Geral 36 + 34 por fonte (até 3) + alerta 44 + rodapé 46 | 24 / 14 | asas: app (esquerda) e **só o ícone** do dispositivo de saída, que abre o menu (direita); abaixo: "Tocando em <dispositivo>", volume, fader, outras fontes, faixa Geral (volume e mudo da saída), rodapé. Nada tocando: "Nenhuma fonte tocando · <dispositivo>" e o fader da saída |
 
 A janela tem **tamanho fixo** (cabe o maior estado) e nunca é redimensionada. Só a forma se move. Os cliques atravessam a janela fora da forma (`ignoresMouseEvents` atualizado a cada movimento do ponteiro enquanto aberta).
@@ -82,7 +82,7 @@ A janela tem **tamanho fixo** (cabe o maior estado) e nunca é redimensionada. S
   - O painel aceita o primeiro clique: não é preciso "focar" antes.
 - **Fechar acompanhando o ponteiro:** enquanto aberto, a distância do ponteiro até a forma dirige um progresso contínuo de 0 a 1 (espiada: 64 pt; expandido: 104 pt; **30 pt quando o ponteiro está na faixa da barra de menus**, para que ir até um menu coberto o libere quase na hora), com curva elástica. A forma encolhe em direção ao estado fechado, o conteúdo desfoca (até 6 pt) e some, e o ícone viaja de volta para a orelha, tudo em tempo real. Se o ponteiro volta, tudo volta. Passando o limite, fecha com a mola `notchClose`, partindo exatamente de onde estava (sem salto).
 - **Expandido por clique ou atalho:** só passa a seguir o ponteiro depois que ele entra na forma uma vez; abrir pelo teclado não fecha sozinho.
-- **Um único ícone viaja** entre orelha, espiada e expandido; os blocos de conteúdo reservam o espaço dele. Nunca há duas cópias se cruzando.
+- **Um único ícone principal viaja** entre orelha, espiada (quando há 1 app tocando) e expandido; os blocos de conteúdo reservam o espaço dele. Na espiada com **2+ apps** ou sem som, o ícone do app recolhe suavemente de volta à orelha durante o fechamento para nunca colidir com o ícone do dispositivo Geral; nunca há duas cópias se cruzando.
 - Clique fora ou `Esc` fecham. O monitoramento de movimento só existe enquanto aberto (custo zero em repouso).
 
 ### 1.6 Personalização permitida

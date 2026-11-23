@@ -27,7 +27,7 @@ Como reproduzimos:
 
 ## Chrome junto com Spotify
 
-**Comprovado, sem defeito no build atual.** Com um tom tocando numa aba do Chrome, o processo `Google Chrome Helper (Aperitif)` aparece com `IsRunningOutput = 1`, é atribuído a "Google Chrome", e a espiada mostra Spotify e Chrome, cada um com seu fader.
+**Comprovado, sem defeito no build atual.** Com um tom tocando numa aba do Chrome, o processo `Google Chrome Helper (Aperitif)` aparece com `IsRunningOutput = 1`, é atribuído a "Google Chrome", e tanto o compacto (dois logos com recorte) quanto a espiada (volume **Geral** no topo + Spotify e Chrome em pé de igualdade abaixo, refinado em 2026-11-23) exibem os dois apps.
 
 No momento do relato, a aba do YouTube não estava emitindo áudio: nenhum processo do Chrome tinha saída ativa em 10 s de observação, e não havia a trava de energia de reprodução do Chrome (`pmset -g assertions`).
 
