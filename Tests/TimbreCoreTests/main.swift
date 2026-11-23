@@ -561,6 +561,25 @@ struct TimbreCoreTestRunner {
                "A surviving mute for an app not seen yet gets its own muted row")
         print("  [PASS] PersistentMutePolicy & MuteKeeperProtocol (silenced rule, restore scope, adoption merge, hand-over only on confirmation)")
 
+        // Notch activity: system blips never wake the notch
+        do {
+            let click = AudioSourceDescriptor(bundleID: SystemAudioClient.systemSounds.rawValue, name: "System sounds", isPlaying: true)
+            let other = AudioSourceDescriptor(bundleID: SystemAudioClient.otherSystem.rawValue, name: "Other", isPlaying: true)
+            let siri = AudioSourceDescriptor(bundleID: SystemAudioClient.siri.rawValue, name: "Siri", isPlaying: true)
+            let call = AudioSourceDescriptor(bundleID: SystemAudioClient.calls.rawValue, name: "Calls", isPlaying: true)
+            let spotify = AudioSourceDescriptor(bundleID: "com.spotify.client", name: "Spotify", isPlaying: true)
+            expect(NotchActivityPolicy.isTransientSystemSound(bundleID: click.bundleID) && NotchActivityPolicy.isTransientSystemSound(bundleID: other.bundleID),
+                   "System sounds and other macOS audio are transient")
+            expect(!NotchActivityPolicy.isTransientSystemSound(bundleID: siri.bundleID) && !NotchActivityPolicy.isTransientSystemSound(bundleID: call.bundleID)
+                   && !NotchActivityPolicy.isTransientSystemSound(bundleID: "com.spotify.client"), "Siri, calls and real apps still count")
+            let seen = NotchActivityPolicy.forNotch([click, other, siri, call, spotify])
+            expect(seen.map(\.isPlaying) == [false, false, true, true, true] && seen[0].playingSince == nil, "Only the system blips are made quiet for the notch")
+            expect(NotchPeekTarget.resolve(from: NotchActivityPolicy.forNotch([click])) == .output, "A lone system click leaves the notch on the output, not on System Settings")
+            if case .single(let s) = NotchPeekTarget.resolve(from: NotchActivityPolicy.forNotch([click, spotify])) { expect(s.bundleID == "com.spotify.client", "With music playing, a click does not steal the notch") } else { expect(false, "Music + click resolves to the music alone") }
+            expect(click.isPlaying, "The original source is untouched (the Mixer still shows it playing)")
+            print("  [PASS] NotchActivityPolicy (system blips never wake the notch; Siri, calls and apps still do)")
+        }
+
         print("[TimbreCoreTests] ALL PASSED")
     }
 }

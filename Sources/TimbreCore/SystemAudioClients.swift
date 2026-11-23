@@ -98,6 +98,33 @@ public enum SystemAudioClient: String, CaseIterable, Sendable {
     }
 }
 
+/// What counts as "something is playing" for the notch (compact indicator, peek, expanded lead).
+///
+/// macOS daemons play short sounds: the error click when you press something that cannot be pressed,
+/// alerts, the charger chime. They are not media the person is listening to or wants to control, and
+/// the notch used to answer each one by opening the compact view with System Settings' icon for three
+/// seconds. They stay in the Mixer and in the Studio (where their volume can still be set); they just
+/// do not wake the notch.
+public enum NotchActivityPolicy {
+    public static func isTransientSystemSound(bundleID: String) -> Bool {
+        switch SystemAudioClient(bundleID: bundleID) {
+        case .systemSounds, .otherSystem: return true
+        default: return false
+        }
+    }
+
+    /// The sources as the notch should see them: transient system sounds are never "playing".
+    public static func forNotch(_ sources: [AudioSourceDescriptor]) -> [AudioSourceDescriptor] {
+        sources.map { src in
+            guard src.isPlaying, isTransientSystemSound(bundleID: src.bundleID) else { return src }
+            var quiet = src
+            quiet.isPlaying = false
+            quiet.playingSince = nil
+            return quiet
+        }
+    }
+}
+
 /// Apps that keep an audio *output* engine running while producing no sound (dictation and
 /// transcription tools keep it warm for their start/stop chimes). Core Audio reports them as
 /// "running output", but they are not playing anything a person would want to see or control.
