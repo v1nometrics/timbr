@@ -40,6 +40,12 @@
 - **Correção ([ADR-0017](../07-decisoes/ADR-0017-mudo-a-prova-de-falha.md)):** `timbr-mute-keeper`, um processo mínimo separado que segura os mudos (e faders em 0 %), sobrevive a crash/SIGKILL/atualização do timbr., segue o app quando ele reabre (`bundleIDs` + `processRestoreEnabled`) e sai sozinho quando nada está mudo. O timbr. só solta o próprio mudo depois que o keeper confirma. Ao reabrir, adota os mudos vivos e avisa. Sair pelo menu pergunta se mantém o silêncio. `Timbr --release-all-mutes` é a saída de emergência.
 - **Verificado:** `selftest_mute_persistence.sh` 5/5; `listen_mute_crash.sh` com o dono do produto (silêncio com o timbr. vivo e depois do `kill -9`); `selftest_audio.sh` sem regressão no ganho; `./scripts/ci_check.sh` verde; app instalado em `/Applications/Timbr.app`.
 - **Limites:** `kill -9` no próprio keeper solta o mudo (o timbr., se aberto, refaz em ≤ 2 s); logout/reinício encerram tudo.
+### 2026-11-23 · Introdução: rodapé cortado no passo de permissões
+
+- **Relato:** no passo "Permissões no momento certo", os botões Voltar / Continuar apareciam cortados na base da janela.
+- **Causa (Comprovado, captura):** a janela tinha altura fixa de 520 pt e o passo, com três cartões e o texto de apoio, é mais alto que isso.
+- **Correção (`OnboardingWindow`):** janela de 640 pt, passo dentro de um `ScrollView` e rodapé fixo fora dele, então um idioma mais longo ou texto maior nunca empurra os botões para fora. Flag de revisão `--onboarding-step <0-3>`.
+- **Verificado:** captura real do passo 3 em PT (botões inteiros) e `./scripts/ci_check.sh` verde.
 
 ### 2026-11-23 · Correção definitiva do notch ao sair da tela cheia do Chrome (zero queixo sobre abas)
 
