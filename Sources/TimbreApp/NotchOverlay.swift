@@ -983,35 +983,26 @@ public struct NotchOverlayView: View {
         let visible: Bool
     }
 
-    /// Computes balanced, non-clipping positions for 1 or 2 playing app icons across every
-    /// measured menu-bar layout (chin, both ears, left-only ear, right-only ear).
+    /// Computes balanced, non-overlapping positions for 1 or 2 playing app icons across every
+    /// measured menu-bar layout (chin or left ear).
     private func compactIconFrames(hasSecond: Bool, canvas: CGSize) -> CompactIconFrames {
-        let cx = canvas.width / 2
-        if layout.useChin {
-            let y = H + NotchLayout.chinHeight / 2 - 1
-            if hasSecond {
-                return CompactIconFrames(
-                    leadCenter: CGPoint(x: cx - layout.half + 31, y: y), leadSize: 14,
-                    secondCenter: CGPoint(x: cx - layout.half + 19, y: y), secondSize: 13,
-                    visible: true
-                )
-            }
-            return CompactIconFrames(leadCenter: CGPoint(x: cx - layout.half + 22, y: y), leadSize: 14, secondCenter: nil, secondSize: 0, visible: true)
-        }
-        let e = interaction.ears
-        if e.left > 0 && e.right > 0 {
-            let earMid = cx - layout.half - e.left / 2
-            if hasSecond {
-                let step: CGFloat = e.left >= 40 ? 6.0 : 4.5
-                return CompactIconFrames(
-                    leadCenter: CGPoint(x: earMid + step, y: H / 2), leadSize: e.left >= 40 ? 14 : 13,
-                    secondCenter: CGPoint(x: earMid - step, y: H / 2), secondSize: e.left >= 40 ? 13 : 12,
-                    visible: true
-                )
-            }
-            return CompactIconFrames(leadCenter: CGPoint(x: earMid, y: H / 2), leadSize: e.left >= 34 ? 16 : 15, secondCenter: nil, secondSize: 0, visible: true)
-        }
-        return CompactIconFrames(leadCenter: CGPoint(x: cx - layout.half + 12, y: H / 2), leadSize: 12, secondCenter: nil, secondSize: 0, visible: false)
+        let p = CompactIconLayoutEvaluator.layout(
+            canvasCenterX: Double(canvas.width / 2),
+            notchHalfWidth: Double(layout.half),
+            notchHeight: Double(H),
+            chinHeight: Double(NotchLayout.chinHeight),
+            leftEar: Double(interaction.ears.left),
+            rightEar: Double(interaction.ears.right),
+            useChin: layout.useChin,
+            hasSecond: hasSecond
+        )
+        return CompactIconFrames(
+            leadCenter: CGPoint(x: p.leadCenterX, y: p.centerY),
+            leadSize: CGFloat(p.leadSize),
+            secondCenter: p.secondCenterX.map { CGPoint(x: $0, y: p.centerY) },
+            secondSize: CGFloat(p.secondSize),
+            visible: p.visible
+        )
     }
 
     private func iconFrame(_ s: NotchState, canvas: CGSize) -> (center: CGPoint, size: CGFloat, visible: Bool) {
@@ -1037,8 +1028,6 @@ public struct NotchOverlayView: View {
     @ViewBuilder
     private func focusIcon(_ s: NotchState, progress: CGFloat, canvas: CGSize) -> some View {
         if let f = travellingFocus {
-            let pair = appState.compactPair
-            let hasSecond = pair?.second != nil
             let open = iconFrame(s, canvas: canvas)
             let closed = iconFrame(closedState, canvas: canvas)
             let t = (s == .peek || s == .expanded) ? progress : 0
@@ -1053,19 +1042,7 @@ public struct NotchOverlayView: View {
                 }
                 return (open.visible && (closed.visible || t < 0.85)) ? 1 : 0
             }()
-            let cutoutOpacity: Double = {
-                guard hasSecond else { return 0 }
-                if s == .compact { return 1 }
-                if retractsToClosed { return closed.visible ? Double(max(0, (t - 0.35) / 0.65)) : 0 }
-                return t > 0.6 ? Double((t - 0.6) / 0.4) : 0
-            }()
             AppIcon(bundleID: f.bundleID, name: f.name, size: size)
-                .background(
-                    RoundedRectangle(cornerRadius: size * 0.26, style: .continuous)
-                        .fill(Color.black)
-                        .padding(-1.5)
-                        .opacity(cutoutOpacity)
-                )
                 .position(center)
                 .opacity(opacity)
                 .allowsHitTesting(false)
@@ -1144,7 +1121,6 @@ public struct NotchOverlayView: View {
             if let second, frames.visible, let secondCenter = frames.secondCenter {
                 AppIcon(bundleID: second.bundleID, name: second.name, size: frames.secondSize)
                     .position(secondCenter)
-                    .opacity(0.94)
                     .transition(.opacity)
             }
             if layout.useChin {
