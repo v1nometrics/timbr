@@ -266,6 +266,70 @@ struct TimbreCoreTestRunner {
         expect(FullscreenEvaluator.isFullscreen(screen: notchScreen, windows: [dockBackdrop, nativeFullscreen], menuBarVisible: true, autoHideMenuBarAlways: false, frontmostAXFullScreen: true, ownPID: 999), "AXFullScreen keeps fullscreen active during brief top-edge menu bar peek")
         print("  [PASS] FullscreenEvaluator (HTML5, native Space, Split View, auto-hide Dock, multi-monitor)")
 
+        // MenuBarSpaceEvaluator: Chrome wrapped right menus (Janela/Ajuda), dual-app chin fallback, Accessibility gating
+        let freeBoth = MenuBarSpaceEvaluator.freeEars(
+            hasPhysicalNotch: true,
+            screenWidth: 1470,
+            notchLeft: 645.5,
+            notchRight: 824.5,
+            axTrusted: true,
+            appMenuSpans: [MenuBarItemSpan(minX: 20, maxX: 450)],
+            statusItemSpans: [MenuBarItemSpan(minX: 940, maxX: 1460)]
+        )
+        expect(freeBoth.left == 44 && freeBoth.right == 44, "Ample free space yields 44pt ears on both sides: \(freeBoth)")
+        expect(!MenuBarSpaceEvaluator.shouldUseChin(ears: freeBoth, hasMultipleSources: false), "1 app uses both ears")
+        expect(!MenuBarSpaceEvaluator.shouldUseChin(ears: freeBoth, hasMultipleSources: true), "2+ apps fit cleanly when both ears are free")
+
+        // Exact Chrome scenario: left menu ends at 633, wrapped Janela/Ajuda sit at 832..959 right of notch!
+        let chromeWrapped = MenuBarSpaceEvaluator.freeEars(
+            hasPhysicalNotch: true,
+            screenWidth: 1470,
+            notchLeft: 645.5,
+            notchRight: 824.5,
+            axTrusted: true,
+            appMenuSpans: [
+                MenuBarItemSpan(minX: 520, maxX: 633),
+                MenuBarItemSpan(minX: 832, maxX: 898),
+                MenuBarItemSpan(minX: 898, maxX: 959)
+            ],
+            statusItemSpans: [MenuBarItemSpan(minX: 928, maxX: 1460)]
+        )
+        expect(chromeWrapped.left == 0 && chromeWrapped.right == 0, "Wrapped right app menus (Janela/Ajuda) zero out right ear: \(chromeWrapped)")
+        expect(MenuBarSpaceEvaluator.shouldUseChin(ears: chromeWrapped, hasMultipleSources: false), "Wrapped menus force safe chin for 1 app")
+        expect(MenuBarSpaceEvaluator.shouldUseChin(ears: chromeWrapped, hasMultipleSources: true), "Wrapped menus force safe chin for 2+ apps")
+
+        // Single right ear free (left busy, right 44pt): fine for 1 app, chin for 2+ apps (no clipping/cramming)
+        let rightOnly = MenuBarSpaceEvaluator.freeEars(
+            hasPhysicalNotch: true,
+            screenWidth: 1470,
+            notchLeft: 645.5,
+            notchRight: 824.5,
+            axTrusted: true,
+            appMenuSpans: [MenuBarItemSpan(minX: 520, maxX: 633)],
+            statusItemSpans: [MenuBarItemSpan(minX: 928, maxX: 1460)]
+        )
+        expect(rightOnly.left == 0 && rightOnly.right == 44, "Left busy + right free yields (0, 44): \(rightOnly)")
+        expect(!MenuBarSpaceEvaluator.shouldUseChin(ears: rightOnly, hasMultipleSources: false), "1 app fits cleanly in a 44pt single ear")
+        expect(MenuBarSpaceEvaluator.shouldUseChin(ears: rightOnly, hasMultipleSources: true), "2+ apps drop to chin instead of cramping 2 icons + meter into 1 ear")
+
+        // Narrow single ear (<40pt) drops to chin so 1 app never loses its harmonic mark
+        expect(MenuBarSpaceEvaluator.shouldUseChin(ears: (32, 0), hasMultipleSources: false), "Single 32pt ear drops to chin so icon + mark both fit")
+        expect(MenuBarSpaceEvaluator.shouldUseChin(ears: (30, 44), hasMultipleSources: true), "30pt left ear drops 2+ apps to chin (< 36pt)")
+        expect(!MenuBarSpaceEvaluator.shouldUseChin(ears: (30, 44), hasMultipleSources: false), "30pt left + 44pt right fits 1 app cleanly")
+
+        // Without AX permission, never guess over wrapped or left menus
+        let untrusted = MenuBarSpaceEvaluator.freeEars(
+            hasPhysicalNotch: true,
+            screenWidth: 1470,
+            notchLeft: 645.5,
+            notchRight: 824.5,
+            axTrusted: false,
+            appMenuSpans: [],
+            statusItemSpans: [MenuBarItemSpan(minX: 940, maxX: 1460)]
+        )
+        expect(untrusted.left == 0 && untrusted.right == 0, "Without Accessibility trust, falls back to safe chin")
+        print("  [PASS] MenuBarSpaceEvaluator (wrapped menus, dual-app chin fallback, AX gating)")
+
         print("[TimbreCoreTests] ALL PASSED")
     }
 }
