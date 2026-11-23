@@ -529,7 +529,7 @@ public final class AppState: ObservableObject {
     }
 
     public var shouldShowCompact: Bool {
-        showCompactActivity && !menuBarOnlyMode && notchEnabled && !shouldSuppressNotchChrome && sources.contains(where: { $0.isPlaying })
+        showCompactActivity && !menuBarOnlyMode && notchEnabled && !shouldSuppressNotchChrome && NotchActivityPolicy.forNotch(sources).contains(where: { $0.isPlaying })
     }
 
     public func toggleExpandedNotch() {

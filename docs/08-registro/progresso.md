@@ -40,6 +40,12 @@
 - **Medido (500 mil eventos):** primeira página e página 2000 em ~0,1 ms; busca em 7–43 ms; exportar tudo em 4,6 s, em segundo plano. Detalhes na ADR.
 - **Verificado:** testes de unidade (paginação, busca, exportação, leitura concorrente), capturas reais com o histórico do dono, `./scripts/ci_check.sh` verde.
 - **Limites:** sem poda automática do histórico; busca não ignora acentos nem aceita 1–2 letras; a caixa de salvar da exportação não foi acionada por automação.
+### 2026-11-23 · O notch não reage mais ao clique de ação inválida e outros sons do sistema
+
+- **Relato:** ao fazer o sistema soar (ex.: clicar onde não dá), o notch animava, mostrava o ícone de Ajustes e saía rápido.
+- **Causa (Comprovado):** qualquer processo com saída ativa virava "tocando", inclusive o `systemsoundserverd`, cujo ícone de grupo é o de Ajustes do Sistema.
+- **Correção ([ADR-0020](../07-decisoes/ADR-0020-sons-do-sistema-nao-acordam-o-notch.md)):** Sons do sistema e Outro áudio do macOS nunca contam como "tocando" para o notch (compacto, espiada, console). Seguem no Mixer, com volume ajustável.
+- **Verificado:** medição no notch real (quadros da janela do notch): antes, 3 bipes animavam; depois, 24 quadros idênticos; um app de verdade ainda anima. Testes de unidade e `./scripts/ci_check.sh` verdes.
 
 ### 2026-11-23 · Mudo à prova de falha (o app silenciado não volta a tocar se o timbr. fechar)
 
