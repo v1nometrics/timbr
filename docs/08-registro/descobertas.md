@@ -2,6 +2,16 @@
 
 > Fatos relevantes descobertos durante pesquisa e execução, com data, fonte e impacto no plano.
 
+## 2026-11-23 · Mudo à prova de falha (ADR-0017)
+
+1. **Só silencia o tap que está sendo lido (Comprovado: teste de ouvido, macOS 26.6).**
+   - Um tap `.muted` criado sem aggregate nem IOProc deixou o app audível, com o criador vivo e depois do SIGKILL. A doc de `CATapMuted` ("no audio is sent … to the audio hardware") não menciona essa condição.
+   - *Impacto:* um mudo que sobrevive ao timbr. precisa de outro processo vivo lendo o tap (`timbr-mute-keeper`).
+2. **Taps públicos sobrevivem ao processo que os criou (Comprovado).** `isPrivate = false` mantém o tap em `kAudioHardwarePropertyTapList` depois do SIGKILL do criador, e outro processo consegue destruí-lo. Taps privados morrem junto com o criador.
+3. **Process taps leem o áudio antes do mudo (Comprovado).** Um tap num app silenciado por outro tap `.muted` ainda lê o tom inteiro (−33 dBFS). Nenhum tap serve para medir o que chega ao alto-falante: sem permissão de microfone, a audibilidade só se verifica de ouvido.
+4. **`bundleIDs` + `processRestoreEnabled` (macOS 26) funcionam (Comprovado).** O tap passou a incluir o processo novo de um app relançado. Com `bundleIDs`, o tap também inclui sozinho os processos que já estão rodando com aquele bundle ID.
+5. **`kAudioTapPropertyDescription` devolve referência +1 (Comprovado).** 200 leituras com `takeRetainedValue()` sem over-release.
+
 ## 2026-11-21 · Pesquisa Inicial e Design System
 
 1. **Process taps com `.mutedWhenTapped` não exigem driver nem root (Comprovado — Doc Apple).**

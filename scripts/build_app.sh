@@ -61,10 +61,17 @@ swiftc -sdk "$SDK" -swift-version 6 -wmo -parse-as-library \
   -framework IOBluetooth -framework CoreBluetooth -framework Carbon \
   -framework AppKit -framework SwiftUI
 
+echo "==> Compiling timbr-mute-keeper (fail-closed mute holder, ADR-0017)"
+swiftc -sdk "$SDK" -swift-version 6 -O -module-name TimbrMuteKeeper \
+  -emit-executable -o "$BUILD/timbr-mute-keeper" \
+  "$ROOT/Sources/TimbrMuteKeeper/main.swift" "$ROOT/Sources/TimbreCore/MuteKeeperProtocol.swift" \
+  -framework CoreAudio -framework AudioToolbox
+
 echo "==> Assembling $APP"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BUILD/Timbr" "$APP/Contents/MacOS/Timbr"
+cp "$BUILD/timbr-mute-keeper" "$APP/Contents/MacOS/timbr-mute-keeper"
 cp "$ROOT/Resources/Timbr.icns" "$APP/Contents/Resources/Timbr.icns"
 
 cat > "$APP/Contents/Info.plist" <<'PLIST'

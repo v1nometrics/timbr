@@ -9,6 +9,7 @@
 - **Atualizado em:** 2026-11-23. **Fase:** MVP (Fase 1) em uso diário pelo autor; Gate G2 (14 dias como único mixer e EQ) ainda não contado. Todo o trabalho está no `main` (PR #1 mesclado em 2026-11-22, commit `5c33e74`).
 - **Funciona e foi verificado:**
   - volume e mudo por app (autoteste E2E com ganho exato);
+  - mudo à prova de falha: app mudo continua mudo se o timbr. morrer (`timbr-mute-keeper`, ADR-0017; teste de ouvido + `selftest_mute_persistence.sh`);
   - fontes simultâneas com atribuição correta e serviços do macOS nomeados;
   - EQ `Float64` com limiter true-peak;
   - notch nos cinco estados, com volume geral, menu de contexto e teclas de volume e brilho;
@@ -30,6 +31,15 @@
 ---
 
 ## Histórico Consolidado
+
+### 2026-11-23 · Mudo à prova de falha (o app silenciado não volta a tocar se o timbr. fechar)
+
+- **Relato:** quando o timbr. fechava por algum motivo, os apps silenciados nele voltavam a tocar (ex.: Spotify mudo no meio de uma aula). "Isso em hipótese alguma pode acontecer."
+- **Causa (Comprovado):** o mudo era um tap privado lido dentro do processo do timbr.; o Core Audio destrói esses taps com o processo. Não havia relatório de crash do timbr. no sistema: as saídas vinham de reinstalação/`pkill`/encerramento, e a correção cobre qualquer tipo de morte.
+- **Tentativa descartada:** tap público `.muted` sem leitor. Sobrevive ao criador (comprovado), mas **não silencia** (teste de ouvido, refutado).
+- **Correção ([ADR-0017](../07-decisoes/ADR-0017-mudo-a-prova-de-falha.md)):** `timbr-mute-keeper`, um processo mínimo separado que segura os mudos (e faders em 0 %), sobrevive a crash/SIGKILL/atualização do timbr., segue o app quando ele reabre (`bundleIDs` + `processRestoreEnabled`) e sai sozinho quando nada está mudo. O timbr. só solta o próprio mudo depois que o keeper confirma. Ao reabrir, adota os mudos vivos e avisa. Sair pelo menu pergunta se mantém o silêncio. `Timbr --release-all-mutes` é a saída de emergência.
+- **Verificado:** `selftest_mute_persistence.sh` 5/5; `listen_mute_crash.sh` com o dono do produto (silêncio com o timbr. vivo e depois do `kill -9`); `selftest_audio.sh` sem regressão no ganho; `./scripts/ci_check.sh` verde; app instalado em `/Applications/Timbr.app`.
+- **Limites:** `kill -9` no próprio keeper solta o mudo (o timbr., se aberto, refaz em ≤ 2 s); logout/reinício encerram tudo.
 
 ### 2026-11-23 · Correção definitiva do notch ao sair da tela cheia do Chrome (zero queixo sobre abas)
 

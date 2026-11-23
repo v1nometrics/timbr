@@ -116,7 +116,13 @@ public enum StudioTab: String, CaseIterable, Identifiable {
 public final class AppState: ObservableObject {
     // Subsystems
     public let halManager = HALManager()
-    public let tapEngine = ProcessTapEngine()
+    /// Review, smoke and self-test instances run next to the real app: they get no mute keeper, so they
+    /// can never rewrite or release the mutes the real instance holds (ADR-0017).
+    nonisolated static let isAuxiliaryInstance: Bool = {
+        let aux = ["--review-empty", "--review-multi", "--smoke-check", "--demo", "--notch", "--studio", "--panel-preview", "--onboarding"]
+        return ProcessInfo.processInfo.arguments.contains { aux.contains($0) || $0.hasPrefix("--selftest") }
+    }()
+    public let tapEngine = ProcessTapEngine(muteKeeper: AppState.isAuxiliaryInstance ? nil : MuteKeeperClient())
     public let m4Driver = Momentum4Driver()
     public let airPodsAdapter = AirPodsProAdapter()
     public let mediaKeyTap = MediaKeyTap()
@@ -334,6 +340,19 @@ public final class AppState: ObservableObject {
 
         watchMenuBarIconVisibility()
 
+        // Fail-closed mutes (ADR-0017): apps muted before timbr. last exited — crash, SIGKILL, update —
+        // are still held by timbr-mute-keeper. Adopt them before the first reconcile, or it would
+        // publish "nothing muted" and the keeper would let them play.
+        if let keeper = tapEngine.muteKeeper {
+            let survivors = keeper.survivingMutes().map(\.bundleID)
+            if !survivors.isEmpty {
+                sources = PersistentMutePolicy.mergeSurvivingMutes(survivors, into: sources, displayName: Self.appDisplayName(bundleID:))
+                let names = survivors.map { Self.appDisplayName(bundleID: $0) ?? $0 }.joined(separator: ", ")
+                logEvent(category: "recovery", message: "Kept muted after timbr. restarted: \(names)")
+                statusBanner = String(format: t("ui.mute.survived"), names)
+            }
+        }
+
         // Continuity BLE starts only when an Apple accessory is the active output (TCC honesty).
         refreshSystemState()
         setupMediaKeysIfGranted()
@@ -385,6 +404,27 @@ public final class AppState: ObservableObject {
         showOnboarding = true
         try? store?.setKV("onboardingCompleted", value: "0")
         presentOnboardingHandler?()
+    }
+
+    nonisolated static func appDisplayName(bundleID: String) -> String? {
+        if let client = SystemAudioClient(bundleID: bundleID) { return TimbreStrings.get(client.nameKey, lang: .fromSystemLocale()) }
+        guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) else { return nil }
+        let name = FileManager.default.displayName(atPath: url.path)
+        return name.hasSuffix(".app") ? String(name.dropLast(4)) : name
+    }
+
+    /// Names of the apps whose mute will outlive timbr. if it quits now (ADR-0017).
+    public var persistentlyMutedAppNames: [String] {
+        // Only what the keeper confirmed: an app it does not hold would play again on quit.
+        guard let held = tapEngine.muteKeeper?.confirmedHeld(), !held.isEmpty else { return [] }
+        return sources.filter { PersistentMutePolicy.isSilenced($0) && held.contains($0.bundleID) }.map(\.name)
+    }
+
+    /// "Restore sound and quit": the user chose to hear the muted apps again.
+    public func releasePersistentMutes() {
+        tapEngine.muteKeeper?.releaseAll()
+        for i in sources.indices where sources[i].isMuted { sources[i].isMuted = false }
+        logEvent(category: "mixer", message: "Released every app mute before quitting")
     }
 
     public func shutdown() {
@@ -643,7 +683,7 @@ public final class AppState: ObservableObject {
             audioActive: audioActive
         )
         // Surface engine failures instead of swallowing them (they used to be silent).
-        let failure = tapEngine.lastFailure
+        let failure = tapEngine.lastFailure ?? tapEngine.muteKeeper?.lastFailure
         if failure != lastLoggedTapFailure {
             lastLoggedTapFailure = failure
             if let failure { logEvent(category: "routing", message: "Tap failed: \(failure)") }

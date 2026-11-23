@@ -13,6 +13,13 @@ extension TimbreStrings {
         "ui.undo": [.ptBR: "Desfazer", .es: "Deshacer", .en: "Undo"],
         "ui.mute": [.ptBR: "Silenciar", .es: "Silenciar", .en: "Mute"],
         "ui.quit": [.ptBR: "Sair", .es: "Salir", .en: "Quit"],
+        // Fail-closed mute (ADR-0017)
+        "ui.mute.survived": [.ptBR: "Continua em silêncio depois que o timbr. reabriu: %@", .es: "Sigue en silencio tras reabrir timbr.: %@", .en: "Still muted after timbr. reopened: %@"],
+        "ui.quit_mute.title": [.ptBR: "Manter o silêncio depois de sair?", .es: "¿Mantener el silencio al salir?", .en: "Keep them silent after quitting?"],
+        "ui.quit_mute.body": [.ptBR: "Silenciado pelo timbr.: %@. Ao sair, o silêncio continua até você abrir o timbr. de novo e reativar o som.", .es: "Silenciado por timbr.: %@. Al salir, el silencio continúa hasta que vuelvas a abrir timbr. y reactives el sonido.", .en: "Muted by timbr.: %@. After you quit, they stay silent until you open timbr. again and unmute them."],
+        "ui.quit_mute.keep": [.ptBR: "Sair e manter o silêncio", .es: "Salir y mantener el silencio", .en: "Quit and keep silent"],
+        "ui.quit_mute.restore": [.ptBR: "Restaurar o som e sair", .es: "Restaurar el sonido y salir", .en: "Restore sound and quit"],
+        "ui.quit_mute.cancel": [.ptBR: "Cancelar", .es: "Cancelar", .en: "Cancel"],
         "ui.action.bypass": [.ptBR: "Desligar processamento", .es: "Apagar procesamiento", .en: "Turn processing off"],
         "ui.action.resume": [.ptBR: "Religar processamento", .es: "Reactivar procesamiento", .en: "Turn processing on"],
         "ui.action.processing": [.ptBR: "Processamento", .es: "Procesamiento", .en: "Processing"],

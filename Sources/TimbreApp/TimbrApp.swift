@@ -15,6 +15,8 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
     private var onboardingWindow: NSWindow?
     private var reviewWindow: NSWindow?
     private var cancellables: Set<AnyCancellable> = []
+    private var selfTestMuteHolder: MuteKeeperClient?
+    private var selfTestTone: NSSound?
 
     public func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
@@ -26,6 +28,44 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
                 let r = await AudioSelfTest.run(reportURL: url)
                 print("[selftest-audio] allPassed=\(r.allPassed) → \(url.path)")
                 NSApp.terminate(nil)
+            }
+            return
+        }
+        // Emergency exit for the fail-closed mute (ADR-0017): unmutes every app timbr. ever muted, even
+        // after timbr. crashed or was removed. `Timbr --release-all-mutes`
+        if launchArgs.contains("--release-all-mutes") {
+            let dir = launchArgs.firstIndex(of: "--mute-dir").flatMap { $0 + 1 < launchArgs.count ? URL(fileURLWithPath: launchArgs[$0 + 1]) : nil }
+            let client = MuteKeeperClient(directory: dir ?? MuteKeeperProtocol.defaultDirectory())
+            let held = client.survivingMutes().map(\.bundleID)
+            client.releaseAll()
+            print("[release-all-mutes] unmuted \(held.count): \(held.joined(separator: ", "))")
+            exit(0)
+        }
+        // Fail-closed mute proof (ADR-0017): `Timbr --selftest-mute-persistence <report.json>`.
+        if let i = launchArgs.firstIndex(of: "--selftest-mute-persistence") {
+            let url = URL(fileURLWithPath: i + 1 < launchArgs.count ? launchArgs[i + 1] : NSTemporaryDirectory() + "timbr-mutetest.json")
+            Task { @MainActor in
+                let r = await MutePersistenceSelfTest.run(reportURL: url)
+                print("[selftest-mute-persistence] allPassed=\(r.allPassed) → \(url.path)")
+                NSApp.terminate(nil)
+            }
+            return
+        }
+        // Child of the test above: a player with a real bundle ID (afplay has none), to prove that a
+        // surviving mute follows the app across a relaunch.
+        if let i = launchArgs.firstIndex(of: "--selftest-tone"), i + 1 < launchArgs.count,
+           let sound = NSSound(contentsOf: URL(fileURLWithPath: launchArgs[i + 1]), byReference: true) {
+            sound.loops = true
+            sound.play()
+            selfTestTone = sound
+            return
+        }
+        // Child of the test above: holds a mute until it is SIGKILLed.
+        if let i = launchArgs.firstIndex(of: "--selftest-mute-holder"), i + 2 < launchArgs.count, let pid = pid_t(launchArgs[i + 1]) {
+            let dir = URL(fileURLWithPath: launchArgs[i + 2], isDirectory: true)
+            Task { @MainActor in
+                self.selfTestMuteHolder = await MutePersistenceSelfTest.runHolder(pid: pid, directory: dir)
+                if self.selfTestMuteHolder == nil { exit(2) }
             }
             return
         }
@@ -93,6 +133,30 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
     public func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         openStudio()
         return true
+    }
+
+    /// Quitting from our own UI while apps are muted asks whether the silence should outlive timbr.
+    /// (ADR-0017). Logout, restart, shutdown and scripted quits never block: they keep the mutes.
+    public func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        let muted = appState.persistentlyMutedAppNames
+        guard !muted.isEmpty, NSAppleEventManager.shared().currentAppleEvent == nil else { return .terminateNow }
+        let alert = NSAlert()
+        alert.alertStyle = .informational
+        alert.messageText = appState.t("ui.quit_mute.title")
+        alert.informativeText = String(format: appState.t("ui.quit_mute.body"), muted.joined(separator: ", "))
+        alert.addButton(withTitle: appState.t("ui.quit_mute.keep"))       // default: the safe choice
+        alert.addButton(withTitle: appState.t("ui.quit_mute.restore"))
+        alert.addButton(withTitle: appState.t("ui.quit_mute.cancel"))
+        NSApp.activate(ignoringOtherApps: true)
+        switch alert.runModal() {
+        case .alertFirstButtonReturn:
+            return .terminateNow
+        case .alertSecondButtonReturn:
+            appState.releasePersistentMutes()
+            return .terminateNow
+        default:
+            return .terminateCancel
+        }
     }
 
     public func applicationWillTerminate(_ notification: Notification) {

@@ -46,7 +46,7 @@ Cada princípio tem um teste. Se uma decisão viola o teste, ela está errada, m
 | # | Princípio | Teste objetivo |
 |---|---|---|
 | P1 | **Fidelidade antes de recursos.** Quando nada precisa ser processado, o app não toca no áudio. | Com EQ, volume por app e efeitos neutros, nenhum tap existe (verificável no diagnóstico). |
-| P2 | **Falhar em segurança.** Se o app travar ou for morto, o som volta, intacto, sem estouro. | Teste de `kill -9` durante reprodução: o áudio continua em ≤ 1 s, sem pico acima do nível anterior. |
+| P2 | **Falhar em segurança.** Se o app travar ou for morto, o som volta, intacto, sem estouro. **Exceção ([ADR-0017](../07-decisoes/ADR-0017-mudo-a-prova-de-falha.md)):** um app que o usuário silenciou (mudo ou 0 %) continua em silêncio. | Teste de `kill -9` durante reprodução: o áudio continua em ≤ 1 s, sem pico acima do nível anterior; app mudo continua mudo (`selftest_mute_persistence.sh` + `listen_mute_crash.sh`). |
 | P3 | **Nunca deixar rastro.** O sistema fica como estava ao sair ou desinstalar. | Após sair/desinstalar: dispositivo padrão, volumes e lista de dispositivos idênticos ao snapshot de antes. |
 | P4 | **Verdade no caminho do sinal.** Nenhuma métrica inferida aparece como medida. | Todo número na UI tem um selo de origem: medido, reportado, inferido. |
 | P5 | **Evidência antes de promessa.** Nenhum recurso entra no roadmap como "certo" sem prova de viabilidade. | Todo item do backlog aponta para uma linha da matriz de viabilidade com classe de evidência. |
