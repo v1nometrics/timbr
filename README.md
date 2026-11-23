@@ -27,6 +27,11 @@ O app roda no dia a dia do autor (dogfood). O que está **comprovado** por teste
 |---|---|---|
 | Volume e mudo por app (process taps) | Funciona | Autoteste E2E no app instalado: 50/25/200/150 % medem −6,02/−12,04/+6,02/+3,52 dB; mudo = silêncio ([registro](docs/08-registro/teste-e2e-volume-por-app-2026-11-22.md)) |
 | Mudo à prova de falha (app mudo continua mudo se o timbr. fechar, travar ou for morto) | Funciona | `timbr-mute-keeper` ([ADR-0017](docs/07-decisoes/ADR-0017-mudo-a-prova-de-falha.md)); `scripts/selftest_mute_persistence.sh` e teste de ouvido com `kill -9` |
+| Equalizador de 4, 5 ou 10 bandas e PEQ livre (a curva acompanha os pontos; "Resetar filtros" com desfazer) | Funciona | Testes de unidade e de motor contra o DSP real; capturas; [ADR-0019](docs/07-decisoes/ADR-0019-equalizador-de-4-5-10-bandas-e-peq-livre.md) |
+| Linha do tempo do Observatório: histórico completo, busca por trecho, filtro e exportação CSV/JSON | Funciona | Medido com 500 mil eventos: página em ~0,1 ms, busca em 7–43 ms ([ADR-0018](docs/07-decisoes/ADR-0018-linha-do-tempo-busca-e-exportacao.md)). A caixa de salvar da exportação não foi acionada por automação |
+| Tempo de escuta com fone e volume alto (regra 60/60), com aviso no Observatório e no notch | Funciona, **sem decibéis** | Testes de unidade; capturas ([ADR-0023](docs/07-decisoes/ADR-0023-tempo-de-escuta-e-volume-alto.md)) |
+| O notch percebe a pausa sem esperar o macOS | Funciona com tap ativo (1,6 s) ou com a chave "Perceber pausas na hora"; sem isso vale o tempo do macOS (2 a 8 s) | Medido na janela real do notch ([ADR-0021](docs/07-decisoes/ADR-0021-notch-percebe-a-pausa-sem-esperar-o-macos.md)) |
+| Feedback por e-mail, local e visível | Funciona | O app só abre o e-mail da pessoa; testes e captura ([ADR-0024](docs/07-decisoes/ADR-0024-feedback-por-email-local.md)) |
 | Detecção de fontes simultâneas | Funciona, por evento do Core Audio | Chrome + Spotify juntos; serviços do macOS com nome e ícone ("Sons do sistema", "Siri e Ditado"…) |
 | EQ paramétrico `Float64` + limiter true-peak | Funciona | Testes C++ com ASan/UBSan; limiter segura −0,30 dBFS no autoteste |
 | Notch (repouso, compacto, espiada, expandido, HUD) | Funciona | Capturas e vídeo quadro a quadro; volume geral (master) e mudo no notch; teclas de volume **e brilho** com HUD próprio |
@@ -41,6 +46,12 @@ Compatibilidade conhecida: [superwhisper e Chrome](docs/08-registro/compatibilid
 
 ---
 
+## Feedback e contato
+
+Sugestões, problemas e pedidos de fones ou apps: em **Sobre → Feedback e sugestões** dentro do app (ou **Enviar feedback…** no menu do notch). O app só abre o seu e-mail com a mensagem pronta, para **vinicius@v1torres.dev**, e mostra exatamente o que vai junto. Prefere público? [Abra uma issue](https://github.com/v1nometrics/timbr/issues/new). Detalhes em [ADR-0024](docs/07-decisoes/ADR-0024-feedback-por-email-local.md).
+
+---
+
 ## Mapa da Documentação
 
 | Pasta | Conteúdo | Documentos principais |
@@ -52,7 +63,7 @@ Compatibilidade conhecida: [superwhisper e Chrome](docs/08-registro/compatibilid
 | **04 · Engenharia** | Processos, DSP Float64, roteamento/abas, Observatório/Guardião, IA, segurança, RNFs | [Arquitetura Geral](docs/04-engenharia/arquitetura-geral.md) · [Motor DSP](docs/04-engenharia/motor-dsp-e-precisao.md) · [Roteamento & Abas](docs/04-engenharia/roteamento-e-abas.md) · [Observatório & Guardião](docs/04-engenharia/observatorio-e-guardiao.md) · [Inteligência & A/B](docs/04-engenharia/inteligencia-e-personalizacao.md) · [Segurança & Distribuição](docs/04-engenharia/seguranca-privacidade-distribuicao.md) · [Requisitos Não Funcionais](docs/04-engenharia/requisitos-nao-funcionais.md) |
 | **05 · Design System** | Identidade Órbita + Ronda + `$apple-design` + `$emil-design-eng` | [Bíblia DS](docs/05-design-system/00-biblia-do-design-system.md) · [Fundações & Tokens](docs/05-design-system/01-fundacoes-tokens.md) · [Motion & Física](docs/05-design-system/02-motion-e-fisica.md) · [Superfícies](docs/05-design-system/03-superficies-e-anatomia.md) · [Componentes Áudio](docs/05-design-system/04-componentes-e-visualizacao-audio.md) · [Assets & Refs](docs/05-design-system/05-assets-iconografia-e-referencias.md) |
 | **06 · Plano** | Experimentos bloqueadores (`E-01`–`E-17`), fases/gates, testes objetivos e aceite | [Experimentos](docs/06-plano/plano-de-experimentos.md) · [Roadmap & Backlog](docs/06-plano/roadmap-e-backlog.md) · [Estratégia de Testes](docs/06-plano/estrategia-de-testes.md) · [Critérios de Aceitação](docs/06-plano/criterios-de-aceitacao.md) |
-| **07 · Decisões** | Architecture Decision Records | [Índice de ADRs (`ADR-0001`–`ADR-0016`)](docs/07-decisoes/README.md) |
+| **07 · Decisões** | Architecture Decision Records | [Índice de ADRs (`ADR-0001`–`ADR-0024`)](docs/07-decisoes/README.md) |
 | **08 · Registro** | Registros vivos, testes E2E, compatibilidade, riscos, hipóteses e auditorias | [Progresso](docs/08-registro/progresso.md) · [Teste E2E volume por app](docs/08-registro/teste-e2e-volume-por-app-2026-11-22.md) · [Compatibilidade](docs/08-registro/compatibilidade-apps-2026-11-22.md) · [Hipóteses](docs/08-registro/hipoteses.md) · [Descobertas](docs/08-registro/descobertas.md) · [Riscos](docs/08-registro/riscos-e-mitigacoes.md) · [Auditoria E2E](docs/08-registro/auditoria-e2e-2026-11-21.md) · [Revisão Adversarial](docs/08-registro/revisao-adversarial.md) |
 | **09 · Open Source** | BOM, matriz de licenças e governança | [Inventário & BOM](docs/09-open-source/inventario-e-classificacao.md) · [Estratégia OSS](docs/09-open-source/estrategia-open-source.md) |
 | **10 · Referências** | Bibliografia mestra e taxonomia de evidências | [Referências e Evidências](docs/10-referencias/referencias-e-evidencias.md) |

@@ -2,6 +2,10 @@
 
 Obrigado por contribuir com o **timbr.** (*Sound, precisely yours.*).
 
+## Dúvidas, sugestões e problemas
+
+Dentro do app, em **Sobre → Feedback e sugestões** (o app só abre o seu e-mail para **vinicius@v1torres.dev**, com a mensagem pronta, [ADR-0024](docs/07-decisoes/ADR-0024-feedback-por-email-local.md)), ou numa [issue pública](https://github.com/v1nometrics/timbr/issues/new).
+
 ## Licença e DCO (`Signed-off-by`)
 
 Este projeto é distribuído sob **Mozilla Public License 2.0 (`MPL-2.0`)** ([LICENSE](LICENSE), [ADR-0001](docs/07-decisoes/ADR-0001-licenca.md)).

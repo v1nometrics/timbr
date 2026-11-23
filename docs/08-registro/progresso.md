@@ -11,8 +11,10 @@
   - volume e mudo por app (autoteste E2E com ganho exato);
   - mudo à prova de falha: app mudo continua mudo se o timbr. morrer (`timbr-mute-keeper`, ADR-0017; teste de ouvido + `selftest_mute_persistence.sh`);
   - fontes simultâneas com atribuição correta e serviços do macOS nomeados;
-  - EQ `Float64` com limiter true-peak;
-  - notch nos cinco estados, com volume geral, menu de contexto e teclas de volume e brilho;
+  - EQ `Float64` com limiter true-peak; gosto em 4, 5 ou 10 bandas e PEQ livre com reset (ADR-0019);
+  - notch nos cinco estados, com volume geral, menu de contexto e teclas de volume e brilho; sons curtos do sistema não o acordam e ele recolhe sem esperar o macOS quando há tap (ADR-0020, 0021);
+  - Observatório com linha do tempo paginada, busca e exportação (ADR-0018) e seção de tempo de escuta (ADR-0023);
+  - feedback por e-mail, local e visível (ADR-0024); ícone novo (ADR-0022);
   - Estúdio; ícone de barra de menus condicional; identidade acromática.
   
   Estado por item em [roadmap · Situação](../06-plano/roadmap-e-backlog.md).
@@ -26,11 +28,20 @@
   - consumo em repouso e latência por tap (não medidos);
   - MacBook Pro OLED com Dynamic Island (desconhecido);
   - helper XPC (E-16).
-- **Próximo passo sugerido:** RF-0201, depois a sessão de bancada com os fones.
+- **Próximo passo sugerido:** RF-0201 (rotear app para outra saída), depois a sessão de bancada com os fones (E-08, E-09).
 
 ---
 
 ## Histórico Consolidado
+
+### 2026-11-23 · Feedback por e-mail e documentação em dia
+
+- **Pedido:** uma seção de feedback e sugestões perto da doação, direcionada ao e-mail do dono, de forma eficiente e "inteligente"; e deixar tudo publicado e a documentação atualizada.
+- **Feito ([ADR-0024](../07-decisoes/ADR-0024-feedback-por-email-local.md)):** em Sobre, abaixo de código-fonte e doação, e no menu do notch. O app **não envia nada**: abre o e-mail da pessoa com a mensagem pronta para `vinicius@v1torres.dev`, mostra exatamente o que vai, e só leva cinco fatos genéricos que a pessoa liga ou desliga (versão do app, do macOS, tipo de saída, modo do EQ, idioma). Nunca nome de fone, áudio ou histórico. Rascunho guardado localmente. Caminho público: issue no GitHub.
+- **Por que não coleta automática:** quebraria "100% local, sem telemetria", que é parte do produto.
+- **Documentação:** README (tabela de estado, feedback, intervalo de ADRs), PRD (RF-0312, RF-0709, RF-1308, RF-1408, RF-1409; RF-0706 implementado), especificação funcional (§6.3), roadmap, glossário, CONTRIBUTING e AGENTS.
+- **Verificado:** testes de unidade (URL `mailto:` decodifica para o texto exato), captura real da seção, `./scripts/ci_check.sh` verde.
+- **Limite:** depende de um app de e-mail configurado; senão o texto é copiado.
 
 ### 2026-11-23 · Pendências aplicadas: audição, pausa instantânea e histórico limpo
 

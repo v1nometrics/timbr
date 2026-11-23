@@ -89,7 +89,12 @@ Regras:
 - Indicadores: preamp atual, headroom, limiter atuando, latência do destino.
 
 ### 6.3 Gosto simples (padrão para novos usuários)
-Quatro controles semânticos, cada um mapeado para filtros fixos e documentados: **Graves** (low shelf 105 Hz, Q 0,7), **Calor** (peaking 250 Hz, Q 0,9), **Presença** (peaking 3 kHz, Q 1,0), **Ar** (high shelf 10 kHz, Q 0,7); faixa ±6 dB, passo 0,5 dB. O modo avançado mostra o PEQ livre (a conversão é sem perda: os controles simples viram filtros editáveis).
+Um seletor **4 · 5 · 10 · PEQ Livre** ([ADR-0019](../07-decisoes/ADR-0019-equalizador-de-4-5-10-bandas-e-peq-livre.md)). Nos três primeiros só o ganho mexe, por cartão ou arrastando o ponto na curva; cada nível guarda os próprios ganhos.
+- **4 bandas:** **Graves (Bass)** (low shelf 105 Hz, Q 0,7), **Médios-graves (Warmth)** (peaking 250 Hz, Q 0,9), **Médios-agudos (Presence)** (peaking 3 kHz, Q 1,0), **Agudos (Air)** (high shelf 10 kHz, Q 0,7); ±6 dB, passo 0,5 dB.
+- **5 bandas:** 80 Hz shelf, 250 Hz, 1 kHz, 4 kHz, 10 kHz shelf; ±9 dB.
+- **10 bandas:** oitavas ISO de 31,5 Hz a 16 kHz (shelf nas pontas, Q 1,41); ±12 dB. Cada banda mostra a frequência e o nome da região.
+- **PEQ Livre:** tipo, frequência, ganho e Q por filtro; nasce da curva atual com tudo ligado; ajustar um filtro desligado o liga; **Resetar filtros** volta ao padrão plano, com desfazer; o teto respeita as 32 bandas do DSP.
+Os nomes seguem "português (termo)", com dica ao passar o mouse; com o app em inglês aparece só o termo.
 
 ### 6.4 A/B
 - **A/B neutro**: compara Resultado vs. Correção-apenas vs. sem EQ, com loudness igualado por LUFS de curto prazo medido no próprio sinal (ou ganho calculado pela curva quando não há sinal).

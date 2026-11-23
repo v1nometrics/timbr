@@ -28,4 +28,5 @@ Uma decisão "Proposta" só vira "Aceita" quando (a) o dono aprova, quando é de
 | [ADR-0021](ADR-0021-notch-percebe-a-pausa-sem-esperar-o-macos.md) | O notch percebe a pausa sem esperar o macOS: debounce armado uma vez, vigia de 250 ms e silêncio medido quando há tap | **Aceito** |
 | [ADR-0022](ADR-0022-icone-do-app-notch-e-som.md) | Ícone do app: o notch pendurado na borda e as cinco barras de som abaixo, em papel quente (substitui o monólito escuro) | **Aceito** |
 | [ADR-0023](ADR-0023-tempo-de-escuta-e-volume-alto.md) | Tempo de escuta com fone e volume alto (regra 60/60), sem fingir decibéis; aviso no Observatório e no notch | **Aceito** |
+| [ADR-0024](ADR-0024-feedback-por-email-local.md) | Feedback por e-mail, local e visível: o app só abre o e-mail da pessoa com a mensagem pronta; contexto mínimo e opcional | **Aceito** |
 | [ADR-0017](ADR-0017-mudo-a-prova-de-falha.md) | Mudo à prova de falha: `timbr-mute-keeper` segura apps mudos (e em 0 %) mesmo se o timbr. morrer; emenda P2 só para o mudo | **Aceito** |

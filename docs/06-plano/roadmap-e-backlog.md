@@ -16,9 +16,14 @@ O código da Fase 1 existe e está em uso diário (dogfood), mas o Gate G2 (14 d
 | B-104 Limiter + bypass + A/B | Feito | Limiter −0,30 dBFS medido; A/B neutro com crossfade |
 | B-105 APO + AutoEq | Feito (AutoEq offline embutido) | Testes de parser e ida e volta |
 | B-106 HAL + teclas de mídia | Feito, incluindo brilho e volume geral no notch | Capturas do HUD; Acessibilidade estável com a assinatura local |
-| B-107 Observatório v1 | Feito | Capturas; falhas do motor na linha do tempo |
+| B-107 Observatório v1 | Feito | Capturas; linha do tempo com histórico completo, busca, filtro e exportação (ADR-0018); seção Audição, sem decibéis (ADR-0023) |
 | B-108 Guardião G-01 | Código e testes feitos | Bancada HFP (E-08) **não executada** |
 | B-109 Superfícies | Feito | Capturas; ícone de barra de menus condicional (ADR-0013, revisão) |
+| B-203 Gosto: 4/5/10 bandas + PEQ livre | Feito | Testes de unidade e de motor; capturas (ADR-0019) |
+| Mudo à prova de falha | Feito | `timbr-mute-keeper`; autoteste e teste de ouvido com `kill -9` (ADR-0017) |
+| Notch: sons do sistema, pausa e recolhimento | Feito | Medido na janela real do notch (ADR-0020, ADR-0021). Sem tap, a pausa leva o tempo do macOS |
+| Feedback por e-mail | Feito | ADR-0024 |
+| Ícone novo | Feito | ADR-0022 |
 | B-110 Developer ID + notarização + cask | **Parcial** | Scripts e cask prontos; falta conta Apple Developer. Builds locais usam identidade autoassinada |
 | RF-0201 Rotear app para outra saída | **Não feito** | Maior lacuna funcional do mixer |
 
@@ -79,7 +84,7 @@ O código da Fase 1 existe e está em uso diário (dogfood), mas o Gate G2 (14 d
 |---|---|---|---|---|
 | **B-201** | EP-02 | Roteamento multissaída simultânea por app + alinhamento de atraso em ms | E-04 | Aggregates isolados (BT sem drift correction) |
 | **B-202** | EP-09 | Extensões de navegador (Safari Web Extension + Chrome/Arc/Brave MV3) com volume por aba | E-05 | Boost/EQ/setSinkId entram se E-05 comprovar viabilidade |
-| **B-203** | EP-03 | Separação explícita das camadas **Correção** × **Gosto** (4 controles simples + PEQ avançado) | ADR-0010 | UI sempre mostra as 3 curvas |
+| **B-203** | EP-03 | Separação explícita das camadas **Correção** × **Gosto** (4, 5 ou 10 bandas + PEQ livre) | ADR-0010 | UI sempre mostra as 3 curvas |
 | **B-204** | EP-08 | Driver Sennheiser Momentum 4 v1 (read-first: bateria, ANC/Transparency, EQ interno + alerta G-04; escrita reversível de ANC se E-09 aprovar) | E-09 | Isolado do motor de áudio (ADR-0006/0011) |
 | **B-204b** | EP-08 | Driver linha Apple (AirPods/Pro/Max/Beats): HAL + Continuity BLE flip-aware + matriz de capacidades + AutoEq 4/Pro/Max + UI Observatório/Mixer/Notch (sem AACP) | E-08 | [`airpods-laboratorio.md`](../03-viabilidade/airpods-laboratorio.md) — UI compartilhada feita; live Continuity pendente |
 | **B-205** | EP-07 | Guardião completo (G-02 reamostragem, G-03 clipping, G-04 EQ duplicado, G-06 troca de device, G-07 conflito de tap) + medidores EBU R128/PPM | B-107 | Linha do tempo exportável em relatório de diagnóstico |

@@ -807,6 +807,33 @@ struct TimbreCoreTestRunner {
             print("  [PASS] ListeningTracker (time and volume only: 60/60 streak, hysteresis, rest, sleep, day rollover, storage)")
         }
 
+        // Feedback by e-mail: local, visible, switchable (ADR-0024)
+        do {
+            let ctx = FeedbackContext(appVersion: "1.0 (12)", macOS: "Version 26.6 (Build 25G72)", outputKind: "Bluetooth", equalizerMode: "10 bandas", language: "pt-BR")
+            expect(FeedbackComposer.recipient == "vinicius@v1torres.dev", "Feedback goes to the owner's address")
+            expect(!FeedbackComposer.isSendable("curto") && !FeedbackComposer.isSendable("   \n\t  ") && FeedbackComposer.isSendable("Queria mais bandas no EQ."), "Too-short messages are not sendable")
+            expect(FeedbackComposer.normalize("  a\r\nb\u{0007}c  ") == "a\nbc", "Line breaks unified, control characters dropped, edges trimmed")
+            expect(FeedbackComposer.normalize(String(repeating: "x", count: 5000)).count == FeedbackComposer.maxMessageLength, "Messages are capped")
+            expect(FeedbackComposer.subject(.bug) == "[timbr.] Problema" && FeedbackComposer.subject(.suggestion) == "[timbr.] Sugestão", "Subject names the category")
+            let all = FeedbackComposer.body(message: "Adorei o notch!", context: ctx, options: FeedbackOptions())
+            expect(all.contains("timbr.: 1.0 (12)") && all.contains("macOS: Version 26.6") && all.contains("Saída: Bluetooth") && all.contains("Equalizador: 10 bandas") && all.contains("pt-BR"), "Every enabled fact is in the body")
+            var none = FeedbackOptions(); none.app = false; none.system = false; none.output = false; none.equalizer = false; none.language = false
+            let bare = FeedbackComposer.body(message: "Adorei o notch!", context: ctx, options: none)
+            expect(bare == "Adorei o notch!", "With every fact switched off, only the message is sent")
+            var some = FeedbackOptions(); some.system = false; some.output = false
+            let part = FeedbackComposer.body(message: "Mensagem de teste aqui", context: ctx, options: some)
+            expect(!part.contains("macOS") && !part.contains("Saída") && part.contains("timbr.: 1.0"), "Each fact switches off on its own")
+            expect(FeedbackComposer.outputKind(for: .bluetoothA2DP) == "Bluetooth" && !FeedbackComposer.outputKind(for: .builtIn).lowercased().contains("macbook"), "The output is a kind, never a device name")
+            let url = FeedbackComposer.mailtoURL(category: .suggestion, message: "Que tal 'Graves & Agudos' = 100%?\nSegunda linha: ação", context: ctx, options: FeedbackOptions())!
+            let s = url.absoluteString
+            expect(s.hasPrefix("mailto:vinicius@v1torres.dev?subject=") && s.contains("&body="), "A mailto: URL to the owner")
+            expect(!s.dropFirst(7).contains(" ") && !s.contains("\n") && s.contains("%0D%0A"), "Spaces and line breaks are percent-encoded (CRLF)")
+            expect(s.contains("%26") && s.contains("%3D") && s.contains("%C3%A7"), "&, = and accents are encoded, so the message cannot break the URL")
+            let back = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?.first { $0.name == "body" }?.value ?? ""
+            expect(back.hasPrefix("Que tal 'Graves & Agudos' = 100%?") && back.contains("ação"), "The e-mail body decodes to exactly what the person wrote")
+            print("  [PASS] Feedback (local mailto, preview == body, per-fact switches, safe encoding, no device names)")
+        }
+
         print("[TimbreCoreTests] ALL PASSED")
     }
 }
