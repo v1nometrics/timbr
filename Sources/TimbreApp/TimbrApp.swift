@@ -120,6 +120,15 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
         if args.contains("--onboarding") {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak self] in self?.openOnboarding() }
         }
+        if args.contains("--timeline-preview") {
+            let win = NSWindow(contentViewController: NSHostingController(rootView: TimelinePreview(appState: appState)))
+            win.styleMask = [.titled, .fullSizeContentView]
+            win.titlebarAppearsTransparent = true
+            win.titleVisibility = .hidden
+            win.setFrameTopLeftPoint(NSPoint(x: 80, y: (NSScreen.main?.frame.maxY ?? 900) - 80))
+            win.orderFrontRegardless()
+            reviewWindow = win
+        }
         if args.contains("--panel-preview") {
             let win = NSWindow(contentViewController: NSHostingController(rootView: MenuBarPanel(delegate: self, appState: appState)))
             win.styleMask = [.titled, .fullSizeContentView]

@@ -207,6 +207,9 @@ public final class AppState: ObservableObject {
     @Published public var mutedGuardianPairs: Set<String> = []
     @Published public var silentStudioMode: Bool = false
     @Published public var recentEvents: [ObservatoryEvent] = []
+    /// Bumped (main thread) after each event reaches the disk; the timeline refreshes its head on it.
+    @Published public private(set) var eventLogRevision = 0
+    private let eventWriteQueue = DispatchQueue(label: "dev.v1torres.timbr.events", qos: .utility)
     @Published public var statusBanner: String?
 
     // Permissions status
@@ -444,6 +447,7 @@ public final class AppState: ObservableObject {
         ipcServer?.stop()
         tapEngine.stopAndDestroyTap()
         halManager.restoreSnapshotIfModified()
+        eventWriteQueue.sync {}   // let queued events reach the disk before the process exits
     }
 
     public func setupMediaKeysIfGranted() {
@@ -1319,7 +1323,11 @@ public final class AppState: ObservableObject {
     }
 
     public func clearAllLocalHistory() {
-        try? store?.clearAllHistory()
+        let store = self.store
+        eventWriteQueue.async { [weak self] in
+            try? store?.clearAllHistory()
+            DispatchQueue.main.async { self?.eventLogRevision &+= 1 }
+        }
         recentEvents = []
         mutedGuardianPairs = []
         trainerHistory = []
@@ -1359,6 +1367,15 @@ public final class AppState: ObservableObject {
         let ev = ObservatoryEvent(category: category, message: message, badge: badge, deviceUID: activeOutputDevice?.uid)
         recentEvents.insert(ev, at: 0)
         if recentEvents.count > 120 { recentEvents.removeLast(recentEvents.count - 120) }
-        try? store?.saveEvent(ev)
+        // Disk writes never run on the main thread: a checkpoint on a large log can take 100 ms+.
+        // One serial queue keeps them in order; the timeline hears about each one when it is durable.
+        guard let store else { return }
+        eventWriteQueue.async { [weak self] in
+            try? store.saveEvent(ev)
+            DispatchQueue.main.async { self?.eventLogRevision &+= 1 }
+        }
     }
+
+    /// Path of the event log, for the Observatory timeline's own read-only connection.
+    public var eventLogPath: String? { store?.databasePath }
 }

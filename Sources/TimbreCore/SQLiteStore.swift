@@ -63,6 +63,8 @@ public final class SQLiteStore: @unchecked Sendable {
             badge TEXT,
             device_uid TEXT
         );
+        CREATE INDEX IF NOT EXISTS idx_events_ts ON observatory_events(timestamp);
+        CREATE INDEX IF NOT EXISTS idx_events_cat_ts ON observatory_events(category, timestamp);
         CREATE TABLE IF NOT EXISTS presets (
             id TEXT PRIMARY KEY,
             device_uid TEXT,
@@ -75,12 +77,43 @@ public final class SQLiteStore: @unchecked Sendable {
             created_at REAL NOT NULL
         );
         """)
+        try migrateEventSearch()
+    }
+
+    /// Full-text search over the timeline (ADR-0018): FTS5 with the `trigram` tokenizer, so any
+    /// 3+ character fragment matches ("spea" finds "Speakers"), case-insensitively, through an index
+    /// instead of a table scan. External-content: the text is not stored twice. If this SQLite has
+    /// no FTS5/trigram, search silently falls back to a plain `LIKE` (see `EventLogReader`).
+    private func migrateEventSearch() throws {
+        var stmt: OpaquePointer?
+        let exists: Bool = {
+            guard sqlite3_prepare_v2(db, "SELECT 1 FROM sqlite_master WHERE name = 'observatory_events_fts';", -1, &stmt, nil) == SQLITE_OK else { return false }
+            defer { sqlite3_finalize(stmt) }
+            return sqlite3_step(stmt) == SQLITE_ROW
+        }()
+        do {
+            try exec("""
+            CREATE VIRTUAL TABLE IF NOT EXISTS observatory_events_fts USING fts5(
+                message, category, content='observatory_events', content_rowid='rowid', tokenize='trigram'
+            );
+            CREATE TRIGGER IF NOT EXISTS observatory_events_ai AFTER INSERT ON observatory_events BEGIN
+                INSERT INTO observatory_events_fts(rowid, message, category) VALUES (new.rowid, new.message, new.category);
+            END;
+            CREATE TRIGGER IF NOT EXISTS observatory_events_ad AFTER DELETE ON observatory_events BEGIN
+                INSERT INTO observatory_events_fts(observatory_events_fts, rowid, message, category) VALUES ('delete', old.rowid, old.message, old.category);
+            END;
+            """)
+            if !exists { try exec("INSERT INTO observatory_events_fts(observatory_events_fts) VALUES ('rebuild');") }   // index what was logged before
+        } catch {
+            // No FTS5 here: keep the app working, search degrades to LIKE.
+            try? exec("DROP TRIGGER IF EXISTS observatory_events_ai; DROP TRIGGER IF EXISTS observatory_events_ad;")
+        }
     }
 
     public func saveEvent(_ ev: ObservatoryEvent) throws {
         lock.lock()
         defer { lock.unlock() }
-        let sql = "INSERT OR REPLACE INTO observatory_events (id, timestamp, category, message, badge, device_uid) VALUES (?, ?, ?, ?, ?, ?);"
+        let sql = "INSERT OR IGNORE INTO observatory_events (id, timestamp, category, message, badge, device_uid) VALUES (?, ?, ?, ?, ?, ?);"
         var stmt: OpaquePointer?
         guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return }
         defer { sqlite3_finalize(stmt) }

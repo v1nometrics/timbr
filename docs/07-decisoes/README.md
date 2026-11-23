@@ -22,6 +22,7 @@ Uma decisão "Proposta" só vira "Aceita" quando (a) o dono aprova, quando é de
 | [ADR-0014](ADR-0014-nome-identidade-e-i18n.md) | Nome oficial `timbr.`, alinhamento `v1torres.dev` e i18n PT/ES/EN na v1 | **Aceito** |
 | [ADR-0015](ADR-0015-tipografia-de-sistema.md) | Tipografia de sistema SF Pro / SF Mono / New York no app; Geist só na web | **Aceito** |
 | [ADR-0016](ADR-0016-identidade-acromatica.md) | Identidade acromática: sem cor de marca; ênfase por tinta; cor só semântica (substitui a cor da ADR-0014) | **Aceito** |
+| [ADR-0018](ADR-0018-linha-do-tempo-busca-e-exportacao.md) | Linha do tempo do Observatório: paginação por cursor, busca FTS5 trigram, filtro e exportação CSV/JSON em fluxo, sem travar o app | **Aceito** |
 | [ADR-0020](ADR-0020-sons-do-sistema-nao-acordam-o-notch.md) | Sons curtos do sistema (clique inválido, alertas) não acordam o notch; seguem no Mixer | **Aceito** |
 | [ADR-0021](ADR-0021-notch-percebe-a-pausa-sem-esperar-o-macos.md) | O notch percebe a pausa sem esperar o macOS: debounce armado uma vez, vigia de 250 ms e silêncio medido quando há tap | **Aceito** |
 | [ADR-0017](ADR-0017-mudo-a-prova-de-falha.md) | Mudo à prova de falha: `timbr-mute-keeper` segura apps mudos (e em 0 %) mesmo se o timbr. morrer; emenda P2 só para o mudo | **Aceito** |
