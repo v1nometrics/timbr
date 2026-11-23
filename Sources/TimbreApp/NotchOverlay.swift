@@ -133,6 +133,20 @@ private enum FullscreenProbe {
 enum MenuBarSpace {
     static func freeEars(_ g: NotchScreenGeometry) -> (left: CGFloat, right: CGFloat) {
         guard g.hasPhysicalNotch else { return (0, 0) }
+        let menuBarVisible = NSMenu.menuBarVisible()
+        if !menuBarVisible {
+            let res = MenuBarSpaceEvaluator.freeEars(
+                hasPhysicalNotch: g.hasPhysicalNotch,
+                screenWidth: Double(g.screenFrame.width),
+                notchLeft: Double(g.screenFrame.midX - g.notchWidth / 2 - g.screenFrame.minX),
+                notchRight: Double(g.screenFrame.midX + g.notchWidth / 2 - g.screenFrame.minX),
+                axTrusted: false,
+                menuBarVisible: false,
+                appMenuSpans: [],
+                statusItemSpans: []
+            )
+            return (CGFloat(res.left), CGFloat(res.right))
+        }
         let axTrusted = AXIsProcessTrusted()
         guard axTrusted else { return (0, 0) }
 
@@ -198,6 +212,7 @@ enum MenuBarSpace {
             notchLeft: Double(notchLeft),
             notchRight: Double(notchRight),
             axTrusted: axTrusted,
+            menuBarVisible: menuBarVisible,
             appMenuSpans: appMenuSpans,
             statusItemSpans: statusSpans
         )
@@ -228,17 +243,38 @@ struct NotchSpec: Equatable {
 /// (compact) only ever uses menu-bar space measured as free; open states are transient,
 /// user-initiated, and release the menu bar as soon as the pointer heads for it.
 struct NotchLayout {
+    static let forceReviewChin = ProcessInfo.processInfo.arguments.contains("--review-chin")
+
     let g: NotchScreenGeometry
     let ears: (left: CGFloat, right: CGFloat)
     let hasMultipleSources: Bool
+    let forceChin: Bool
+
+    init(
+        g: NotchScreenGeometry,
+        ears: (left: CGFloat, right: CGFloat),
+        hasMultipleSources: Bool,
+        forceChin: Bool = Self.forceReviewChin
+    ) {
+        self.g = g
+        self.ears = ears
+        self.hasMultipleSources = hasMultipleSources
+        self.forceChin = forceChin
+    }
+
     var half: CGFloat { g.notchWidth / 2 }
     var H: CGFloat { g.notchHeight }
-    var useChin: Bool {
-        MenuBarSpaceEvaluator.shouldUseChin(
+    var compactPlacement: CompactPlacement {
+        MenuBarSpaceEvaluator.compactPlacement(
+            hasPhysicalNotch: g.hasPhysicalNotch,
             ears: (Double(ears.left), Double(ears.right)),
-            hasMultipleSources: hasMultipleSources
+            hasMultipleSources: hasMultipleSources,
+            forceChin: forceChin
         )
     }
+    var useChin: Bool { compactPlacement == .chin }
+    var canShowCompactEars: Bool { compactPlacement == .ears }
+    var showsCompactChrome: Bool { compactPlacement != .hiddenInNotch }
 
     static let chinHeight: CGFloat = 20
     static let peekWing: CGFloat = 128
@@ -276,8 +312,14 @@ struct NotchLayout {
         case .resting:
             return NotchSpec(l: half, r: half, h: H, bottom: restRadius, shoulder: closedS)
         case .compact:
-            if useChin { return NotchSpec(l: half, r: half, h: H + Self.chinHeight, bottom: 12, shoulder: closedS) }
-            return NotchSpec(l: half + ears.left, r: half + ears.right, h: H, bottom: restRadius, shoulder: closedS)
+            switch compactPlacement {
+            case .chin:
+                return NotchSpec(l: half, r: half, h: H + Self.chinHeight, bottom: 12, shoulder: closedS)
+            case .ears:
+                return NotchSpec(l: half + ears.left, r: half + ears.right, h: H, bottom: restRadius, shoulder: closedS)
+            case .hiddenInNotch:
+                return NotchSpec(l: half, r: half, h: H, bottom: restRadius, shoulder: closedS)
+            }
         case .hud:
             return NotchSpec(l: hudHalf, r: hudHalf, h: H + Self.hudDepth, bottom: 14, shoulder: 11)
         case .peek:
@@ -600,9 +642,12 @@ public final class NotchPanelController {
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in
                 self?.refreshFullscreen()
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-                    self?.refreshFullscreen()
-                    self?.refreshEars()
+                self?.refreshEars()
+                for delay in [0.15, 0.45, 0.85] {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+                        self?.refreshFullscreen()
+                        self?.refreshEars()
+                    }
                 }
             }
             .store(in: &cancellables)
@@ -619,12 +664,16 @@ public final class NotchPanelController {
         appState?.setFullscreenActive(FullscreenProbe.isActive(on: g, playingBundleIDs: bundleIDs, playingOwnerNames: ownerNames))
     }
 
-    private func refreshEars() {
-        let e: (left: CGFloat, right: CGFloat) = ProcessInfo.processInfo.arguments.contains("--review-chin")
+    private func refreshEars(animated: Bool = true) {
+        let e: (left: CGFloat, right: CGFloat) = NotchLayout.forceReviewChin
             ? (0, 0)
             : MenuBarSpace.freeEars(g)
         if e.left != interaction.ears.left || e.right != interaction.ears.right {
-            withAnimation(TimbreMotion.smooth) { interaction.ears = e }
+            if animated {
+                withAnimation(TimbreMotion.smooth) { interaction.ears = e }
+            } else {
+                interaction.ears = e
+            }
             if appState?.notchState == .compact { positionSensor(for: .compact) }
         }
     }
@@ -672,6 +721,9 @@ public final class NotchPanelController {
             if state == .peek, lastState != .peek { armed = pointerInsideShape(state: .peek, margin: 24) }
             updateMouseThrough()
         } else {
+            if state == .compact {
+                refreshEars(animated: lastState == .compact)
+            }
             stopFollowing()
             panel.ignoresMouseEvents = true
             if interaction.dismissProgress != 0 { interaction.dismissProgress = 0 }
@@ -682,9 +734,8 @@ public final class NotchPanelController {
             }
         }
         if state == .compact {
-            refreshEars()
             earTimer?.invalidate()
-            earTimer = Timer.scheduledTimer(withTimeInterval: 1.5, repeats: true) { [weak self] _ in
+            earTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
                 MainActor.assumeIsolated { self?.refreshEars() }
             }
         } else {
@@ -696,10 +747,12 @@ public final class NotchPanelController {
     private func positionSensor(for state: NotchState) {
         guard let sensor else { return }
         let e = interaction.ears
-        let left = state == .compact && !layoutModel.useChin ? e.left : 0
-        let right = state == .compact && !layoutModel.useChin ? e.right : 0
+        let showEars = state == .compact && layoutModel.canShowCompactEars
+        let showChin = state == .compact && layoutModel.useChin
+        let left = showEars ? e.left : 0
+        let right = showEars ? e.right : 0
         let x = g.screenFrame.midX - g.notchWidth / 2 - left
-        let hgt = g.notchHeight + (state == .compact && layoutModel.useChin ? NotchLayout.chinHeight : 0)
+        let hgt = g.notchHeight + (showChin ? NotchLayout.chinHeight : 0)
         sensor.setFrame(CGRect(x: x, y: g.screenFrame.maxY - hgt, width: g.notchWidth + left + right, height: hgt), display: false)
     }
 
@@ -943,7 +996,8 @@ public struct NotchOverlayView: View {
         let canvas = layout.canvas
         let shape = NotchShape(spec: rendered, hardware: g.hasPhysicalNotch)
         let openAmount = Self.isOpen(state) ? Double(1 - p) : 0
-        let hidden = state == .resting && (g.hasPhysicalNotch || appState.shouldSuppressNotchChrome) && !interaction.hovering
+        let hidden = (state == .resting && (g.hasPhysicalNotch || appState.shouldSuppressNotchChrome) && !interaction.hovering)
+            || (state == .compact && g.hasPhysicalNotch && !layout.showsCompactChrome && !interaction.hovering)
 
         ZStack(alignment: .topLeading) {
             shape
@@ -1125,7 +1179,7 @@ public struct NotchOverlayView: View {
             }
             if layout.useChin {
                 indicator.position(x: cx + layout.half - 22, y: H + NotchLayout.chinHeight / 2 - 1)
-            } else if interaction.ears.left > 0, interaction.ears.right > 0 {
+            } else if layout.canShowCompactEars {
                 indicator.position(x: cx + layout.half + interaction.ears.right / 2, y: H / 2)
             }
         }

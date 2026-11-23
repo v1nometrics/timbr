@@ -46,18 +46,19 @@ Estudamos o código dos apps de notch abertos mais usados: DynamicNotchKit (base
 ### 1.3 Orelhas medidas (divisão de espaço com a barra de menus)
 
 `MenuBarSpace.freeEars` (`MenuBarSpaceEvaluator`) mede o espaço livre de cada lado do notch:
+- **Barra de menus oculta (`!NSMenu.menuBarVisible()`):** se a barra não está visível num Mac com notch físico, os 44 pt de cada lado do entalhe ficam livres para as orelhas sem queixo.
 - **Direita:** janelas de ícones de status (`CGWindowList`, camada 25) **e** menus do app em primeiro plano que ultrapassem a direita do notch (ex.: `Janela` / `Ajuda` no Chrome).
-- **Esquerda:** menus do app em primeiro plano à esquerda do notch, via Acessibilidade (`AXMenuBar`). Sem Acessibilidade concedida, ambos os lados retornam `0` (modo queixo seguro): nunca adivinhamos por cima dos menus de alguém.
+- **Esquerda:** menus do app em primeiro plano à esquerda do notch, via Acessibilidade (`AXMenuBar`). Sem Acessibilidade concedida (com barra visível), ambos os lados retornam `0`: nunca adivinhamos por cima dos menus de alguém.
 - Orelha = espaço livre − 8 pt de respiro, limitada a 44 pt; abaixo de 26 pt, não há orelha.
-- Remede ao trocar de app em primeiro plano (imediato + após layout), ao entrar no compacto e a cada 1,5 s enquanto compacto.
+- Remede ao trocar de app em primeiro plano, ao trocar de Space / sair de tela cheia (imediato + 0,15 / 0,45 / 0,85 s), ao entrar no compacto (síncrono) e a cada 0,5 s enquanto compacto.
 
-**Regra bilateral invariante:** os ícones de app ficam **sempre à esquerda** e a marca harmônica 5-bar fica **sempre à direita** (em orelhas, queixo, espiada e expandido). O ícone nunca pula para a orelha direita nem divide orelha apertada com a marca:
+**Regra bilateral invariante:** os ícones de app ficam **sempre à esquerda** e a marca harmônica 5-bar fica **sempre à direita** (em orelhas, espiada e expandido). Num Mac com **notch físico**, o estado **Compacto** persistente **nunca desce para abaixo de `H`** (sem queixo sobre abas do Chrome ou barras de janela): quando um dos lados não tem folga suficiente, o compacto se recolhe silenciosamente dentro do próprio hardware (`hiddenInNotch`), mantendo hover/clique no notch físico intactos. O **queixo** (+20 pt em pílula flutuante) fica restrito a telas sem notch físico (ou `--review-chin`):
 
-| Espaço livre | 1 app tocando | 2+ apps tocando |
+| Espaço livre (Mac com notch) | 1 app tocando | 2+ apps tocando |
 |---|---|---|
-| Dois lados (esq ≥ 36 pt, dir ≥ 26 pt) | **Orelhas:** ícone à esquerda, marca 5-bar à direita | **Orelhas:** 2 logos mais recentes à esquerda, marca 5-bar à direita |
-| Dois lados (esq 26–35 pt, dir ≥ 26 pt) | **Orelhas:** ícone à esquerda, marca 5-bar à direita | **Queixo:** 2 logos à esquerda, marca 5-bar à direita |
-| Só um lado livre ou nenhum livre | **Queixo:** ícone à esquerda, marca 5-bar à direita (179 pt de largura, +20 pt abaixo do hardware) | **Queixo:** 2 logos à esquerda, marca 5-bar à direita |
+| Dois lados (esq ≥ 36 pt, dir ≥ 26 pt) | **Orelhas:** ícone à esquerda, marca 5-bar à direita | **Orelhas:** 2 logos lado a lado à esquerda, marca 5-bar à direita |
+| Dois lados (esq 26–35 pt, dir ≥ 26 pt) | **Orelhas:** ícone à esquerda, marca 5-bar à direita | **Recolhido no notch (`H`):** sem invasão de `visibleFrame` |
+| Só um lado livre ou nenhum livre (ex.: Chrome) | **Recolhido no notch (`H`):** sem queixo sobre abas/menus | **Recolhido no notch (`H`):** sem queixo sobre abas/menus |
 
 ### 1.4 Estados e medidas
 
@@ -66,7 +67,7 @@ Estudamos o código dos apps de notch abertos mais usados: DynamicNotchKit (base
 | Estado | Largura | Altura total | Raio de baixo / ombro | Conteúdo |
 |---|---|---|---|---|
 | Repouso | W | H | 10 / 7 | nada desenhado (só o hardware); no hover aparece +5 pt de cada lado e +3 pt para baixo |
-| Compacto | W + orelhas medidas (teto W + 2×44) | H (ou H + 20 de queixo) | 10 / 7 | 1 app tocando: ícone + marca 5-bar nas orelhas livres (ou queixo). **2+ apps tocando:** os **2 logos** mais recentes + marca 5-bar (exige ambas as orelhas livres ou cai no queixo); largura nunca cresce além do teto |
+| Compacto | W + orelhas medidas (teto W + 2×44) | H (com notch físico) ou H + 20 (pílula sem notch) | 10 / 7 | Com ambas as orelhas livres: 1 app (ícone + marca 5-bar) ou 2+ apps (**2 logos** lado a lado + marca 5-bar). Se algum lado estiver ocupado (ex.: Chrome), **recolhe dentro do hardware (`H`)** sem descer queixo sobre as abas |
 | HUD | W + 2 × 58 | H + 18 | 14 / 11 | asas: ícone e valor; queixo: barra de nível |
 | Espiada | W + 2 × 128 | H + 44 (+ 34 por app listado abaixo) | 20 / 14 | **0 tocando:** controla a saída (ícone do dispositivo e "Saída" na asa esquerda; volume/mudo na direita; nome completo + fader de hardware abaixo). **1 tocando:** controla esse app nas asas (ícone, nome, volume, mudo) e fader abaixo (se VoIP protegido, mostra o controle da saída). **2+ tocando:** **Geral** (master) lidera nas asas e na faixa de hardware, seguido de hairline e de cada app tocando (até 4) em igualdade abaixo |
 | Expandido | máx(W + 2 × 140, 464) | H + 8 + bloco principal (46 vazio / 102 com 1 app / 70 com Geral) + 34 por fonte + alerta 44 + rodapé 46 | 24 / 14 | **Regra unificada com a Espiada:** **0 tocando (sem recentes):** "Nada tocando · <dispositivo>" + fader de saída. **1 tocando:** esse app nas asas e foco (66 pt), outras recentes abaixo (até 3) e faixa **Geral** (36 pt). **2+ tocando (ou só pausados):** **Geral** lidera nas asas e no foco (volume/mudo de hardware), seguido por todas as fontes (até 4) em igualdade abaixo, sem duplicar a faixa Geral |
