@@ -527,6 +527,40 @@ struct TimbreCoreTestRunner {
                "Peripheral scale ticks light only between origin (12 o'clock) and value")
         print("  [PASS] AudioUIMath (decibel taper, ballistics, clip latch, LCD quantization, bipolar knob arc)")
 
+        // Fail-closed mute policy (ADR-0017)
+        let req = MuteKeeperProtocol.Request(generation: 7, targets: [
+            .init(bundleID: "com.spotify.client", pids: [42, 42, 7], bundleIDs: ["com.spotify.client.helper", "com.spotify.client"]),
+            .init(bundleID: "com.apple.Music", pids: [], bundleIDs: ["com.apple.Music"])])
+        expect(req.targets.map(\.bundleID) == ["com.apple.Music", "com.spotify.client"], "Keeper request is sorted (stable file, no spurious rewrites)")
+        expect(req.targets[1].pids == [7, 42] && req.targets[1].bundleIDs == ["com.spotify.client", "com.spotify.client.helper"], "Targets are deduplicated and sorted")
+        let tmpDir = FileManager.default.temporaryDirectory.appendingPathComponent("timbr-keeper-test-\(UUID().uuidString)")
+        try! MuteKeeperProtocol.write(req, to: MuteKeeperProtocol.requestURL(tmpDir))
+        expect(MuteKeeperProtocol.read(MuteKeeperProtocol.Request.self, from: MuteKeeperProtocol.requestURL(tmpDir)) == req, "Keeper request round-trips through disk")
+        expect(!MuteKeeperProtocol.isKeeperRunning(in: tmpDir), "No lock holder means no keeper")
+        try? FileManager.default.removeItem(at: tmpDir)
+        let st = MuteKeeperProtocol.Status(generation: 7, pid: 1, held: ["com.spotify.client"], failures: [:])
+        expect(MuteKeeperProtocol.confirmedHeld(status: st, requestGeneration: 7, keeperRunning: true) == ["com.spotify.client"], "Keeper confirmation for the current request lets timbr. hand over")
+        expect(MuteKeeperProtocol.confirmedHeld(status: st, requestGeneration: 8, keeperRunning: true).isEmpty, "A stale status (older request) never hands over")
+        expect(MuteKeeperProtocol.confirmedHeld(status: st, requestGeneration: 7, keeperRunning: false).isEmpty, "A dead keeper never hands over")
+        expect(MuteKeeperProtocol.confirmedHeld(status: nil, requestGeneration: 7, keeperRunning: true).isEmpty, "No status never hands over")
+        let pmMuted = AudioSourceDescriptor(bundleID: "com.spotify.client", name: "Spotify", volume: 1.0, isMuted: true)
+        let pmZero = AudioSourceDescriptor(bundleID: "com.spotify.client", name: "Spotify", volume: 0.0, isMuted: false)
+        let pmQuiet = AudioSourceDescriptor(bundleID: "com.spotify.client", name: "Spotify", volume: 0.25, isMuted: false)
+        let pmVoip = AudioSourceDescriptor(bundleID: "us.zoom.xos", name: "Zoom", volume: 1.0, isMuted: true, isVoIPExcluded: true)
+        expect(PersistentMutePolicy.isSilenced(pmMuted), "Muted app is held fail-closed")
+        expect(PersistentMutePolicy.isSilenced(pmZero), "Fader at 0 % is held fail-closed like a mute")
+        expect(!PersistentMutePolicy.isSilenced(pmQuiet), "An audible volume is not a mute")
+        expect(!PersistentMutePolicy.isSilenced(pmVoip), "VoIP/DAW protected apps are never muted by timbr.")
+        expect(PersistentMutePolicy.restorableBundleIDs(owner: "com.google.Chrome", reported: ["com.google.Chrome.helper", "com.google.Chrome.helper", "com.apple.WebKit.GPU", "com.google.ChromeX"])
+               == ["com.google.Chrome", "com.google.Chrome.helper"],
+               "Restore follows the app and its helpers, never shared system processes or look-alike IDs")
+        let pmMerged = PersistentMutePolicy.mergeSurvivingMutes(["com.spotify.client", "com.apple.Music"],
+                                                              into: [pmQuiet], displayName: { $0 == "com.apple.Music" ? "Music" : nil })
+        expect(pmMerged.count == 2 && pmMerged[0].isMuted && pmMerged[0].volume == 0.25, "A surviving mute marks the existing row muted and keeps its volume")
+        expect(pmMerged[1].bundleID == "com.apple.Music" && pmMerged[1].name == "Music" && pmMerged[1].isMuted && pmMerged[1].pids.isEmpty,
+               "A surviving mute for an app not seen yet gets its own muted row")
+        print("  [PASS] PersistentMutePolicy & MuteKeeperProtocol (silenced rule, restore scope, adoption merge, hand-over only on confirmation)")
+
         print("[TimbreCoreTests] ALL PASSED")
     }
 }

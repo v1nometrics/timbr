@@ -27,7 +27,7 @@ Há dois caminhos para colocar o áudio de cada app no nosso pipeline: process t
 
 ## Vantagem estrutural
 
-Com `.mutedWhenTapped`, se o motor morrer, o mute acaba e o app volta a tocar direto no dispositivo: o fail-safe (P2) vem da plataforma.
+Com `.mutedWhenTapped`, se o motor morrer, o mute acaba e o app volta a tocar direto no dispositivo: o fail-safe (P2) vem da plataforma. **Emenda ([ADR-0017](ADR-0017-mudo-a-prova-de-falha.md)):** para o mudo escolhido pelo usuário isso é o comportamento errado; o mudo é segurado por `timbr-mute-keeper`, um processo separado que sobrevive ao timbr.
 
 ## Lições de implementação (2026-11-22, Comprovado)
 

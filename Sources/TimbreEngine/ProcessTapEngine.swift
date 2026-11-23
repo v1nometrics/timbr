@@ -26,7 +26,8 @@ public struct DSPTelemetrySnapshot: Sendable {
 
 /// Destroys orphaned private Core Audio aggregate devices left behind by a crash
 /// or SIGKILL (adapted from AbhisekGanguly/AudioRouter, MIT), so a leaked
-/// `.mutedWhenTapped` tap cannot leave applications silently muted.
+/// `.mutedWhenTapped` tap cannot leave applications silently muted. Deliberate mutes are not
+/// aggregates of this process: they live in `timbr-mute-keeper` (ADR-0017), under their own UID prefix.
 public enum OrphanedTapCleanup {
     public static func isOrphanedAggregateUID(_ uid: String, activeUIDs: Set<String> = []) -> Bool {
         uid.hasPrefix(ProcessTapEngine.aggregateUIDPrefix) && !activeUIDs.contains(uid)
@@ -133,6 +134,9 @@ public final class ProcessTapEngine: @unchecked Sendable {
     }
 
     private let lock = NSLock()
+    /// Mutes that must outlive this process (ADR-0017): held by `timbr-mute-keeper`, a separate
+    /// process. Not touched by `stopAndDestroyTap()`. nil in tests and self-tests.
+    public let muteKeeper: MuteKeeperClient?
     private var dspEngine: OpaquePointer? // Fallback/shared curve evaluator & primary metrics
     private var activeSlots: [String: TapSlot] = [:]
     /// Last parameter signature published to each DSP engine (main thread). Publishing only on
@@ -153,7 +157,8 @@ public final class ProcessTapEngine: @unchecked Sendable {
         return count
     }
 
-    public init(sampleRate: Double = 48000) {
+    public init(sampleRate: Double = 48000, muteKeeper: MuteKeeperClient? = nil) {
+        self.muteKeeper = muteKeeper
         self.lastSampleRate = sampleRate
         let cfg = timbre_dsp_default_config(sampleRate, 1024)
         self.dspEngine = timbre_dsp_create(cfg)
@@ -429,12 +434,14 @@ public final class ProcessTapEngine: @unchecked Sendable {
             sources: [],
             excludedBundleIDs: excludedBundleIDs,
             duckFactor: 1.0,
-            mirrorOutputs: []
+            mirrorOutputs: [],
+            manageMutes: false
         )
     }
 
     /// Full multi-tap orchestrator:
     /// - Invariant P1: 0 taps when processingEnabled == false or completely neutral.
+    /// - Fail-closed mutes handed to `timbr-mute-keeper` (ADR-0017); in-process gain-0 slots until it confirms.
     /// - Per-app isolated Process Taps (`stereoMixdownOfProcesses`) for apps with custom gain or mute.
     /// - Global exclusion tap (`stereoGlobalTapButExcludeProcesses`) excluding VoIP/DAW + per-app tapped processes.
     /// - Simultaneous multi-output mirror taps (`muteBehavior = .unmuted`) with ms delay alignment and BT drift guard.
@@ -448,8 +455,16 @@ public final class ProcessTapEngine: @unchecked Sendable {
         excludedBundleIDs: [String],
         duckFactor: Double = 1.0,
         mirrorOutputs: [MirrorOutputTarget] = [],
-        audioActive: Bool = true
+        audioActive: Bool = true,
+        manageMutes: Bool = true
     ) -> Bool {
+        // Fail-closed mutes (ADR-0017): hand the silenced apps to the keeper. Until it confirms an app,
+        // timbr. keeps muting that app itself (below), so there is no instant where nobody holds it.
+        let keeper = manageMutes ? muteKeeper : nil
+        let muteTargets = keeper == nil ? [] : sources.compactMap(MuteKeeperClient.target(for:))
+        keeper?.publish(muteTargets)
+        let keeperHolds = keeper?.confirmedHeld() ?? []
+
         guard processingEnabled, let outputDevice else {
             stopAndDestroyTap()
             return true
@@ -465,9 +480,18 @@ public final class ProcessTapEngine: @unchecked Sendable {
         let baseExcludedPIDs = voipPIDs + [selfPID]
         let baseExcludedObjs = Self.translatePIDsToProcessObjects(baseExcludedPIDs)
 
-        // Determine per-app isolated taps for non-VoIP active sources with custom volume or mute
+        // Silenced apps (muted or at 0 %) stay out of the global and mirror taps, by process and by
+        // bundle ID, or those taps would capture and replay them.
+        let silenced = sources.filter { PersistentMutePolicy.isSilenced($0) }
+        let silencedObjs = Self.translatePIDsToProcessObjects(silenced.flatMap { $0.pids })
+        let silencedBundleIDs = muteTargets.flatMap(\.bundleIDs) + silenced.map(\.bundleID)
+        let tapExcludedBundleIDs = Array(Set(excludedBundleIDs + silencedBundleIDs)).sorted()
+
+        // Per-app isolated taps: custom audible volume, or silenced and not (yet) held by the keeper.
         let customSources = sources.filter { src in
-            !src.isVoIPExcluded && !src.pids.isEmpty && (src.isMuted || abs(src.volume - 1.0) > 0.01)
+            guard !src.isVoIPExcluded, !src.pids.isEmpty else { return false }
+            if PersistentMutePolicy.isSilenced(src) { return !keeperHolds.contains(src.bundleID) }
+            return abs(src.volume - 1.0) > 0.01
         }
 
         var desiredKeys = Set<String>()
@@ -481,7 +505,7 @@ public final class ProcessTapEngine: @unchecked Sendable {
             perAppObjs.append(contentsOf: objs)
             let key = "app:\(src.bundleID)"
             desiredKeys.insert(key)
-            let targetGain = src.isMuted ? 0.0 : (src.volume * duckFactor)
+            let targetGain = PersistentMutePolicy.isSilenced(src) ? 0.0 : src.volume * duckFactor
             let ok = ensureTapSlot(
                 key: key,
                 outputDevice: outputDevice,
@@ -503,7 +527,7 @@ public final class ProcessTapEngine: @unchecked Sendable {
         // watch for audio input (e.g. superwhisper's meeting detection) think a meeting started.
         let needsGlobal = (eqActive || preset.crossfeedEnabled || duckFactor < 0.999) && audioActive
         if needsGlobal {
-            let globalExcludes = Array(Set(baseExcludedObjs + perAppObjs))
+            let globalExcludes = Array(Set(baseExcludedObjs + perAppObjs + silencedObjs))
             desiredKeys.insert("global")
             let ok = ensureTapSlot(
                 key: "global",
@@ -514,7 +538,7 @@ public final class ProcessTapEngine: @unchecked Sendable {
                 abMode: abMode,
                 gain: duckFactor,
                 delayMs: 0.0,
-                excludedBundleIDs: excludedBundleIDs
+                excludedBundleIDs: tapExcludedBundleIDs
             )
             if !ok { allSuccess = false }
         }
@@ -523,8 +547,7 @@ public final class ProcessTapEngine: @unchecked Sendable {
         // tear down the primary muted path (mirrors are best-effort). Apps the user muted are
         // excluded so they stay silent on the mirror too. (Known limit: other per-app volumes
         // are not replicated on mirrors.)
-        let mutedObjs = Self.translatePIDsToProcessObjects(sources.filter { $0.isMuted }.flatMap { $0.pids })
-        let mirrorExcludes = Array(Set(baseExcludedObjs + mutedObjs))
+        let mirrorExcludes = Array(Set(baseExcludedObjs + silencedObjs))
         var mirrorFailed = false
         for target in mirrorOutputs where target.device.uid != outputDevice.uid {
             let key = "mirror:\(target.device.uid)"
@@ -538,7 +561,7 @@ public final class ProcessTapEngine: @unchecked Sendable {
                 abMode: abMode,
                 gain: duckFactor,
                 delayMs: target.delayMs,
-                excludedBundleIDs: excludedBundleIDs
+                excludedBundleIDs: tapExcludedBundleIDs
             )
             if !ok {
                 mirrorFailed = true

@@ -26,6 +26,7 @@ O app roda no dia a dia do autor (dogfood). O que está **comprovado** por teste
 | Área | Estado | Evidência |
 |---|---|---|
 | Volume e mudo por app (process taps) | Funciona | Autoteste E2E no app instalado: 50/25/200/150 % medem −6,02/−12,04/+6,02/+3,52 dB; mudo = silêncio ([registro](docs/08-registro/teste-e2e-volume-por-app-2026-11-22.md)) |
+| Mudo à prova de falha (app mudo continua mudo se o timbr. fechar, travar ou for morto) | Funciona | `timbr-mute-keeper` ([ADR-0017](docs/07-decisoes/ADR-0017-mudo-a-prova-de-falha.md)); `scripts/selftest_mute_persistence.sh` e teste de ouvido com `kill -9` |
 | Detecção de fontes simultâneas | Funciona, por evento do Core Audio | Chrome + Spotify juntos; serviços do macOS com nome e ícone ("Sons do sistema", "Siri e Ditado"…) |
 | EQ paramétrico `Float64` + limiter true-peak | Funciona | Testes C++ com ASan/UBSan; limiter segura −0,30 dBFS no autoteste |
 | Notch (repouso, compacto, espiada, expandido, HUD) | Funciona | Capturas e vídeo quadro a quadro; volume geral (master) e mudo no notch; teclas de volume **e brilho** com HUD próprio |

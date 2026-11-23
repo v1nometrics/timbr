@@ -38,20 +38,22 @@ public enum AudioSelfTest {
 
     // MARK: Meter (written by one IOProc, read by the main thread after a settle period)
 
-    private struct MeterState {
+    struct MeterState {
         var sumSq: Double = 0
         var count: Double = 0
         var peak: Double = 0
     }
 
-    private final class MeterTap {
+    final class MeterTap {
         let tapID: AudioObjectID
         let aggID: AudioObjectID
         let procID: AudioDeviceIOProcID
         let state: UnsafeMutablePointer<MeterState>
 
-        init?(processes: [AudioObjectID], deviceUID: String) {
-            let desc = CATapDescription(stereoMixdownOfProcesses: processes)
+        /// `exclusive`: tap every process except `processes` (a global meter).
+        init?(processes: [AudioObjectID], deviceUID: String, exclusive: Bool = false) {
+            let desc = exclusive ? CATapDescription(stereoGlobalTapButExcludeProcesses: processes)
+                                 : CATapDescription(stereoMixdownOfProcesses: processes)
             desc.name = "timbr.selftest.meter"
             desc.isPrivate = true
             desc.muteBehavior = .unmuted
@@ -198,7 +200,7 @@ public enum AudioSelfTest {
                              engineFailure: engine.lastFailure, allPassed: !cases.isEmpty && cases.allSatisfy(\.pass)), reportURL)
     }
 
-    private static func finish(_ r: Report, _ url: URL) -> Report {
+    static func finish(_ r: Report, _ url: URL) -> Report {
         let enc = JSONEncoder()
         enc.outputFormatting = [.prettyPrinted, .sortedKeys]
         enc.dateEncodingStrategy = .iso8601
@@ -206,7 +208,7 @@ public enum AudioSelfTest {
         return r
     }
 
-    private static func isRunningOutput(_ obj: AudioObjectID) -> Bool {
+    static func isRunningOutput(_ obj: AudioObjectID) -> Bool {
         var addr = AudioObjectPropertyAddress(mSelector: kAudioProcessPropertyIsRunningOutput, mScope: kAudioObjectPropertyScopeGlobal, mElement: kAudioObjectPropertyElementMain)
         var v: UInt32 = 0
         var s = UInt32(MemoryLayout<UInt32>.size)
