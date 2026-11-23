@@ -396,6 +396,57 @@ public enum NotchPeekTarget: Equatable, Sendable {
     }
 }
 
+/// Resolves what the notch Expanded console leads with, unifying spotlight priority with Peek:
+/// - 0 playing sources & no recent/muted sources: `.empty` (output device only).
+/// - 0 playing sources & paused/recent sources: `.masterWithSources(recent)` (`Geral` leads + paused/recent apps underneath).
+/// - 1 playing source: `.single(sole, others: remaining)` (that playing app leads + other recent rows + `Geral` row underneath).
+/// - 2+ playing sources: `.masterWithSources(sources)` (`Geral` leads neutrally at top + all apps equally underneath).
+public enum NotchExpandedTarget: Equatable, Sendable {
+    public enum LayoutKind: Equatable, Sendable {
+        case empty
+        case single
+        case masterLed
+    }
+
+    case empty
+    case single(AudioSourceDescriptor, others: [AudioSourceDescriptor])
+    case masterWithSources([AudioSourceDescriptor])
+
+    public var layoutKind: LayoutKind {
+        switch self {
+        case .empty: return .empty
+        case .single: return .single
+        case .masterWithSources: return .masterLed
+        }
+    }
+
+    public var singleSource: AudioSourceDescriptor? {
+        if case .single(let s, _) = self { return s }
+        return nil
+    }
+
+    public var listRowCount: Int {
+        switch self {
+        case .empty: return 0
+        case .single(_, let others): return others.count
+        case .masterWithSources(let list): return list.count
+        }
+    }
+
+    public static func resolve(from mixerSources: [AudioSourceDescriptor], singleOtherLimit: Int = 3, masterLimit: Int = 4) -> NotchExpandedTarget {
+        let ordered = mixerSources.sorted(by: AudioSourceDescriptor.displayOrder)
+        let playing = ordered.filter(\.isPlaying)
+        if playing.count == 1, let sole = playing.first {
+            let others = ordered.filter { $0.bundleID != sole.bundleID }.prefix(max(0, singleOtherLimit))
+            return .single(sole, others: Array(others))
+        }
+        if ordered.isEmpty {
+            return .empty
+        }
+        return .masterWithSources(Array(ordered.prefix(max(1, masterLimit))))
+    }
+}
+
 public struct SignalStage: Identifiable, Hashable, Sendable {
     public let id: String
     public let titleKey: String

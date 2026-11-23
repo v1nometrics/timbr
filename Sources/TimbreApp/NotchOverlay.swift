@@ -245,9 +245,16 @@ struct NotchLayout {
         peekDepth + (rows > 0 ? 4 + CGFloat(rows) * 34 : 0)
     }
 
-    static func expandedDepth(rows: Int, hasAlert: Bool, hasFocus: Bool) -> CGFloat {
-        // focus block + other sources + master row (only with a focus; the empty state has the output fader) + alert + footer
-        8 + (hasFocus ? 66 + 36 : 46) + CGFloat(rows) * 34 + (hasAlert ? 44 : 0) + 46 + 2
+    static func expandedDepth(rows: Int, hasAlert: Bool, layoutKind: NotchExpandedTarget.LayoutKind) -> CGFloat {
+        // empty output block (46), single app focus + master strip (66 + 36), or master-led hero + hairline rows (66 + 4).
+        let heroHeight: CGFloat = {
+            switch layoutKind {
+            case .empty: return 46
+            case .single: return 66 + 36
+            case .masterLed: return 66 + (rows > 0 ? 4 : 0)
+            }
+        }()
+        return 8 + heroHeight + CGFloat(rows) * 34 + (hasAlert ? 44 : 0) + 46 + 2
     }
 
     var peekHalf: CGFloat { half + Self.peekWing }
@@ -255,7 +262,7 @@ struct NotchLayout {
     var hudHalf: CGFloat { half + Self.hudWing }
     var restRadius: CGFloat { min(10, H / 3) }
 
-    func spec(_ state: NotchState, rows: Int = 0, hasAlert: Bool = false, hasFocus: Bool = true) -> NotchSpec {
+    func spec(_ state: NotchState, rows: Int = 0, hasAlert: Bool = false, expandedLayout: NotchExpandedTarget.LayoutKind = .single) -> NotchSpec {
         let closedS = TimbreRadius.notchShoulder, openS = TimbreRadius.notchShoulderOpen
         switch state {
         case .resting:
@@ -269,15 +276,19 @@ struct NotchLayout {
             return NotchSpec(l: peekHalf, r: peekHalf, h: H + Self.peekDepth(rows: rows), bottom: 20, shoulder: openS)
         case .expanded:
             return NotchSpec(l: expandedHalf, r: expandedHalf,
-                             h: H + Self.expandedDepth(rows: rows, hasAlert: hasAlert, hasFocus: hasFocus),
+                             h: H + Self.expandedDepth(rows: rows, hasAlert: hasAlert, layoutKind: expandedLayout),
                              bottom: TimbreRadius.notchExpanded, shoulder: openS)
         }
     }
 
     /// Fixed canvas: fits the largest state plus its shadow, so the window never resizes.
     var canvas: CGSize {
-        CGSize(width: (expandedHalf + TimbreRadius.notchShoulderOpen + Self.shadowPad) * 2,
-               height: H + Self.expandedDepth(rows: 3, hasAlert: true, hasFocus: true) + Self.shadowPad)
+        let maxExpanded = max(
+            Self.expandedDepth(rows: 3, hasAlert: true, layoutKind: .single),
+            Self.expandedDepth(rows: 4, hasAlert: true, layoutKind: .masterLed)
+        )
+        return CGSize(width: (expandedHalf + TimbreRadius.notchShoulderOpen + Self.shadowPad) * 2,
+                      height: H + maxExpanded + Self.shadowPad)
     }
 }
 
@@ -678,7 +689,7 @@ public final class NotchPanelController {
 
     private func screenRect(for state: NotchState) -> CGRect {
         guard let appState else { return .zero }
-        let s = layoutModel.spec(state, rows: NotchOverlayView.rows(for: state, appState), hasAlert: !appState.guardianAlerts.isEmpty, hasFocus: appState.focusSource != nil)
+        let s = layoutModel.spec(state, rows: NotchOverlayView.rows(for: state, appState), hasAlert: !appState.guardianAlerts.isEmpty, expandedLayout: appState.expandedTarget.layoutKind)
         let topY = g.screenFrame.maxY - (g.hasPhysicalNotch ? 0 : 6)
         return CGRect(x: g.screenFrame.midX - s.l, y: topY - s.h, width: s.l + s.r, height: s.h)
     }
@@ -802,7 +813,7 @@ public struct NotchOverlayView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     private let c = TimbreColors.notch
 
-    static func listRows(_ s: AppState) -> Int { max(0, min(s.mixerSources.count - 1, 3)) }
+    static func listRows(_ s: AppState) -> Int { s.expandedTarget.listRowCount }
     static func peekRows(_ s: AppState) -> Int {
         switch s.peekTarget {
         case .output: return 0
@@ -816,13 +827,15 @@ public struct NotchOverlayView: View {
 
     private var g: NotchScreenGeometry { interaction.geometry }
     private var layout: NotchLayout { NotchLayout(g: g, ears: interaction.ears, hasMultipleSources: appState.compactPair?.second != nil) }
-    private var focus: AudioSourceDescriptor? { appState.focusSource }
+    private var travellingFocus: AudioSourceDescriptor? {
+        appState.compactPair?.lead ?? appState.expandedTarget.singleSource
+    }
     private var closedState: NotchState { appState.shouldShowCompact ? .compact : .resting }
     private var level: Double? { appState.hasLiveSignal ? min(1, max(0, (appState.telemetry.lufsMomentary + 48) / 40)) : nil }
     private var H: CGFloat { g.notchHeight }
 
     private func spec(_ s: NotchState) -> NotchSpec {
-        layout.spec(s, rows: Self.rows(for: s, appState), hasAlert: !appState.guardianAlerts.isEmpty, hasFocus: focus != nil)
+        layout.spec(s, rows: Self.rows(for: s, appState), hasAlert: !appState.guardianAlerts.isEmpty, expandedLayout: appState.expandedTarget.layoutKind)
     }
 
     private static func isOpen(_ s: NotchState) -> Bool { s == .peek || s == .expanded || s == .hud }
@@ -921,25 +934,26 @@ public struct NotchOverlayView: View {
             }()
             return (CGPoint(x: cx - spec(.peek).l + 16 + 9, y: H / 2), 18, showsSingleApp)
         case .expanded:
-            return (CGPoint(x: cx - spec(.expanded).l + 18 + 10, y: H / 2), 20, true)
+            let showsSingleApp = appState.expandedTarget.singleSource != nil
+            return (CGPoint(x: cx - spec(.expanded).l + 16 + 10, y: H / 2), 20, showsSingleApp)
         }
     }
 
     @ViewBuilder
     private func focusIcon(_ s: NotchState, progress: CGFloat, canvas: CGSize) -> some View {
-        if let f = focus {
+        if let f = travellingFocus {
             let pair = appState.compactPair
             let hasSecond = pair?.second != nil
             let open = iconFrame(s, canvas: canvas)
             let closed = iconFrame(closedState, canvas: canvas)
             let t = (s == .peek || s == .expanded) ? progress : 0
-            let isMultiPeek = (s == .peek && !open.visible)
-            let center = isMultiPeek
+            let retractsToClosed = (s == .peek || s == .expanded) && !open.visible
+            let center = retractsToClosed
                 ? closed.center
                 : CGPoint(x: open.center.x + (closed.center.x - open.center.x) * t, y: open.center.y + (closed.center.y - open.center.y) * t)
-            let size = isMultiPeek ? closed.size : open.size + (closed.size - open.size) * t
+            let size = retractsToClosed ? closed.size : open.size + (closed.size - open.size) * t
             let opacity: Double = {
-                if isMultiPeek {
+                if retractsToClosed {
                     return closed.visible ? Double(max(0, (t - 0.35) / 0.65)) : 0
                 }
                 return (open.visible && (closed.visible || t < 0.85)) ? 1 : 0
@@ -947,7 +961,7 @@ public struct NotchOverlayView: View {
             let cutoutOpacity: Double = {
                 guard hasSecond else { return 0 }
                 if s == .compact { return 1 }
-                if isMultiPeek { return closed.visible ? Double(max(0, (t - 0.35) / 0.65)) : 0 }
+                if retractsToClosed { return closed.visible ? Double(max(0, (t - 0.35) / 0.65)) : 0 }
                 return t > 0.6 ? Double((t - 0.6) / 0.4) : 0
             }()
             AppIcon(bundleID: f.bundleID, name: f.name, size: size)
@@ -1028,7 +1042,7 @@ public struct NotchOverlayView: View {
         let frames = compactIconFrames(hasSecond: second != nil, canvas: canvas)
         let compactLabel: String = {
             if let lead = pair?.lead, let second { return "\(lead.name) + \(second.name)" }
-            return (pair?.lead ?? focus)?.name ?? appState.t("notch.empty_playing")
+            return (pair?.lead ?? travellingFocus)?.name ?? appState.t("notch.empty_playing")
         }()
         return ZStack(alignment: .topLeading) {
             // Both logos stay legible when two apps play simultaneously (lead icon travels above).
@@ -1135,7 +1149,7 @@ public struct NotchOverlayView: View {
             Spacer(minLength: 0)
             HStack(alignment: .firstTextBaseline, spacing: 1) {
                 Text(Fmt.percent(v)).type(TimbreTypography.monoValue).fontWeight(.medium)
-                    .foregroundStyle(v < 0.005 ? c.semantic_warning : c.ink_primary)
+                    .foregroundStyle(v < OutputVolumeBehavior.zeroThreshold ? c.semantic_warning : c.ink_primary)
                     .contentTransition(.numericText(value: v))
                 Text("%").type(TimbreTypography.monoSmall).foregroundStyle(c.ink_muted)
             }
@@ -1330,18 +1344,34 @@ public struct NotchOverlayView: View {
         }
     }
 
-    // Expanded — the mixer in a breath. Wings: who is playing · where it goes.
+    // Expanded — unified spotlight rule with Peek:
+    // 1 playing → that single app leads; 2+ playing or 0 playing with recent sources → neutral Geral leads.
     private func expanded(wing: CGFloat) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
+        let target = appState.expandedTarget
+        let dev = appState.activeOutputDevice
+        let muted = appState.activeOutputMuted
+        return VStack(alignment: .leading, spacing: 0) {
             wingRow(wing: wing) {
-                if let f = focus {
+                switch target {
+                case .single(let f, _):
                     HoverLink(help: String(format: appState.t("ui.notch.open_app"), f.name)) { bringToFront(f) } label: {
                         HStack(spacing: 8) {
                             Color.clear.frame(width: 20, height: 20)   // slot for the travelling icon
                             Text(f.name).type(TimbreTypography.notchTitle).foregroundStyle(c.ink_primary).lineLimit(1)
                         }
                     }
-                } else {
+                case .masterWithSources:
+                    HStack(spacing: 8) {
+                        Image(systemName: muted ? "speaker.slash.fill" : (dev?.glyph ?? "speaker.wave.2"))
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundStyle(muted ? c.semantic_warning : c.ink_secondary)
+                            .frame(width: 20, height: 20)
+                        Text(appState.t("ui.notch.master"))
+                            .type(TimbreTypography.notchTitle)
+                            .foregroundStyle(c.ink_primary)
+                            .lineLimit(1)
+                    }
+                case .empty:
                     HStack(alignment: .firstTextBaseline, spacing: 0) {
                         Text("timbr").font(.system(size: 13, weight: .semibold)).tracking(-0.3)
                         Text(".").font(.system(size: 13, weight: .semibold)).foregroundStyle(c.accent_base)
@@ -1351,10 +1381,10 @@ public struct NotchOverlayView: View {
                 Spacer(minLength: 0)
             } right: {
                 Spacer(minLength: 0)
-                MenuChip(title: appState.activeOutputDevice?.name ?? "—", symbol: appState.activeOutputDevice?.glyph ?? "speaker.wave.2", iconOnly: true) {
-                    ForEach(appState.outputDevices) { dev in
-                        Button { appState.selectDefaultOutput(dev) } label: {
-                            if dev.isDefaultOutput { Label(dev.name, systemImage: "checkmark") } else { Text(dev.name) }
+                MenuChip(title: dev?.name ?? "—", symbol: dev?.glyph ?? "speaker.wave.2", iconOnly: true) {
+                    ForEach(appState.outputDevices) { outDev in
+                        Button { appState.selectDefaultOutput(outDev) } label: {
+                            if outDev.isDefaultOutput { Label(outDev.name, systemImage: "checkmark") } else { Text(outDev.name) }
                         }
                     }
                 }
@@ -1362,27 +1392,38 @@ public struct NotchOverlayView: View {
 
             Color.clear.frame(height: 8)
 
-            if let f = focus {
-                focusBlock(f).padding(.horizontal, 18)
-            } else {
+            switch target {
+            case .empty:
                 VStack(alignment: .leading, spacing: 6) {
                     HStack(spacing: 6) {
                         Text(appState.t("notch.empty_playing")).type(TimbreTypography.caption).foregroundStyle(c.ink_muted)
                         Text("·").type(TimbreTypography.caption).foregroundStyle(c.ink_faint)
-                        Text(appState.activeOutputDevice?.name ?? "—").type(TimbreTypography.caption).foregroundStyle(c.ink_secondary).lineLimit(1)
+                        Text(dev?.name ?? "—").type(TimbreTypography.caption).foregroundStyle(c.ink_secondary).lineLimit(1)
                     }
                     outputControl
                 }
                 .frame(height: 46, alignment: .center)
                 .padding(.horizontal, 18)
-            }
 
-            ForEach(appState.mixerSources.filter { $0.bundleID != focus?.bundleID }.prefix(3)) { src in
-                sourceRow(src).padding(.horizontal, 18)
-            }
-
-            if focus != nil {
+            case .single(let f, let others):
+                focusBlock(f).padding(.horizontal, 18)
+                ForEach(others) { src in
+                    sourceRow(src).padding(.horizontal, 18)
+                }
                 masterRow.padding(.horizontal, 18)
+
+            case .masterWithSources(let list):
+                masterFocusBlock.padding(.horizontal, 18)
+                if !list.isEmpty {
+                    VStack(spacing: 0) {
+                        ForEach(list) { src in
+                            sourceRow(src)
+                        }
+                    }
+                    .padding(.horizontal, 18)
+                    .padding(.top, 4)
+                    .overlay(alignment: .top) { Hairline().padding(.horizontal, 18).padding(.top, 2) }
+                }
             }
 
             if let alert = appState.guardianAlerts.first {
@@ -1392,6 +1433,67 @@ public struct NotchOverlayView: View {
             Spacer(minLength: 0)
             footer
         }
+    }
+
+    private var masterFocusBlock: some View {
+        let dev = appState.activeOutputDevice
+        let muted = appState.activeOutputMuted
+        let hasPlaying = !appState.playingSources.isEmpty
+        let subtitle = hasPlaying
+            ? String(format: appState.t("ui.notch.playing_on"), dev?.name ?? "—")
+            : "\(appState.t("notch.empty_playing")) · \(dev?.name ?? "—")"
+        return VStack(spacing: 10) {
+            HStack(alignment: .center, spacing: 12) {
+                Text(subtitle)
+                    .type(TimbreTypography.caption)
+                    .foregroundStyle(c.ink_muted)
+                    .lineLimit(1)
+                Spacer(minLength: 0)
+                if muted {
+                    Text(appState.t("ui.notch.muted"))
+                        .type(TimbreTypography.caption).fontWeight(.medium)
+                        .foregroundStyle(c.semantic_warning)
+                        .lineLimit(1)
+                } else if let v = appState.activeOutputVolume {
+                    HStack(alignment: .firstTextBaseline, spacing: 1) {
+                        Text(Fmt.percent(v))
+                            .type(TimbreTypography.notchValue)
+                            .fontWeight(.medium)
+                            .foregroundStyle(v < OutputVolumeBehavior.zeroThreshold ? c.semantic_warning : c.ink_primary)
+                            .contentTransition(.numericText(value: v))
+                        Text("%").type(TimbreTypography.monoSmall).foregroundStyle(c.ink_muted)
+                    }
+                }
+                if let dev, dev.isHWMuteSettable {
+                    IconButton(
+                        symbol: muted ? "speaker.slash.fill" : "speaker.wave.2.fill",
+                        size: 26,
+                        active: muted,
+                        activeColor: c.semantic_warning,
+                        help: appState.t("ui.mute")
+                    ) {
+                        appState.toggleOutputMute()
+                    }
+                }
+            }
+            .frame(height: 30)
+            if let dev, let v = appState.activeOutputVolume {
+                TFader(
+                    value: Binding(get: { muted ? 0 : v }, set: { appState.setOutputVolume(dev, value: $0, showHUD: false) }),
+                    range: 0...1,
+                    tint: c.ink_primary,
+                    label: dev.name,
+                    valueText: muted ? appState.t("ui.notch.muted") : Fmt.percent(v)
+                )
+            } else {
+                Text(appState.t("ui.notch.device_volume_fixed"))
+                    .type(TimbreTypography.caption)
+                    .foregroundStyle(c.ink_muted)
+                    .lineLimit(1)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+        .frame(height: 66, alignment: .top)
     }
 
     private func valueLabel(_ f: AudioSourceDescriptor, big: Bool) -> some View {

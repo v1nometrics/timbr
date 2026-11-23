@@ -507,17 +507,40 @@ private struct OutputRow: View {
                 Spacer(minLength: 12)
 
                 if dev.isHWVolumeMasterSettable || dev.isHWVolumeChannelSettable {
-                    let vol = Double(appState.halManager.readOutputVolumeScalar(deviceID: dev.audioObjectID) ?? 0.5)
-                    TFader(value: Binding(get: { vol }, set: { appState.setOutputVolume(dev, value: $0) }), range: 0...1, tint: c.ink_primary, label: dev.name, valueText: Fmt.percent(vol))
+                    let isMuted = isDefault
+                        ? appState.activeOutputMuted
+                        : (appState.halManager.readOutputMute(deviceID: dev.audioObjectID) ?? false)
+                    let rawVol = isDefault
+                        ? (appState.activeOutputVolume ?? Double(appState.halManager.readOutputVolumeScalar(deviceID: dev.audioObjectID) ?? 0.5))
+                        : Double(appState.halManager.readOutputVolumeScalar(deviceID: dev.audioObjectID) ?? 0.5)
+                    let vol = isMuted ? 0 : rawVol
+                    TFader(value: Binding(get: { vol }, set: { appState.setOutputVolume(dev, value: $0) }), range: 0...1, tint: c.ink_primary, label: dev.name, valueText: isMuted ? appState.t("ui.notch.muted") : Fmt.percent(rawVol))
                         .frame(width: 170)
-                    Text(Fmt.percent(vol) + "%").type(TimbreTypography.monoValue).foregroundStyle(c.ink_secondary).frame(width: 46, alignment: .trailing)
+                    Text(isMuted ? "—" : Fmt.percent(rawVol) + "%")
+                        .type(TimbreTypography.monoValue)
+                        .foregroundStyle(isMuted ? c.semantic_warning : c.ink_secondary)
+                        .frame(width: 46, alignment: .trailing)
                 } else {
                     Badge(text: appState.t("dev.sw_volume"), tone: .warning)
                         .help(appState.t("ui.output.sw_help"))
                 }
 
                 if isDefault {
-                    Color.clear.frame(width: 96)
+                    HStack {
+                        Spacer(minLength: 0)
+                        if dev.isHWMuteSettable {
+                            IconButton(
+                                symbol: appState.activeOutputMuted ? "speaker.slash.fill" : "speaker.wave.2.fill",
+                                size: 24,
+                                active: appState.activeOutputMuted,
+                                activeColor: c.semantic_warning,
+                                help: appState.t("ui.mute")
+                            ) {
+                                appState.toggleOutputMute()
+                            }
+                        }
+                    }
+                    .frame(width: 96)
                 } else {
                     Button(appState.t("ui.output.make_default")) { appState.selectDefaultOutput(dev) }
                         .buttonStyle(.t(.ghost, compact: true))

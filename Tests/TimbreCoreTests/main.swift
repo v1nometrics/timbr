@@ -330,6 +330,75 @@ struct TimbreCoreTestRunner {
         expect(untrusted.left == 0 && untrusted.right == 0, "Without Accessibility trust, falls back to safe chin")
         print("  [PASS] MenuBarSpaceEvaluator (wrapped menus, dual-app chin fallback, AX gating)")
 
+        // OutputVolumeBehavior: CoreAudio -63.5 dB floor must engage hardware mute at "0%" (< 0.005)
+        let dragZero = OutputVolumeBehavior.evaluateSetVolume(requested: 0.0, isHWMuteSettable: true)
+        expect(dragZero.scalar == 0.0 && dragZero.muted && dragZero.displayVolume == 0.0 && dragZero.hudMuted,
+               "Dragging output slider to 0 engages hardware mute")
+        let dragSubDisplayZero = OutputVolumeBehavior.evaluateSetVolume(requested: 0.004, isHWMuteSettable: true)
+        expect(dragSubDisplayZero.scalar == 0.0 && dragSubDisplayZero.muted && dragSubDisplayZero.displayVolume == 0.0,
+               "Sub-0.5% values that format as 0% snap scalar to 0 and engage hardware mute")
+        let dragAudible = OutputVolumeBehavior.evaluateSetVolume(requested: 0.006, isHWMuteSettable: true)
+        expect(!dragAudible.muted && abs(Double(dragAudible.scalar) - 0.006) < 0.0001 && !dragAudible.hudMuted,
+               "Dragging above 0.5% unmutes hardware output")
+        let dragNoHWMute = OutputVolumeBehavior.evaluateSetVolume(requested: 0.0, isHWMuteSettable: false)
+        expect(dragNoHWMute.scalar == 0.0 && !dragNoHWMute.muted && dragNoHWMute.hudMuted,
+               "Devices without HW mute keep muted=false while still marking HUD muted at 0")
+
+        let keyDownZero = OutputVolumeBehavior.evaluateMediaKey(
+            currentVolume: 0.05, currentMuted: false, isHWMuteSettable: true, action: .volumeDown(step: 0.0625)
+        )
+        expect(keyDownZero.scalar == 0.0 && keyDownZero.muted && keyDownZero.displayVolume == 0.0 && keyDownZero.hudMuted,
+               "Volume Down key reaching 0 engages hardware mute")
+        let keyMuteAtZero = OutputVolumeBehavior.evaluateMediaKey(
+            currentVolume: 0.0, currentMuted: true, isHWMuteSettable: true, action: .muteToggle
+        )
+        expect(keyMuteAtZero.muted && keyMuteAtZero.displayVolume == 0.0,
+               "Mute toggle at 0% never unmutes into CoreAudio -63.5 dB floor")
+        let keyUnmuteHalf = OutputVolumeBehavior.evaluateMediaKey(
+            currentVolume: 0.5, currentMuted: true, isHWMuteSettable: true, action: .muteToggle
+        )
+        expect(!keyUnmuteHalf.muted && keyUnmuteHalf.scalar == nil && abs(keyUnmuteHalf.displayVolume - 0.5) < 0.0001,
+               "Mute toggle from muted 50% restores audible output cleanly")
+        let keyUpFromZero = OutputVolumeBehavior.evaluateMediaKey(
+            currentVolume: 0.0, currentMuted: true, isHWMuteSettable: true, action: .volumeUp(step: 0.0625)
+        )
+        expect(!keyUpFromZero.muted && abs(Double(keyUpFromZero.scalar ?? 0) - 0.0625) < 0.0001,
+               "Volume Up key from muted 0% raises volume and unmutes")
+        expect(OutputVolumeBehavior.shouldRestoreAudibleOnUnmute(activeVolume: 0.0), "0% needs audible restore")
+        expect(!OutputVolumeBehavior.shouldRestoreAudibleOnUnmute(activeVolume: 0.25), "25% does not bump volume")
+        expect(OutputVolumeBehavior.normalizeSourceVolume(0.003) == 0.0, "Source gain below 0.5% snaps to digital silence 0.0")
+        print("  [PASS] OutputVolumeBehavior (zero-volume hardware mute, media keys, no -63.5 dB bleed)")
+
+        // Unified Peek + Expanded spotlight rule across 0 / 1 / 2+ playing apps
+        let now = Date()
+        var spot2 = AudioSourceDescriptor(bundleID: "com.spotify.client", name: "Spotify", isPlaying: true, lastActiveAt: now)
+        spot2.playingSince = now
+        var chr2 = AudioSourceDescriptor(bundleID: "com.google.Chrome", name: "Google Chrome", isPlaying: true, lastActiveAt: now.addingTimeInterval(-30))
+        chr2.playingSince = now.addingTimeInterval(-30)
+        let pausedSpotify = AudioSourceDescriptor(bundleID: "com.spotify.client", name: "Spotify", isPlaying: false, lastActiveAt: now.addingTimeInterval(-60))
+
+        expect(NotchPeekTarget.resolve(from: []) == .output, "0 playing -> Peek output")
+        expect(NotchExpandedTarget.resolve(from: []) == .empty, "0 sources -> Expanded empty")
+
+        expect(NotchPeekTarget.resolve(from: [pausedSpotify]) == .output, "Paused only -> Peek output")
+        let pausedExpanded = NotchExpandedTarget.resolve(from: [pausedSpotify])
+        expect(pausedExpanded.layoutKind == NotchExpandedTarget.LayoutKind.masterLed && pausedExpanded.singleSource == nil && pausedExpanded.listRowCount == 1,
+               "Paused only -> Expanded masterLed with paused app row underneath")
+
+        let singleExpanded = NotchExpandedTarget.resolve(from: [chr2, pausedSpotify])
+        expect(singleExpanded.layoutKind == NotchExpandedTarget.LayoutKind.single && singleExpanded.singleSource?.bundleID == chr2.bundleID && singleExpanded.listRowCount == 1,
+               "1 playing -> single app spotlight in Expanded")
+
+        let multiPeek = NotchPeekTarget.resolve(from: [spot2, chr2])
+        let multiExpanded = NotchExpandedTarget.resolve(from: [spot2, chr2])
+        expect({
+            if case .masterWithSources(let pList) = multiPeek { return pList.count == 2 }
+            return false
+        }(), "2+ playing -> Peek led neutrally by Geral/Master")
+        expect(multiExpanded.layoutKind == NotchExpandedTarget.LayoutKind.masterLed && multiExpanded.singleSource == nil && multiExpanded.listRowCount == 2,
+               "2+ playing -> Expanded also led neutrally by Geral/Master with equal app rows underneath")
+        print("  [PASS] NotchPeekTarget & NotchExpandedTarget unified spotlight (0 / 1 / 2+ playing)")
+
         print("[TimbreCoreTests] ALL PASSED")
     }
 }

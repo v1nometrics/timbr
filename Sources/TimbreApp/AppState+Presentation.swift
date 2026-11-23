@@ -33,7 +33,13 @@ extension AppState {
         NotchPeekTarget.resolve(from: mixerSources)
     }
 
-    /// The source the Expanded console leads with: playing non-call app first, then any playing app, then most recent.
+    /// What the Expanded console leads with, unifying spotlight priority with Peek:
+    /// Empty (0 playing & 0 recent), Single App (1 playing), or Master/Geral + equal apps (2+ playing or paused-only).
+    var expandedTarget: NotchExpandedTarget {
+        NotchExpandedTarget.resolve(from: mixerSources)
+    }
+
+    /// Legacy focus helper kept for single-source convenience.
     var focusSource: AudioSourceDescriptor? {
         let list = mixerSources
         return list.first(where: { $0.isPlaying && !$0.isVoIPExcluded })
