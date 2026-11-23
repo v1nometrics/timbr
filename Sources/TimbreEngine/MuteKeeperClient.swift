@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MPL-2.0
-// timbr.'s side of the fail-closed mute (ADR-0017). See MuteKeeperProtocol for the why.
+// timbr's side of the fail-closed mute (ADR-0017). See MuteKeeperProtocol for the why.
 //
 // Flow: publish the silenced apps → make sure the keeper runs → keep muting in-process until the
 // keeper confirms it holds each app (`confirmedHeld`) → only then drop the in-process mute. Whatever
-// happens to timbr. after that, the keeper keeps the app silent. If the keeper cannot run, the
+// happens to timbr after that, the keeper keeps the app silent. If the keeper cannot run, the
 // in-process mute simply stays (the old behaviour), so a mute never depends on the keeper to work.
 import Foundation
 import CoreAudio
@@ -15,7 +15,7 @@ public final class MuteKeeperClient: @unchecked Sendable {
     private var generation: UInt64
     private var published: [MuteKeeperProtocol.Target]?
     private var lastSpawnAttempt: Date = .distantPast
-    /// What a previous timbr. had the keeper hold. Merged into fresh targets for the same app, so the
+    /// What a previous timbr had the keeper hold. Merged into fresh targets for the same app, so the
     /// first publish after a relaunch (before every helper process is rediscovered) never narrows it.
     private var adopted: [String: MuteKeeperProtocol.Target] = [:]
     public private(set) var lastFailure: String?
@@ -71,7 +71,7 @@ public final class MuteKeeperClient: @unchecked Sendable {
     }
 
     /// Apps the keeper confirmed it holds for the latest request. Empty while it is starting, down,
-    /// or still answering an older request — timbr. keeps its own mute for those.
+    /// or still answering an older request — timbr keeps its own mute for those.
     public func confirmedHeld() -> Set<String> {
         lock.lock(); let gen = generation; lock.unlock()
         let status = MuteKeeperProtocol.read(MuteKeeperProtocol.Status.self, from: MuteKeeperProtocol.statusURL(directory))
@@ -80,7 +80,7 @@ public final class MuteKeeperClient: @unchecked Sendable {
 
     // MARK: Relaunch
 
-    /// Apps still muted by a keeper that outlived the previous timbr. (crash, kill, update). Empty if
+    /// Apps still muted by a keeper that outlived the previous timbr (crash, kill, update). Empty if
     /// no keeper runs: then nothing is holding them and there is nothing to adopt.
     public func survivingMutes() -> [MuteKeeperProtocol.Target] {
         guard keeperRunning,
@@ -113,7 +113,7 @@ public final class MuteKeeperClient: @unchecked Sendable {
         var attr: posix_spawnattr_t?
         posix_spawnattr_init(&attr)
         defer { posix_spawnattr_destroy(&attr) }
-        // Own session: not in timbr.'s process group, so nothing aimed at timbr. reaches it.
+        // Own session: not in timbr's process group, so nothing aimed at timbr reaches it.
         posix_spawnattr_setflags(&attr, Int16(POSIX_SPAWN_SETSID))
         var actions: posix_spawn_file_actions_t?
         posix_spawn_file_actions_init(&actions)

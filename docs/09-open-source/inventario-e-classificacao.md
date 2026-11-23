@@ -72,7 +72,7 @@
 - `vincentneo/LosslessSwitcher` (GPL-3.0) — lição negativa da issue #231 (troca prematura de sample rate por pre-buffering em logs do Apple Music).
 - `TheBoredTeam/boring.notch` & `Ebullioscopic/Atoll` (GPL-3.0) — ergonomia de notch, `DynamicIslandTests`, mas evitar `SkyLight` privado e leaks de `log stream`.
 - `ryanfrancesconi/spfk-audio-hardware` (MIT) — padrão `AudioBackend` mockável para CI sem hardware.
-- `BySergiMM/OmniMac` (MIT) — referência de UX multi-utilitário no notch e confirmação de que EQ `Float32` RBJ 10 bandas fica abaixo do padrão `Float64` Vicanek do `timbr.`.
+- `BySergiMM/OmniMac` (MIT) — referência de UX multi-utilitário no notch e confirmação de que EQ `Float32` RBJ 10 bandas fica abaixo do padrão `Float64` Vicanek do `timbr`.
 - `niyamvora/ILoveNotch` (MIT) — referência de ergonomia SwiftUI de notch multi-tool.
 - `librepods-org/librepods` (GPL-3.0) — mapa AACP L2CAP `0x1001` e Magic Pairing; **prova de inviabilidade no macOS user-space**; zero código.
 - `lihaoyun6/AirBattery` (AGPL-3.0) — Nearbility no macOS; **proibida cópia**.

@@ -6,7 +6,7 @@
 > - entraram brilho, volume geral, ícone de barra de menus condicional, identidade acromática e compatibilidade com o superwhisper.
 >
 > Continuam abertos, desta lista: RF-0201, Sparkle/notarização, RF-0205, cenas, now playing, letras, bancada E-08…E-11, MacBook Pro OLED e consumo em repouso. Ver `progresso.md`.
-> Pedido do dono: revisar de ponta a ponta o plano, o que foi implementado e o que foi executado; a estética estava "muito feia e desfuncional, parecendo template de IA"; o notch não era preto absoluto. Este registro separa o que foi **verificado nesta rodada** do que continua **em aberto**, com as classes de evidência do `AGENTS.md`.
+> Escopo: revisão de ponta a ponta entre o plano, o que foi implementado e o que foi efetivamente executado; correção de defeitos visuais estruturais (contorno no notch, controles padrão do sistema). Este registro separa o que foi **verificado na rodada** do que continua **em aberto**, segundo as classes de evidência do `AGENTS.md`.
 
 ## 1. Diagnóstico (o que estava errado, com causa no código)
 
@@ -56,13 +56,13 @@ Classificadas pela prioridade do PRD. Nada aqui foi maquiado na interface: nenhu
 | P1 | RF-1101/1102 Now playing e metadados | **Não implementado** | Integrar `mediaremote-adapter` (BSD-3) + AppleScript Music/Spotify |
 | P1 | RF-0703 Medidores LUFS S, picos por fonte | Parcial (LUFS M e true peak globais) | Medidores por fonte |
 | P2 | RF-1105/1106 Letras e reconhecimento | **Não implementado** | LRCLIB; ShazamKit alimentado pelo tap |
-| Hardware | E-08 (HFP), E-09 (Momentum 4 em bancada), E-10 (coexistência), E-11 (dogfood) | Código de leitura existe; **sem execução física registrada** | Sessão de bancada com o Momentum 4 e os AirPods do dono |
+| Hardware | E-08 (HFP), E-09 (Momentum 4 em bancada), E-10 (coexistência), E-11 (dogfood) | Código de leitura existe; **sem execução física registrada** | Sessão de bancada com Momentum 4 e AirPods Pro |
 | UI | MacBook Pro OLED com Dynamic Island nativa | **Desconhecido** | Teste em hardware |
 | UI | Consumo em repouso da casca do notch | **Não medido** | Instruments + `powermetrics` (E-12) |
 
 ## 4. Próximos passos recomendados
 
-1. **Roteamento por app (RF-0201)**: é o maior buraco funcional do mixer e uma das duas prioridades do dono.
+1. **Roteamento por app (RF-0201)**: é a maior lacuna funcional do mixer.
 2. **Sessão de bancada** com o Momentum 4 e os AirPods: E-08, E-09 e o teste de preset por dispositivo.
 3. **Now playing** no notch, com o adaptador BSD-3.
 4. **Sparkle + notarização**, quando houver conta de desenvolvedor.

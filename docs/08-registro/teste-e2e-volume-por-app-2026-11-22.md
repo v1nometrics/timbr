@@ -10,8 +10,8 @@
 
 `Timbr --selftest-audio <relatório.json>` roda dentro do app assinado, que tem a permissão de Gravação de Áudio do Sistema. O teste toca um tom de 1 kHz com `afplay` e aciona o `ProcessTapEngine` real, como a interface faz. A medição usa dois taps independentes, sem silenciar nada:
 
-- **Fonte:** tap no próprio `afplay`, medido antes de o timbr. assumir o processo. É o nível original.
-- **Saída:** tap no processo do timbr. É o que o timbr. realmente entrega ao dispositivo.
+- **Fonte:** tap no próprio `afplay`, medido antes de o timbr assumir o processo. É o nível original.
+- **Saída:** tap no processo do timbr É o que o timbr realmente entrega ao dispositivo.
 
 O ganho medido é a saída menos a fonte, em dB. Nenhum número é simulado.
 
@@ -35,7 +35,7 @@ Reproduzimos o bug recolocando a linha temporariamente:
 
 ## Outros defeitos corrigidos na mesma revisão
 
-1. **As saídas agregadas do timbr. apareciam como dispositivos** na lista de saídas do próprio app. Podiam até ser escolhidas como espelho, e a lista mudava a cada tap criado. Agora são filtradas pelo prefixo de UID.
+1. **As saídas agregadas do timbr apareciam como dispositivos** na lista de saídas do próprio app. Podiam até ser escolhidas como espelho, e a lista mudava a cada tap criado. Agora são filtradas pelo prefixo de UID.
 2. **Corrida de parâmetros no DSP.** O buffer duplo podia ser sobrescrito enquanto a thread de áudio ainda o lia. A cada 2 s e a cada movimento de fader, o app publicava a mesma EQ duas vezes seguidas. Agora há buffer triplo wait-free (`timbre_dsp_update`), e a EQ só é publicada quando muda. Um teste de corrida roda sob ASan e UBSan no CI.
 3. **Callback de áudio presumia "primeiro buffer, estéreo intercalado".** O `TapRenderer` agora:
    - lê o tap no fim da lista de entradas, depois das entradas do subdispositivo;
@@ -50,4 +50,4 @@ Reproduzimos o bug recolocando a linha temporariamente:
 
 - **Boost em música alta:** um master moderno já está perto de 0 dBFS. Acima de 100%, o limitador segura o pico em −0,3 dBTP: no teste, 200% sobre um tom de −1 dBFS rendeu só +0,7 dB. O Mixer agora mostra "No limite · mais volume distorceria" quando o limitador de um app passa de 1 dB de redução.
 - **Espelhos** recebem cada app no volume original; o volume por app não é replicado nas saídas espelhadas.
-- **Mudo de verdade no dispositivo:** o teste mede o que o timbr. emite, não o som que sai do alto-falante. Que o original fica silenciado vem do `.mutedWhenTapped` do Core Audio. Isso não foi medido por loopback físico.
+- **Mudo de verdade no dispositivo:** o teste mede o que o timbr emite, não o som que sai do alto-falante. Que o original fica silenciado vem do `.mutedWhenTapped` do Core Audio. Isso não foi medido por loopback físico.

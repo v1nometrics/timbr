@@ -1,6 +1,6 @@
 # ADR-0020 · Sons curtos do sistema não acordam o notch
 
-- **Status:** Aceito · 2026-11-23 (pergunta do dono do produto)
+- **Status:** Aceito · 2026-11-23
 
 ## Contexto
 

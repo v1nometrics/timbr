@@ -222,13 +222,13 @@ struct TimbreCoreTestRunner {
         }
         print("  [PASS] NotchPeekTarget resolution (0 / 1 / 2+ playing)")
 
-        // TimbreHarmonicMath: 5-bar timbr. mark + subtle restrained motion + Reduce Motion
+        // TimbreHarmonicMath: 5-bar timbr mark + subtle restrained motion + Reduce Motion
         let idleBars = TimbreHarmonicMath.samples(active: false, level: 0.9, time: 1.2, reduceMotion: false)
         expect(idleBars.count == 5 && idleBars.allSatisfy { $0.height == TimbreHarmonicMath.idleDotHeight && $0.opacity == TimbreHarmonicMath.idleOpacity }, "Idle bars collapse to quiet dots")
 
         let rmA = TimbreHarmonicMath.samples(active: true, level: nil, time: 0.0, reduceMotion: true)
         let rmB = TimbreHarmonicMath.samples(active: true, level: 0.8, time: 1.3, reduceMotion: true)
-        expect(rmA.map(\.height) == TimbreHarmonicMath.baseHeights && rmA == rmB, "Reduce Motion keeps static timbr. silhouette")
+        expect(rmA.map(\.height) == TimbreHarmonicMath.baseHeights && rmA == rmB, "Reduce Motion keeps static timbr silhouette")
 
         let nativeT0 = TimbreHarmonicMath.samples(active: true, level: nil, time: 0.0, reduceMotion: false)
         let nativeT1 = TimbreHarmonicMath.samples(active: true, level: nil, time: 0.7, reduceMotion: false)
@@ -539,7 +539,7 @@ struct TimbreCoreTestRunner {
         expect(!MuteKeeperProtocol.isKeeperRunning(in: tmpDir), "No lock holder means no keeper")
         try? FileManager.default.removeItem(at: tmpDir)
         let st = MuteKeeperProtocol.Status(generation: 7, pid: 1, held: ["com.spotify.client"], failures: [:])
-        expect(MuteKeeperProtocol.confirmedHeld(status: st, requestGeneration: 7, keeperRunning: true) == ["com.spotify.client"], "Keeper confirmation for the current request lets timbr. hand over")
+        expect(MuteKeeperProtocol.confirmedHeld(status: st, requestGeneration: 7, keeperRunning: true) == ["com.spotify.client"], "Keeper confirmation for the current request lets timbr hand over")
         expect(MuteKeeperProtocol.confirmedHeld(status: st, requestGeneration: 8, keeperRunning: true).isEmpty, "A stale status (older request) never hands over")
         expect(MuteKeeperProtocol.confirmedHeld(status: st, requestGeneration: 7, keeperRunning: false).isEmpty, "A dead keeper never hands over")
         expect(MuteKeeperProtocol.confirmedHeld(status: nil, requestGeneration: 7, keeperRunning: true).isEmpty, "No status never hands over")
@@ -550,7 +550,7 @@ struct TimbreCoreTestRunner {
         expect(PersistentMutePolicy.isSilenced(pmMuted), "Muted app is held fail-closed")
         expect(PersistentMutePolicy.isSilenced(pmZero), "Fader at 0 % is held fail-closed like a mute")
         expect(!PersistentMutePolicy.isSilenced(pmQuiet), "An audible volume is not a mute")
-        expect(!PersistentMutePolicy.isSilenced(pmVoip), "VoIP/DAW protected apps are never muted by timbr.")
+        expect(!PersistentMutePolicy.isSilenced(pmVoip), "VoIP/DAW protected apps are never muted by timbr")
         expect(PersistentMutePolicy.restorableBundleIDs(owner: "com.google.Chrome", reported: ["com.google.Chrome.helper", "com.google.Chrome.helper", "com.apple.WebKit.GPU", "com.google.ChromeX"])
                == ["com.google.Chrome", "com.google.Chrome.helper"],
                "Restore follows the app and its helpers, never shared system processes or look-alike IDs")
@@ -814,15 +814,15 @@ struct TimbreCoreTestRunner {
             expect(!FeedbackComposer.isSendable("curto") && !FeedbackComposer.isSendable("   \n\t  ") && FeedbackComposer.isSendable("Queria mais bandas no EQ."), "Too-short messages are not sendable")
             expect(FeedbackComposer.normalize("  a\r\nb\u{0007}c  ") == "a\nbc", "Line breaks unified, control characters dropped, edges trimmed")
             expect(FeedbackComposer.normalize(String(repeating: "x", count: 5000)).count == FeedbackComposer.maxMessageLength, "Messages are capped")
-            expect(FeedbackComposer.subject(.bug) == "[timbr.] Problema" && FeedbackComposer.subject(.suggestion) == "[timbr.] Sugestão", "Subject names the category")
+            expect(FeedbackComposer.subject(.bug) == "[timbr] Problema" && FeedbackComposer.subject(.suggestion) == "[timbr] Sugestão", "Subject names the category")
             let all = FeedbackComposer.body(message: "Adorei o notch!", context: ctx, options: FeedbackOptions())
-            expect(all.contains("timbr.: 1.0 (12)") && all.contains("macOS: Version 26.6") && all.contains("Saída: Bluetooth") && all.contains("Equalizador: 10 bandas") && all.contains("pt-BR"), "Every enabled fact is in the body")
+            expect(all.contains("timbr: 1.0 (12)") && all.contains("macOS: Version 26.6") && all.contains("Saída: Bluetooth") && all.contains("Equalizador: 10 bandas") && all.contains("pt-BR"), "Every enabled fact is in the body")
             var none = FeedbackOptions(); none.app = false; none.system = false; none.output = false; none.equalizer = false; none.language = false
             let bare = FeedbackComposer.body(message: "Adorei o notch!", context: ctx, options: none)
             expect(bare == "Adorei o notch!", "With every fact switched off, only the message is sent")
             var some = FeedbackOptions(); some.system = false; some.output = false
             let part = FeedbackComposer.body(message: "Mensagem de teste aqui", context: ctx, options: some)
-            expect(!part.contains("macOS") && !part.contains("Saída") && part.contains("timbr.: 1.0"), "Each fact switches off on its own")
+            expect(!part.contains("macOS") && !part.contains("Saída") && part.contains("timbr: 1.0"), "Each fact switches off on its own")
             expect(FeedbackComposer.outputKind(for: .bluetoothA2DP) == "Bluetooth" && !FeedbackComposer.outputKind(for: .builtIn).lowercased().contains("macbook"), "The output is a kind, never a device name")
             let url = FeedbackComposer.mailtoURL(category: .suggestion, message: "Que tal 'Graves & Agudos' = 100%?\nSegunda linha: ação", context: ctx, options: FeedbackOptions())!
             let s = url.absoluteString

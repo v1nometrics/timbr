@@ -1,0 +1,75 @@
+# Cobertura da bibliografia OSS auditada anteriormente
+
+Extração de URLs das notas 11/11a/11b/11c. Um repositório listado não é necessariamente dependência do produto. “Coletado” significa somente o endpoint de issues, sem comentários/PRs.
+
+| Repositório | Coleta em 2026-11-23 |
+|---|---|
+| [AbhisekGanguly/AudioRouter](https://github.com/AbhisekGanguly/AudioRouter) | Pendente; não contar como coberto |
+| [apple/swift-atomics](https://github.com/apple/swift-atomics) | Pendente; não contar como coberto |
+| [audiocn/ui](https://github.com/audiocn/ui) | Pendente; não contar como coberto |
+| [AudioKit/AudioKit](https://github.com/AudioKit/AudioKit) | Pendente; não contar como coberto |
+| [avaneev/r8brain-free-src](https://github.com/avaneev/r8brain-free-src) | Pendente; não contar como coberto |
+| [aviwad/LyricFever](https://github.com/aviwad/LyricFever) | Pendente; não contar como coberto |
+| [belugaming/tapline](https://github.com/belugaming/tapline) | Issues coletadas; análise individual pendente |
+| [bitgapp/eqMac](https://github.com/bitgapp/eqMac) | Issues coletadas; análise individual pendente |
+| [briankendall/proxy-audio-device](https://github.com/briankendall/proxy-audio-device) | Pendente; não contar como coberto |
+| [brimell/SoundMaxx](https://github.com/brimell/SoundMaxx) | Pendente; não contar como coberto |
+| [BySergiMM/OmniMac](https://github.com/BySergiMM/OmniMac) | Pendente; não contar como coberto |
+| [chirlu/soxr](https://github.com/chirlu/soxr) | Pendente; não contar como coberto |
+| [CJStanfield/CoreAudioTapKit](https://github.com/CJStanfield/CoreAudioTapKit) | Pendente; não contar como coberto |
+| [csteinmetz1/pyloudnorm](https://github.com/csteinmetz1/pyloudnorm) | Pendente; não contar como coberto |
+| [ddddxxx/LyricsKit](https://github.com/ddddxxx/LyricsKit) | Pendente; não contar como coberto |
+| [ddddxxx/LyricsX](https://github.com/ddddxxx/LyricsX) | Pendente; não contar como coberto |
+| [denzam/SystemEQ-for-Mac](https://github.com/denzam/SystemEQ-for-Mac) | Pendente; não contar como coberto |
+| [deweller/switchaudio-osx](https://github.com/deweller/switchaudio-osx) | Pendente; não contar como coberto |
+| [Ebullioscopic/Atoll](https://github.com/Ebullioscopic/Atoll) | Issues coletadas; análise individual pendente |
+| [ejbills/mediaremote-adapter](https://github.com/ejbills/mediaremote-adapter) | Pendente; não contar como coberto |
+| [ExistentialAudio/BlackHole](https://github.com/ExistentialAudio/BlackHole) | Issues coletadas; análise individual pendente |
+| [fxsound2/fxsound-app](https://github.com/fxsound2/fxsound-app) | Pendente; não contar como coberto |
+| [GabrielSabadinn/PerAppVolume](https://github.com/GabrielSabadinn/PerAppVolume) | Pendente; não contar como coberto |
+| [gavv/libASPL](https://github.com/gavv/libASPL) | Pendente; não contar como coberto |
+| [grame-cncm/faust](https://github.com/grame-cncm/faust) | Pendente; não contar como coberto |
+| [HEnquist/camilladsp](https://github.com/HEnquist/camilladsp) | Issues coletadas; análise individual pendente |
+| [HEnquist/rubato](https://github.com/HEnquist/rubato) | Pendente; não contar como coberto |
+| [insidegui/AudioCap](https://github.com/insidegui/AudioCap) | Issues coletadas; análise individual pendente |
+| [jaakkopasanen/AutoEq](https://github.com/jaakkopasanen/AutoEq) | Issues coletadas; análise individual pendente |
+| [james34602/JamesDSPManager](https://github.com/james34602/JamesDSPManager) | Pendente; não contar como coberto |
+| [jatinindia/MacEQ](https://github.com/jatinindia/MacEQ) | Issues coletadas; análise individual pendente |
+| [jiixyj/libebur128](https://github.com/jiixyj/libebur128) | Pendente; não contar como coberto |
+| [juce-framework/JUCE](https://github.com/juce-framework/JUCE) | Pendente; não contar como coberto |
+| [karaggeorge/macos-audio-devices](https://github.com/karaggeorge/macos-audio-devices) | Pendente; não contar como coberto |
+| [kirtan-shah/nowplaying-cli](https://github.com/kirtan-shah/nowplaying-cli) | Pendente; não contar como coberto |
+| [kyleneideck/BackgroundMusic](https://github.com/kyleneideck/BackgroundMusic) | Issues coletadas; análise individual pendente |
+| [Lakr233/NotchDrop](https://github.com/Lakr233/NotchDrop) | Issues coletadas; análise individual pendente |
+| [lsp-plugins/lsp-plugins](https://github.com/lsp-plugins/lsp-plugins) | Pendente; não contar como coberto |
+| [makeusabrew/audiotee](https://github.com/makeusabrew/audiotee) | Pendente; não contar como coberto |
+| [mavericksxx/per-app-audio](https://github.com/mavericksxx/per-app-audio) | Pendente; não contar como coberto |
+| [MonitorControl/MonitorControl](https://github.com/MonitorControl/MonitorControl) | Issues coletadas; análise individual pendente |
+| [MrKai77/DynamicNotchKit](https://github.com/MrKai77/DynamicNotchKit) | Issues coletadas; análise individual pendente |
+| [niyamvora/ILoveNotch](https://github.com/niyamvora/ILoveNotch) | Pendente; não contar como coberto |
+| [NumberOneBot/dsssp](https://github.com/NumberOneBot/dsssp) | Pendente; não contar como coberto |
+| [orchetect/swift-core-audio](https://github.com/orchetect/swift-core-audio) | Pendente; não contar como coberto |
+| [rnine/SimplyCoreAudio](https://github.com/rnine/SimplyCoreAudio) | Pendente; não contar como coberto |
+| [ronitsingh10/FineTune](https://github.com/ronitsingh10/FineTune) | Issues coletadas; análise individual pendente |
+| [ryanfrancesconi/spfk-audio-hardware](https://github.com/ryanfrancesconi/spfk-audio-hardware) | Pendente; não contar como coberto |
+| [sacis/Liland](https://github.com/sacis/Liland) | Pendente; não contar como coberto |
+| [Sakuleta/tapmix](https://github.com/Sakuleta/tapmix) | Issues coletadas; análise individual pendente |
+| [sbetko/catap](https://github.com/sbetko/catap) | Pendente; não contar como coberto |
+| [sbooth/CAAudioHardware](https://github.com/sbooth/CAAudioHardware) | Pendente; não contar como coberto |
+| [sbooth/CoreAudioExtensions](https://github.com/sbooth/CoreAudioExtensions) | Pendente; não contar como coberto |
+| [sbooth/SFBAudioEngine](https://github.com/sbooth/SFBAudioEngine) | Pendente; não contar como coberto |
+| [sdroege/ebur128](https://github.com/sdroege/ebur128) | Pendente; não contar como coberto |
+| [sindresorhus/KeyboardShortcuts](https://github.com/sindresorhus/KeyboardShortcuts) | Pendente; não contar como coberto |
+| [snap-sites/SoundMax](https://github.com/snap-sites/SoundMax) | Pendente; não contar como coberto |
+| [sparkle-project/Sparkle](https://github.com/sparkle-project/Sparkle) | Issues coletadas; análise individual pendente |
+| [swiftlang/swift-testing](https://github.com/swiftlang/swift-testing) | Pendente; não contar como coberto |
+| [TheBoredTeam/boring.notch](https://github.com/TheBoredTeam/boring.notch) | Issues coletadas; análise individual pendente |
+| [Torteous44/radioform](https://github.com/Torteous44/radioform) | Issues coletadas; análise individual pendente |
+| [tranxuanthang/lrclib](https://github.com/tranxuanthang/lrclib) | Pendente; não contar como coberto |
+| [ungive/media-control](https://github.com/ungive/media-control) | Pendente; não contar como coberto |
+| [ungive/mediaremote-adapter](https://github.com/ungive/mediaremote-adapter) | Issues coletadas; análise individual pendente |
+| [vincentneo/LosslessSwitcher](https://github.com/vincentneo/LosslessSwitcher) | Issues coletadas; análise individual pendente |
+| [wwmm/easyeffects](https://github.com/wwmm/easyeffects) | Pendente; não contar como coberto |
+| [XPro-Gamer-Rhine/R9-EQ-app](https://github.com/XPro-Gamer-Rhine/R9-EQ-app) | Pendente; não contar como coberto |
+| [Yudaotor/lyrimuse](https://github.com/Yudaotor/lyrimuse) | Pendente; não contar como coberto |
+| [Zhengyang-Liu/m4-companion](https://github.com/Zhengyang-Liu/m4-companion) | Pendente; não contar como coberto |

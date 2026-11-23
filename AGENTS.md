@@ -1,6 +1,6 @@
 # Instruções para agentes e futuras sessões
 
-Este repositório é a **fonte de verdade** do projeto **`timbr.`** *(codinome de repositório: Timbre · ver [ADR-0014](docs/07-decisoes/ADR-0014-nome-identidade-e-i18n.md))*: uma plataforma de controle de áudio para macOS (`PT / ES / EN` na v1) cuja interface principal é o notch do MacBook. Qualquer sessão de trabalho deve conseguir continuar daqui sem depender da memória de conversas anteriores.
+Este repositório é a **fonte de verdade** do projeto **`timbr`** *(codinome de repositório: Timbre · ver [ADR-0014](docs/07-decisoes/ADR-0014-nome-identidade-e-i18n.md))*: uma plataforma de controle de áudio para macOS (`PT / ES / EN` na v1) cuja interface principal é o notch do MacBook. Qualquer sessão de trabalho deve conseguir continuar daqui sem depender da memória de conversas anteriores.
 
 ## Antes de começar qualquer tarefa
 

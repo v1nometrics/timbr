@@ -11,11 +11,11 @@
 ### Gate G0/G1 · Saída da Fase 0 (Laboratório → MVP)
 1. Todos os experimentos obrigatórios (`E-01` a `E-12`, `E-16`) têm `RESULTADO.md` com dados reais, logs e decisão explícita (`Passou`, `Passou com ressalva`, `Falhou`).
 2. `ADR-0001` (Licença), `ADR-0003` (Núcleo DSP), `ADR-0005` (Piso macOS) e `ADR-0006` (Processo do motor) promovidos de **Proposto** para **Aceito**.
-3. Matriz real de dispositivos (`matriz-de-dispositivos.md`) preenchida pela sonda `E-07` em todos os hardwares de teste do dono (alto-falante interno, Momentum 4, AirPods Pro, DAC USB se disponível).
+3. Matriz real de dispositivos (`matriz-de-dispositivos.md`) preenchida pela sonda `E-07` em todos os hardwares da bancada de referência (alto-falante interno, Momentum 4, AirPods Pro, DAC USB quando disponível).
 4. Zero código GPL/AGPL copiado na árvore do projeto.
 
 ### Gate G2 · Saída da Fase 1 (MVP → Beta Público)
-1. **Dogfood real de 14 dias consecutivos:** o dono usa o Timbre diariamente como único mixer e EQ sem precisar executar `kill` ou desativá-lo por falha de áudio.
+1. **Dogfood real de 14 dias consecutivos:** uso diário contínuo do `timbr` como único mixer e EQ sem precisar executar `kill` ou desativá-lo por falha de áudio.
 2. **Fail-safe validado:** em 20 testes seguidos de `kill -9` no processo de áudio durante reprodução, o som retorna aos apps originais em `≤ 1 s`, sem pico acima do nível pré-falha.
 3. **Null test e transparência (P1):** com tudo em neutro, `0` taps criados; com tap em `1.0` e EQ flat, diferença digital documentada conforme `estrategia-de-testes.md`.
 4. **Higiene de saída (P3):** após sair e após rodar rotina de desinstalação, `DeviceUID` padrão, volumes HW e lista de `AggregateDevice` públicos são 100% idênticos ao snapshot pré-arranque.

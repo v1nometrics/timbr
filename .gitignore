@@ -21,3 +21,8 @@ xcuserdata/
 
 # Scratch
 *.tmp
+
+# Large raw third-party issue dumps (regenerated locally via scripts/index_resilience_research.py)
+docs/00-pesquisa/resiliencia-2026-11-23/*.json
+!docs/00-pesquisa/resiliencia-2026-11-23/coleta.json
+docs/00-pesquisa/resiliencia-2026-11-23/inventario.csv

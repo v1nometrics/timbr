@@ -12,7 +12,7 @@ public struct SanitizedDiagnosticReport: Codable, Sendable {
 
     public init(
         generatedAt: Date = Date(),
-        appName: String = "timbr.",
+        appName: String = "timbr",
         osVersion: String = ProcessInfo.processInfo.operatingSystemVersionString,
         devices: [AudioDeviceDescriptor],
         activeAlerts: [GuardianAlert],

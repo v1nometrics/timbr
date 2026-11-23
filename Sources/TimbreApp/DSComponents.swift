@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MPL-2.0
-// timbr. design system — native component library (docs/05-design-system/04-componentes.md).
+// timbr design system — native component library (docs/05-design-system/04-componentes-e-visualizacao-audio.md).
 // Every visual value comes from TimbreDesignSystem tokens (ADR-0012). No stock Slider/Toggle/Picker
 // chrome is used on product surfaces: they read as "template" and cannot match the notch.
 import SwiftUI
@@ -61,7 +61,7 @@ struct Eyebrow: View {
     }
 }
 
-/// Ronda-style numbered section header: `01  Title ··········· trailing`.
+/// Editorial numbered section header: `01  Title ··········· trailing`.
 struct SectionHeader<Trailing: View>: View {
     let index: String
     let title: String
@@ -118,7 +118,7 @@ struct Card<Content: View>: View {
     }
 }
 
-/// Ronda KPI: eyebrow label, large tabular value, one-line footnote.
+/// Editorial KPI tile: eyebrow label, large tabular value, one-line footnote.
 struct KPITile: View {
     let label: String
     let value: String
@@ -700,7 +700,7 @@ struct DeviceGlyph: View {
 
 // MARK: - Meters
 
-/// Five-bar symmetric harmonic mark (`timbr.` silhouette) for the notch ears.
+/// Five-bar symmetric harmonic mark (`timbr` silhouette) for the notch ears.
 /// Gentle harmonic overtone breathing (~2.6 s cadence, 12 Hz) when active; static with Reduce Motion; zero work when paused.
 struct MiniMeter: View {
     /// Real level 0…1, or nil on native zero-tap pass-through (subtle harmonic breath, never a fake peak meter).
@@ -1343,5 +1343,20 @@ enum Fmt {
     static func volumeDB(_ linear: Double) -> String {
         guard linear > 0.0001 else { return "−∞" }
         return db(20 * log10(linear))
+    }
+}
+
+
+/// The approved source artwork, independent of macOS icon styling and cached low-resolution reps.
+struct TimbrBrandIcon: View {
+    var size: CGFloat
+    private var artwork: NSImage {
+        if let url = Bundle.main.url(forResource: "TimbrBrandIcon", withExtension: "png"),
+           let image = NSImage(contentsOf: url) { return image }
+        return NSApp.applicationIconImage
+    }
+    var body: some View {
+        Image(nsImage: artwork).resizable().interpolation(.high)
+            .frame(width: size, height: size).accessibilityLabel("timbr")
     }
 }

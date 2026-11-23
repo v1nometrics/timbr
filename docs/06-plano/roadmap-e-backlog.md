@@ -23,7 +23,11 @@ O código da Fase 1 existe e está em uso diário (dogfood), mas o Gate G2 (14 d
 | Mudo à prova de falha | Feito | `timbr-mute-keeper`; autoteste e teste de ouvido com `kill -9` (ADR-0017) |
 | Notch: sons do sistema, pausa e recolhimento | Feito | Medido na janela real do notch (ADR-0020, ADR-0021). Sem tap, a pausa leva o tempo do macOS |
 | Feedback por e-mail | Feito | ADR-0024 |
-| Ícone novo | Feito | ADR-0022 |
+| Marca definitiva e ícone *Ilha refinada* | Feito | `Resources/Brand/` + `Timbr.icns` + template de menu ([ADR-0025](../07-decisoes/ADR-0025-ilha-refinada-e-marca-sem-ponto.md)) |
+| Primitivas de áudio (`audiocn`) e ajuda contextual (`InfoHintButton`) | Feito | `TLevelMeter`, `TLCDDisplay`, `TKnob`, `TChannelButton`, `TClipIndicator`, `InfoHintButton`; Playground web sincronizado |
+| Continuidade entre Spaces, tela cheia inteligente e zero-queixo no Chrome | Feito | `NotchSpaceOverlay`, `FullscreenEvaluator`, `CompactIconLayoutEvaluator`, `CompactPlacement.hiddenInNotch`; testes em `TimbreCoreTests` |
+| Auditoria de movimento & *Reduzir movimento* | Feito | Sem `ease-in`, tokens `TimbreMotion` verificados em `TimbreTokensTests` ([registro](../08-registro/auditoria-animacoes-2026-11-23.md)) |
+| Alvo de build macOS 15.0 nos binários & auditoria de resiliência | **Em andamento** | Mach-O `macosx15.0` verificado no CI (`check_deployment_target.py`); lacunas RES-02/03/04 (`coreaudiod` reset, sleep/wake, readback do keeper) abertas em [auditoria de resiliência](../08-registro/auditoria-resiliencia-2026-11-23.md) |
 | B-110 Developer ID + notarização + cask | **Parcial** | Scripts e cask prontos; falta conta Apple Developer. Builds locais usam identidade autoassinada |
 | RF-0201 Rotear app para outra saída | **Não feito** | Maior lacuna funcional do mixer |
 

@@ -33,7 +33,7 @@ public enum TimbreLanguage: String, Codable, CaseIterable, Sendable {
 public enum TimbreStrings {
     public static let table: [String: [TimbreLanguage: String]] = [
         // Brand & Surfaces
-        "app.name": [.ptBR: "timbr.", .es: "timbr.", .en: "timbr."],
+        "app.name": [.ptBR: "timbr", .es: "timbr", .en: "timbr"],
         "nav.mixer": [.ptBR: "Mixer", .es: "Mezclador", .en: "Mixer"],
         "nav.eq": [.ptBR: "Equalizador", .es: "Ecualizador", .en: "Equalizer"],
         "nav.observatory": [.ptBR: "Observatório", .es: "Observatorio", .en: "Observatory"],
@@ -140,9 +140,9 @@ public enum TimbreStrings {
         "dev.apple.refresh_scan": [.ptBR: "Atualizar Continuity", .es: "Actualizar Continuity", .en: "Refresh Continuity"],
         "dev.apple.features_title": [.ptBR: "Recursos do sistema (somente leitura)", .es: "Funciones del sistema (solo lectura)", .en: "System features (read-only)"],
         "dev.apple.features_system": [
-            .ptBR: "Gerenciados pelo macOS. O timbr. não controla ANC, Adaptive Audio nem Hearing Aid (AACP fechado).",
-            .es: "Gestionados por macOS. timbr. no controla ANC, Adaptive Audio ni Hearing Aid (AACP cerrado).",
-            .en: "Managed by macOS. timbr. does not control ANC, Adaptive Audio, or Hearing Aid (AACP closed)."
+            .ptBR: "Gerenciados pelo macOS. O timbr não controla ANC, Adaptive Audio nem Hearing Aid (AACP fechado).",
+            .es: "Gestionados por macOS. timbr no controla ANC, Adaptive Audio ni Hearing Aid (AACP cerrado).",
+            .en: "Managed by macOS. timbr does not control ANC, Adaptive Audio, or Hearing Aid (AACP closed)."
         ],
         "dev.apple.feature.activeNoiseCancellation": [.ptBR: "ANC", .es: "ANC", .en: "ANC"],
         "dev.apple.feature.transparency": [.ptBR: "Transparência", .es: "Transparencia", .en: "Transparency"],
@@ -177,9 +177,9 @@ public enum TimbreStrings {
 
         // Permissions (Pre-TCC honest explainers)
         "tcc.audio.why": [
-            .ptBR: "Necessário para ajustar volume por app e aplicar EQ de sistema. O timbr. nunca grava nem envia seu áudio.",
-            .es: "Necesario para ajustar volumen por app y aplicar EQ del sistema. timbr. nunca graba ni envía tu audio.",
-            .en: "Needed to adjust per-app volume and apply system EQ. timbr. never records or transmits your audio."
+            .ptBR: "Necessário para ajustar volume por app e aplicar EQ de sistema. O timbr nunca grava nem envia seu áudio.",
+            .es: "Necesario para ajustar volumen por app y aplicar EQ del sistema. timbr nunca graba ni envía tu audio.",
+            .en: "Needed to adjust per-app volume and apply system EQ. timbr never records or transmits your audio."
         ],
         "tcc.ax.why": [
             .ptBR: "Opcional: permite que as teclas de volume controlem o destino ativo e exibam o HUD no notch.",
@@ -241,9 +241,9 @@ public enum TimbreStrings {
         ],
         "onboard.ready.title": [.ptBR: "Tudo pronto para escutar", .es: "Todo listo para escuchar", .en: "Ready to listen"],
         "onboard.ready.body": [
-            .ptBR: "O timbr. vive na barra de menus e no notch. Abra o Estúdio para o mixer e o EQ, ou comece a tocar música e expanda o notch com ⌥⌘V.",
-            .es: "timbr. vive en la barra de menús y en el notch. Abre el Estudio para el mezclador y el EQ, o reproduce música y expande el notch con ⌥⌘V.",
-            .en: "timbr. lives in the menu bar and notch. Open Studio for the mixer and EQ, or start playing music and expand the notch with ⌥⌘V."
+            .ptBR: "O timbr vive na barra de menus e no notch. Abra o Estúdio para o mixer e o EQ, ou comece a tocar música e expanda o notch com ⌥⌘V.",
+            .es: "timbr vive en la barra de menús y en el notch. Abre el Estudio para el mezclador y el EQ, o reproduce música y expande el notch con ⌥⌘V.",
+            .en: "timbr lives in the menu bar and notch. Open Studio for the mixer and EQ, or start playing music and expand the notch with ⌥⌘V."
         ],
         "onboard.ready.hint": [
             .ptBR: "Atalhos: ⌥⌘, Estúdio · ⌥⌘V Notch · ⌥⌘B Bypass · ⌥⌘A A/B neutro",
@@ -258,11 +258,11 @@ public enum TimbreStrings {
         "onboard.replay": [.ptBR: "Repetir introdução", .es: "Repetir introducción", .en: "Replay introduction"],
 
         // Support & Donations Tab
-        "support.title": [.ptBR: "Apoiar o timbr.", .es: "Apoyar a timbr.", .en: "Support timbr."],
+        "support.title": [.ptBR: "Apoiar o timbr", .es: "Apoyar a timbr", .en: "Support timbr"],
         "support.body": [
-            .ptBR: "O timbr. é software livre sob licença MPL-2.0, 100% local e sem telemetria. Se ele melhora sua escuta diária, considere apoiar o desenvolvimento contínuo.",
-            .es: "timbr. es software libre bajo licencia MPL-2.0, 100% local y sin telemetría. Si mejora tu escucha diaria, considera apoyar su desarrollo.",
-            .en: "timbr. is free open-source software under MPL-2.0, 100% local with zero telemetry. If it elevates your daily listening, consider supporting development."
+            .ptBR: "O timbr é software livre sob licença MPL-2.0, 100% local e sem telemetria. Se ele melhora sua escuta diária, considere apoiar o desenvolvimento contínuo.",
+            .es: "timbr es software libre bajo licencia MPL-2.0, 100% local y sin telemetría. Si mejora tu escucha diaria, considera apoyar su desarrollo.",
+            .en: "timbr is free open-source software under MPL-2.0, 100% local with zero telemetry. If it elevates your daily listening, consider supporting development."
         ],
         "support.license": [.ptBR: "Licença: MPL-2.0 · Sem assinatura obrigatória", .es: "Licencia: MPL-2.0 · Sin suscripción obligatoria", .en: "License: MPL-2.0 · No mandatory subscription"]
     ]

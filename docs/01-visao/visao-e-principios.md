@@ -1,6 +1,6 @@
 # Visão do produto e princípios inegociáveis
 
-> Status: v1.1 · 2026-11-21 · Dono: Vinicius · Nome oficial: **`timbr.`** *(codinome de repositório: Timbre; ver [ADR-0014](../07-decisoes/ADR-0014-nome-identidade-e-i18n.md))*
+> Status: v1.1 · 2026-11-21 · Dono: Vinicius · Nome oficial: **`timbr`** *(codinome de repositório: Timbre; ver [ADR-0014](../07-decisoes/ADR-0014-nome-identidade-e-i18n.md))*
 
 ## 1. A frase
 
@@ -16,7 +16,7 @@ Não é mais uma Dynamic Island. Existem mais de 25 apps de notch e a Apple já 
 | **Secundário: "controlador do som"** | Reunião + música + vídeo ao mesmo tempo; vários dispositivos | Volume por app, roteamento por saída, perfis automáticos, nada de surpresas ao trocar de dispositivo |
 | **Terciário: criadores e devs de áudio** | Interfaces de áudio, monitores, gravação | Medidores honestos, signal path, roteamento, exportação de configurações |
 
-O dono do projeto é o usuário-zero: audiófilo exigente, Momentum 4 como fone principal e AirPods Pro como secundário.
+O autor do projeto atua como usuário-zero em dogfood diário: audiófilo exigente, Momentum 4 como fone principal e AirPods Pro como secundário.
 
 ## 3. O problema, em uma tabela
 
@@ -58,7 +58,7 @@ Cada princípio tem um teste. Se uma decisão viola o teste, ela está errada, m
 | P11 | **Agnóstico ao dispositivo, consciente do hardware.** Nenhum controle aparece se o hardware não o suporta. | Controles são gerados a partir da matriz de capacidades sondada em runtime. |
 | P12 | **Open source sustentável.** Licença, contribuição e manutenção decididas antes do código. | ADR-0001 aceito antes do primeiro commit de código. |
 
-## 6. O que o `timbr.` **não** é
+## 6. O que o `timbr` **não** é
 
 - Não é um separador de stems (Liland/HTDemucs). Separação sintética degrada a fidelidade, que é o oposto do produto.
 - Não é um player de música. Ele controla e melhora o que os players tocam.
@@ -66,9 +66,9 @@ Cada princípio tem um teste. Se uma decisão viola o teste, ela está errada, m
 - Não é um substituto de DAW ou de room correction profissional (Dirac, SoundID Reference). Pode integrar-se a eles.
 - Não é um app que precisa da nuvem.
 
-## 7. Nome, Identidade, Idiomas & Fronteira Local (`timbr.`)
+## 7. Nome, Identidade, Idiomas & Fronteira Local (`timbr`)
 
-- **Nome oficial:** **`timbr.`** (wordmark em caixa baixa com ponto final — ver [ADR-0014](../07-decisoes/ADR-0014-nome-identidade-e-i18n.md) e [05 · Assets e Referências](../05-design-system/05-assets-iconografia-e-referencias.md)).
+- **Nome oficial:** **`timbr`** (wordmark em caixa baixa com ponto final — ver [ADR-0014](../07-decisoes/ADR-0014-nome-identidade-e-i18n.md) e [05 · Assets e Referências](../05-design-system/05-assets-iconografia-e-referencias.md)).
 - **Taglines:** *Sound, precisely yours.* (EN) · *Som, precisamente seu.* (PT) · *Sonido, precisamente tuyo.* (ES).
 - **Idiomas na v1:** suporte nativo completo a **Português (`pt-BR`), Espanhol (`es`) e Inglês (`en`)** desde o MVP.
 - **Essência 100% Local:** todo o motor de áudio, mixer, DSP `Float64`, Observatório, Guardião, drivers Bluetooth/USB e IA on-device funcionam **100% sem internet**; apenas recursos opt-in (sincronização de catálogo AutoEq, letras LRCLIB, ShazamKit, ListenBrainz, Sparkle ou LLM BYOK) acessam rede (matriz completa em [requisitos-nao-funcionais.md](../04-engenharia/requisitos-nao-funcionais.md)).
@@ -78,6 +78,6 @@ Cada princípio tem um teste. Se uma decisão viola o teste, ela está errada, m
 | Horizonte | Sinal |
 |---|---|
 | Gate de viabilidade (fim da Fase 1) | As 6 provas de risco têm resultado documentado (passou, passou com ressalva, falhou) |
-| MVP | O dono usa o Timbre como único mixer e EQ por 14 dias seguidos sem desligá-lo por problema |
+| MVP | Uso diário contínuo como único mixer e EQ por 14 dias seguidos sem desligá-lo por problema |
 | Beta | 50 testadores externos; zero relatos de áudio corrompido não reproduzível; crash-free ≥ meta |
 | 1.0 | Comparado ao SoundSource e ao FineTune num teste cego, a cadeia do Timbre é preferida ou indistinguível no modo neutro, e superior em recursos de verificação |

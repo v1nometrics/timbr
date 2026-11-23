@@ -1,6 +1,6 @@
 # ADR-0018 · Linha do tempo do Observatório: paginação, busca e exportação sem travar o app
 
-- **Status:** Aceito · 2026-11-23 (pedido do dono do produto)
+- **Status:** Aceito · 2026-11-23
 - **Relaciona-se com:** [ADR-0016](ADR-0016-identidade-acromatica.md) (UI sem cor de marca), diagnóstico sanitizado em Ajustes
 
 ## Contexto
@@ -42,11 +42,11 @@ Para referência, o uso real é de cerca de 360 eventos por dia, então esses vo
 | FTS5 com tokenizer padrão (palavras) | Não acha trechos ("spea"), que é como se busca log |
 | Carregar tudo em memória e filtrar na UI | Memória e tempo de abertura crescem com o histórico |
 | Exportar pelo `recentEvents` | Só 120 eventos, e não respeita busca nem filtro |
-| Apagar eventos antigos automaticamente | Decisão do dono do produto sobre dados dele; hoje não há necessidade (ver abaixo) |
+| Apagar eventos antigos automaticamente | O histórico pertence ao usuário; limpeza manual explícita em Ajustes evita perda inesperada de contexto (ver abaixo) |
 
 ## Limites e pontos em aberto
 
-- **Sem retenção.** O banco só cresce (cerca de 330 bytes por evento com os dois índices). Não há poda automática; "Apagar histórico" em Ajustes continua sendo a única forma. Se o dono quiser um teto, é uma decisão à parte.
+- **Sem retenção automática.** O banco cresce de forma previsível (~330 bytes por evento com ambos os índices). "Apagar histórico" em Ajustes é a forma explícita de limpeza; qualquer política de teto automático será tratada em ADR futura.
 - **Busca de 1 e 2 letras** não existe (limite do trigram). Escolha deliberada: varrer a tabela por 2 letras custaria o que o índice evita.
 - **A busca não ignora acentos** ("conexao" não acha "conexão").
 - O arquivo exportado contém as mensagens como estão gravadas (nomes de dispositivos incluídos). Ele **não** passa pela sanitização do relatório de diagnóstico de Ajustes, que continua separado.
@@ -55,5 +55,5 @@ Para referência, o uso real é de cerca de 360 eventos por dia, então esses vo
 ## Evidência
 
 - `TimbreCoreTests`: paginação sem repetir nem pular (1.500 eventos, vários com o mesmo `timestamp`), busca por trecho sem diferenciar maiúsculas, busca curta, aspas e SQL no campo, filtro e combinação, cabeça ao vivo, exportação CSV/JSON (conteúdo, escape, filtro, vazio, sem `.partial`), leitura concorrente com o gravador e limpeza do índice.
-- Medição acima (500 mil eventos) e capturas reais da tela com o histórico do dono (sem filtro, com busca "speak" e com busca curta + categoria).
+- Medição acima (500 mil eventos) e capturas reais da interface com histórico populado (sem filtro, busca "speak" e busca curta + categoria).
 - `./scripts/ci_check.sh` verde.

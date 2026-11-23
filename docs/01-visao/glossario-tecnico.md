@@ -23,7 +23,7 @@
 | **LUFS / LKFS** | Loudness integrado ponderado K (ITU-R BS.1770 / EBU R128). | Medidores M (400 ms), S (3 s), I (integrado). |
 | **Preamp / headroom** | Ganho negativo aplicado antes do EQ para que boosts não clipem. | Calculado pelo **máximo da resposta somada** dos filtros + margem, nunca pela maior banda. |
 | **Gain staging** | A sequência de ganhos ao longo da cadeia: fonte → volume do app → EQ do app → soma → EQ do dispositivo → limiter → volume do dispositivo. | Cada estágio é exibido no Observatório. |
-| **Volume alto (regra 60/60)** | Volume do Mac a partir de 60%, regra prática dos audiologistas: no máximo 60 minutos seguidos, depois 15 a 20 de descanso. | **Não é decibel.** Cada fone responde diferente; o timbr. conta minutos e volume, nunca "dB". |
+| **Volume alto (regra 60/60)** | Volume do Mac a partir de 60%, regra prática dos audiologistas: no máximo 60 minutos seguidos, depois 15 a 20 de descanso. | **Não é decibel.** Cada fone responde diferente; o timbr conta minutos e volume, nunca "dB". |
 | **Silêncio medido** | Pico do nosso DSP abaixo de −75 dB por 1 s num tap ativo. | Só existe com tap; sem ele vale o aviso do macOS, que atrasa 2 a 8 s. |
 | **dB SPL estimado** | Pressão sonora estimada a partir de dBFS + volume + sensibilidade do fone. | **Sempre "estimado"**. Erros de ±6 dB ou mais são esperados sem calibração. |
 

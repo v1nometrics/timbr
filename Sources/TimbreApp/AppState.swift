@@ -381,7 +381,7 @@ public final class AppState: ObservableObject {
 
         watchMenuBarIconVisibility()
 
-        // Fail-closed mutes (ADR-0017): apps muted before timbr. last exited — crash, SIGKILL, update —
+        // Fail-closed mutes (ADR-0017): apps muted before timbr last exited — crash, SIGKILL, update —
         // are still held by timbr-mute-keeper. Adopt them before the first reconcile, or it would
         // publish "nothing muted" and the keeper would let them play.
         if let keeper = tapEngine.muteKeeper {
@@ -389,7 +389,7 @@ public final class AppState: ObservableObject {
             if !survivors.isEmpty {
                 sources = PersistentMutePolicy.mergeSurvivingMutes(survivors, into: sources, displayName: Self.appDisplayName(bundleID:))
                 let names = survivors.map { Self.appDisplayName(bundleID: $0) ?? $0 }.joined(separator: ", ")
-                logEvent(category: "recovery", message: "Kept muted after timbr. restarted: \(names)")
+                logEvent(category: "recovery", message: "Kept muted after timbr restarted: \(names)")
                 statusBanner = String(format: t("ui.mute.survived"), names)
             }
         }
@@ -418,7 +418,7 @@ public final class AppState: ObservableObject {
             Task { @MainActor in self?.pollTelemetry() }
         }
 
-        logEvent(category: "lifecycle", message: "timbr. started (MPL-2.0, 100% local, 0 telemetry)")
+        logEvent(category: "lifecycle", message: "timbr started (MPL-2.0, 100% local, 0 telemetry)")
 
         if needsOnboarding {
             showOnboarding = true
@@ -454,7 +454,7 @@ public final class AppState: ObservableObject {
         return name.hasSuffix(".app") ? String(name.dropLast(4)) : name
     }
 
-    /// Names of the apps whose mute will outlive timbr. if it quits now (ADR-0017).
+    /// Names of the apps whose mute will outlive timbr if it quits now (ADR-0017).
     public var persistentlyMutedAppNames: [String] {
         // Only what the keeper confirmed: an app it does not hold would play again on quit.
         guard let held = tapEngine.muteKeeper?.confirmedHeld(), !held.isEmpty else { return [] }

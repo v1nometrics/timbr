@@ -134,7 +134,7 @@ struct TimbreEngineTestRunner {
         // 5. CompetingNotchDetector matching & safe scan
         expect(CompetingNotchDetector.matchesCompetitor(bundleID: "dev.notchy.Notchy", localizedName: "Notchy"), "Detects Notchy")
         expect(CompetingNotchDetector.matchesCompetitor(bundleID: nil, localizedName: "OmniMac"), "Detects OmniMac")
-        expect(!CompetingNotchDetector.matchesCompetitor(bundleID: "com.timbr.app", localizedName: "timbr."), "Never self-detects")
+        expect(!CompetingNotchDetector.matchesCompetitor(bundleID: "com.timbr.app", localizedName: "timbr"), "Never self-detects")
         _ = CompetingNotchDetector.detectRunningCompetitors()
         print("  [PASS] CompetingNotchDetector matching & scan")
 

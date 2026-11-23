@@ -99,7 +99,7 @@ Aviso obrigatório na UI: Áudio Espacial / Head Tracking **invalida parcialment
 
 ## 6. Fronteiras éticas / licença
 
-| Projeto | Licença | Uso no `timbr.` |
+| Projeto | Licença | Uso no `timbr` |
 |---|---|---|
 | LibrePods | GPL-3.0 | **Só estudo** — prova de inviabilidade AACP no macOS; **zero código** |
 | AirBattery | AGPL-3.0 | **Só estudo** — zero código |

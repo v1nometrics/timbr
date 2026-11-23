@@ -23,7 +23,6 @@ struct MenuBarPanel: View {
                     HStack(alignment: .center, spacing: 8) {
                         HStack(alignment: .firstTextBaseline, spacing: 0) {
                             Text("timbr").font(.system(size: 15, weight: .semibold)).tracking(-0.4)
-                            Text(".").font(.system(size: 15, weight: .semibold)).foregroundStyle(c.accent_signal)
                         }
                         .foregroundStyle(c.ink_primary)
                         MiniMeter(level: appState.hasLiveSignal ? min(1, max(0, (appState.telemetry.lufsMomentary + 48) / 40)) : nil, active: !appState.playingSources.isEmpty && !appState.isProcessingBypassed, color: appState.isProcessingBypassed ? c.ink_muted : c.accent_base)
@@ -149,7 +148,7 @@ final class MenuBarIconController: NSObject {
             it.isVisible = true
             it.button?.target = self
             it.button?.action = #selector(toggle(_:))
-            it.button?.setAccessibilityLabel("timbr.")
+            it.button?.setAccessibilityLabel("timbr")
             item = it
             setSymbol(bypassed: appState.isProcessingBypassed)
         } else if let it = item {
@@ -160,7 +159,14 @@ final class MenuBarIconController: NSObject {
     }
 
     private func setSymbol(bypassed: Bool) {
-        item?.button?.image = NSImage(systemSymbolName: bypassed ? "waveform.slash" : "waveform", accessibilityDescription: "timbr.")
+        if let url = Bundle.main.url(forResource: "TimbrMenuTemplate", withExtension: "png"),
+           let image = NSImage(contentsOf: url) {
+            image.size = NSSize(width: 24, height: 10)
+            image.isTemplate = true
+            item?.button?.image = image
+            item?.button?.appearsDisabled = bypassed
+            item?.button?.setAccessibilityLabel("timbr")
+        }
     }
 
     @objc private func toggle(_ sender: NSStatusBarButton) {

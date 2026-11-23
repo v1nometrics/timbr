@@ -2,8 +2,8 @@
 # Listening test for the fail-closed mute (ADR-0017) — the one thing no tap can measure (taps read
 # audio before the mute). ~15 s, speakers on. A voice announces each part:
 #   1 · a tone plays                                  → you HEAR it
-#   2 · a timbr. process mutes it (via timbr-mute-keeper) → SILENCE
-#   3 · that timbr. process is SIGKILLed              → still SILENCE
+#   2 · a timbr process mutes it (via timbr-mute-keeper) → SILENCE
+#   3 · that timbr process is SIGKILLed              → still SILENCE
 #   4 · `Timbr --release-all-mutes`                   → you HEAR it again
 # Usage: scripts/listen_mute_crash.sh [app path]
 set -euo pipefail

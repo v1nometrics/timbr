@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MPL-2.0
-// Fail-closed mute (ADR-0017): the contract between timbr. and `timbr-mute-keeper`.
+// Fail-closed mute (ADR-0017): the contract between timbr and `timbr-mute-keeper`.
 //
 // Measured on macOS 26.6 (2026-11-23, listening test): a process tap only mutes while some running
 // process reads it — an unread `.muted` tap leaves the app audible, and every tap dies with the
-// process that reads it. So a mute that must outlive timbr. needs another live process: the keeper,
-// a tiny separate executable (no UI, no DSP) that holds only mutes. timbr. writes the desired set to
+// process that reads it. So a mute that must outlive timbr needs another live process: the keeper,
+// a tiny separate executable (no UI, no DSP) that holds only mutes. timbr writes the desired set to
 // `request.json`; the keeper applies it and reports in `status.json`. The request file is also the
-// record a relaunched timbr. reads back.
+// record a relaunched timbr reads back.
 //
 // This file is compiled into both executables, so it depends on Foundation only.
 import Foundation
@@ -14,7 +14,7 @@ import Foundation
 public enum MuteKeeperProtocol {
     public static let version = 1
     public static let executableName = "timbr-mute-keeper"
-    /// Aggregate UIDs of the keeper. Distinct from `ProcessTapEngine.aggregateUIDPrefix`, so timbr.'s
+    /// Aggregate UIDs of the keeper. Distinct from `ProcessTapEngine.aggregateUIDPrefix`, so timbr's
     /// orphan cleanup can never take a keeper aggregate for a leak.
     public static let aggregateUIDPrefix = "dev.v1torres.timbr.mutekeeper."
 
@@ -91,7 +91,7 @@ public enum MuteKeeperProtocol {
         return true
     }
 
-    /// Bundle IDs timbr. may drop its own in-process mute for: the keeper answered the current
+    /// Bundle IDs timbr may drop its own in-process mute for: the keeper answered the current
     /// request and reports them held. Anything else keeps the in-process mute as well.
     public static func confirmedHeld(status: Status?, requestGeneration: UInt64, keeperRunning: Bool) -> Set<String> {
         guard keeperRunning, let status, status.version == version, status.generation == requestGeneration else { return [] }

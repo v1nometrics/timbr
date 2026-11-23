@@ -1,10 +1,10 @@
-# Bíblia do design system · timbr.
+# Bíblia do design system · timbr
 
-> **Status:** v2.3 · 2026-11-22 · **Lei, não sugestão.** Substitui a v1, que descrevia uma tipografia (Geist) que nunca chegou a renderizar no app nativo e permitia controles padrão do macOS nas superfícies do produto.
-> **Direção de arte:** `apple-design` (fluidez, molas, materiais, tipografia de sistema) + `emil-design-eng` (detalhes invisíveis, curvas fortes, nada de animação em ação de teclado) sobre o DNA do **Órbita / ronda diária** (acromático, editorial, eyebrows em mono, números grandes; **sem cor de marca**, ADR-0016).
+> **Status:** v2.5 · 2026-11-22 · **Lei, não sugestão.** Substitui a v1, que descrevia uma tipografia (Geist) que nunca chegou a renderizar no app nativo e permitia controles padrão do macOS nas superfícies do produto.
+> **Direção de arte:** princípios nativos da Apple (fluidez, molas interrompíveis, materiais, tipografia de sistema) + engenharia de micro-interações (detalhes invisíveis, curvas rápidas sem `ease-in`, zero animação em atalhos de teclado) sobre um DNA editorial acromático (papel quente, eyebrows em mono, números tabulares grandes; **sem cor de marca**, ADR-0016).
 > **Fonte executável:** `design-system/tokens/*.tokens.json` → `design-system/generated/TimbreTokens.swift` e `tokens.css` (ADR-0012). Componentes: `Sources/TimbreApp/DSComponents.swift`.
 
-## 1. O que o timbr. tem que parecer
+## 1. O que o timbr tem que parecer
 
 **Um instrumento de precisão que a Apple poderia ter feito.** Silencioso em repouso, exato quando usado, honesto sobre o que mede. Nunca um painel de desenvolvedor, nunca um template.
 
@@ -26,8 +26,8 @@ Três frases-teste. Se uma tela falha em uma delas, ela está errada:
 | L7 | **Movimento com propósito.** Molas para o que o usuário toca; `notchOpen` com bounce 0,2 porque imita a Dynamic Island (mesma faixa do DynamicNotchKit e do boring.notch); fechar sem bounce e mais rápido. Ação por teclado nunca anima. | Tabela em `02-motion-e-fisica.md`. |
 | L8 | **Densidade editorial.** Página = eyebrow numerado + título + frase-resumo + KPIs + seções numeradas (`01`, `02`…). Listas em cartão com hairlines, não cartões empilhados. | Estrutura das páginas do Estúdio. |
 | L9 | **Divulgação progressiva.** Notch: estado e ação direta. Estúdio: configuração. Termos técnicos (tap, HAL, IPC) só no Observatório e na documentação. | Revisão de texto (`07` abaixo). |
-| L11 | **O estado persistente nunca cobre a barra de menus nem abas abaixo dela; o aberto abre como Dynamic Island.** O compacto (que fica na tela enquanto toca) usa só o espaço da barra medido como livre nas orelhas e, se não houver espaço em Mac com notch físico, recolhe dentro do hardware sem invadir `visibleFrame` (queixo só em pílula sem notch). Espiada, expandido e HUD são transitórios e abertos por intenção: crescem para os lados e para baixo a partir do notch, como em todos os apps de referência, e soltam a barra assim que o ponteiro vai para ela. | Captura com um app de muitos menus em primeiro plano (ex.: Chrome); vídeo `--demo`. |
 | L10 | **Calma.** Em repouso o notch é invisível e não consome CPU (hover por `NSTrackingArea`, sem polling). Um alerta por vez. | Instruments em repouso. |
+| L11 | **O estado persistente nunca cobre a barra de menus nem abas abaixo dela; o aberto abre como Dynamic Island.** O compacto (que fica na tela enquanto toca) usa só o espaço da barra medido como livre nas orelhas e, se não houver espaço em Mac com notch físico, recolhe dentro do hardware sem invadir `visibleFrame` (queixo só em pílula sem notch). Espiada, expandido e HUD são transitórios e abertos por intenção: crescem para os lados e para baixo a partir do notch, como em todos os apps de referência, e soltam a barra assim que o ponteiro vai para ela. | Captura com um app de muitos menus em primeiro plano (ex.: Chrome); vídeo `--demo`. |
 
 ## 3. Mapa do sistema
 
@@ -43,7 +43,7 @@ Três frases-teste. Se uma tela falha em uma delas, ela está errada:
 
 - **Frases curtas, caixa de frase**, sem ponto de exclamação. "Cada fonte no seu volume", não "Gerencie Seus Volumes!".
 - **Específico vence genérico.** "Voltar tudo a 100%", não "Resetar". "Desligar processamento", não "Bypass".
-- **Explique a consequência.** "Este dispositivo não tem volume próprio; o timbr. controla em software e o caminho deixa de ser bit-perfect."
+- **Explique a consequência.** "Este dispositivo não tem volume próprio; o timbr controla em software e o caminho deixa de ser bit-perfect."
 - **Vocabulário controlado** do [glossário](../01-visao/glossario-tecnico.md): nunca "Hi-Fi", "lossless" ou "bit-perfect" fora das condições definidas.
 - **Três idiomas com paridade** (PT, ES, EN): o teste do CI falha se faltar uma tradução. Todo texto novo entra em `LocalizationUI.swift`.
 
@@ -85,13 +85,14 @@ Fotografe com `screencapture -x` e revise com o checklist acima. As capturas da 
 
 | Versão | Data | Mudança |
 |---|---|---|
+| v2.5 | 2026-11-23 | Marca definitiva: Ilha refinada original e nome sem ponto (ADR-0025). |
 | v2.4 | 2026-11-23 | Auditoria de movimento ([registro](../08-registro/auditoria-animacoes-2026-11-23.md)): `exit` deixa de ser ease-in (e o gerador passa a recusar qualquer ease-in); tokens novos (`fade`, `fadeOut`, `tab`, `meter`, `dismissFollow`) no lugar de valores soltos; todos os tokens respeitam "Reduzir movimento" (testado no CI); faixa de aviso e linhas do mixer entram e saem com transição. |
 | v2.3 | 2026-11-22 | Identidade acromática (ADR-0016): o violeta saiu dos tokens, do ícone e da marca; `accent.*` passa a ser tinta; ênfase por peso e espessura; cor só semântica. |
 | v2.2 | 2026-11-22 | Modelo dos apps de referência (DynamicNotchKit, NotchDrop, boring.notch): forma única que abre para os lados e para baixo, conteúdo nas "asas" ao lado da câmera, ícone viajando só na horizontal, pop imediato no hover + abertura após 150 ms, mola de abrir com bounce 0,2, revelação com blur/escala a partir do topo, sombra preta só aberto, liberação rápida da barra. O pescoço da v2.1 foi abandonado. |
 | v2.1 | 2026-11-21 | Notch em pescoço + corpo (nunca cobre menus), orelhas medidas na barra (CGWindowList + Acessibilidade) com queixo quando não há espaço, canvas fixo, ícone único viajante, fechamento contínuo seguindo o ponteiro, molas mais rápidas (0,38/0,30 s), flag `--demo` para inspeção quadro a quadro. |
-| v2.0 | 2026-11-21 | Reescrita completa: notch com forma de hardware e preto sem contorno; tipografia SF (ADR-0015) com tracking efetivamente aplicado; paleta acromática quente (ronda/Órbita) com acento único de sinal; biblioteca de componentes própria; trava de CI contra controles padrão; honestidade de métricas sem sinal. |
+| v2.0 | 2026-11-21 | Reescrita completa: notch com forma de hardware e preto sem contorno; tipografia SF (ADR-0015) com tracking efetivamente aplicado; paleta acromática quente editorial com acento único de sinal; biblioteca de componentes própria; trava de CI contra controles padrão; honestidade de métricas sem sinal. |
 | v1.0 | 2026-11-21 | Primeira versão (Geist, controles do sistema, notch com contorno). Substituída. |
 
-## 7. Primitivas de Áudio (`audiocn` Reference Architecture)
+## 8. Primitivas de Áudio (`audiocn` Reference Architecture)
 
 Os controles de console e metrologia do Estúdio e do painel de menu seguem a anatomia e a matemática da biblioteca MIT [`audiocn/ui`](https://github.com/audiocn/ui) (`AudioUIMath.swift` + `DSComponents.swift`): curva *audio taper* (`1,65`), quantização inteira de segmentos LCD (`LCDSegmentLayout`), balística com *peak hold* e *clip latch* (`AudioMeterBallistics`), dials rotativos bipolares de 270° (`TKnob`) e botões de canal (`TChannelButton`), mantendo 100% da paleta acromática do ADR-0016.

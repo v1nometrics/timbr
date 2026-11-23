@@ -7,6 +7,8 @@ if [ ! -d "$SDK" ]; then
   SDK="$(xcrun --show-sdk-path)"
 fi
 
+# Match the deployment target in Package.swift.
+TARGET="$(uname -m)-apple-macosx15.0"
 BUILD="$ROOT/.build-local"
 DIST="$ROOT/dist"
 APP="$DIST/Timbr.app"
@@ -20,21 +22,21 @@ echo "==> Generating Timbr.icns"
 python3 "$ROOT/scripts/generate_icns.py"
 
 echo "==> Compiling CTimbreDSP (C++20 + Accelerate/vDSP)"
-clang++ -isysroot "$SDK" -std=c++20 -O2 -Wall -Wextra -Werror \
+clang++ -target "$TARGET" -isysroot "$SDK" -std=c++20 -O2 -Wall -Wextra -Werror \
   -I "$ROOT/Sources/CTimbreDSP/include" \
   -c "$ROOT/Sources/CTimbreDSP/src/timbre_dsp.cpp" \
   -o "$BUILD/timbre_dsp.o"
 ar rcs "$BUILD/libCTimbreDSP.a" "$BUILD/timbre_dsp.o"
 
 echo "==> Compiling TimbreDesignSystem (Swift 6)"
-swiftc -sdk "$SDK" -swift-version 6 -wmo -parse-as-library \
+swiftc -target "$TARGET" -sdk "$SDK" -swift-version 6 -wmo -parse-as-library \
   -module-name TimbreDesignSystem \
   -emit-object -emit-module -emit-module-path "$BUILD/TimbreDesignSystem.swiftmodule" \
   -o "$BUILD/TimbreTokens.o" \
   "$ROOT/design-system/generated/TimbreTokens.swift"
 
 echo "==> Compiling TimbreCore (Swift 6)"
-swiftc -sdk "$SDK" -swift-version 6 -wmo -parse-as-library \
+swiftc -target "$TARGET" -sdk "$SDK" -swift-version 6 -wmo -parse-as-library \
   -I "$BUILD" -I "$ROOT/Sources/CTimbreDSP/include" \
   -module-name TimbreCore \
   -emit-object -emit-module -emit-module-path "$BUILD/TimbreCore.swiftmodule" \
@@ -42,7 +44,7 @@ swiftc -sdk "$SDK" -swift-version 6 -wmo -parse-as-library \
   "$ROOT/Sources/TimbreCore/"*.swift
 
 echo "==> Compiling TimbreEngine (Swift 6)"
-swiftc -sdk "$SDK" -swift-version 6 -wmo -parse-as-library \
+swiftc -target "$TARGET" -sdk "$SDK" -swift-version 6 -wmo -parse-as-library \
   -I "$BUILD" -I "$ROOT/Sources/CTimbreDSP/include" \
   -module-name TimbreEngine \
   -emit-object -emit-module -emit-module-path "$BUILD/TimbreEngine.swiftmodule" \
@@ -50,7 +52,7 @@ swiftc -sdk "$SDK" -swift-version 6 -wmo -parse-as-library \
   "$ROOT/Sources/TimbreEngine/"*.swift
 
 echo "==> Compiling & Linking Timbr executable (Swift 6)"
-swiftc -sdk "$SDK" -swift-version 6 -wmo -parse-as-library \
+swiftc -target "$TARGET" -sdk "$SDK" -swift-version 6 -wmo -parse-as-library \
   -I "$BUILD" -I "$ROOT/Sources/CTimbreDSP/include" \
   -module-name TimbreApp \
   -emit-executable -o "$BUILD/Timbr" \
@@ -62,7 +64,7 @@ swiftc -sdk "$SDK" -swift-version 6 -wmo -parse-as-library \
   -framework AppKit -framework SwiftUI
 
 echo "==> Compiling timbr-mute-keeper (fail-closed mute holder, ADR-0017)"
-swiftc -sdk "$SDK" -swift-version 6 -O -module-name TimbrMuteKeeper \
+swiftc -target "$TARGET" -sdk "$SDK" -swift-version 6 -O -module-name TimbrMuteKeeper \
   -emit-executable -o "$BUILD/timbr-mute-keeper" \
   "$ROOT/Sources/TimbrMuteKeeper/main.swift" "$ROOT/Sources/TimbreCore/MuteKeeperProtocol.swift" \
   -framework CoreAudio -framework AudioToolbox
@@ -73,6 +75,8 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BUILD/Timbr" "$APP/Contents/MacOS/Timbr"
 cp "$BUILD/timbr-mute-keeper" "$APP/Contents/MacOS/timbr-mute-keeper"
 cp "$ROOT/Resources/Timbr.icns" "$APP/Contents/Resources/Timbr.icns"
+cp "$ROOT/Resources/TimbrMenuTemplate.png" "$APP/Contents/Resources/TimbrMenuTemplate.png"
+cp "$ROOT/Resources/Brand/timbr-icon-1024.png" "$APP/Contents/Resources/TimbrBrandIcon.png"
 
 cat > "$APP/Contents/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
@@ -90,7 +94,7 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
   <key>CFBundleInfoDictionaryVersion</key>
   <string>6.0</string>
   <key>CFBundleName</key>
-  <string>timbr.</string>
+  <string>timbr</string>
   <key>CFBundlePackageType</key>
   <string>APPL</string>
   <key>CFBundleShortVersionString</key>
@@ -98,13 +102,13 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
   <key>CFBundleVersion</key>
   <string>1</string>
   <key>LSMinimumSystemVersion</key>
-  <string>14.2</string>
+  <string>15.0</string>
   <key>LSUIElement</key>
   <true/>
   <key>NSAudioCaptureUsageDescription</key>
-  <string>timbr. needs audio capture access exclusively to apply local per-app volume and parametric EQ. No audio is ever recorded or transmitted.</string>
+  <string>timbr needs audio capture access exclusively to apply local per-app volume and parametric EQ. No audio is ever recorded or transmitted.</string>
   <key>NSBluetoothAlwaysUsageDescription</key>
-  <string>timbr. uses Bluetooth (RFCOMM) only to read battery, ANC and EQ telemetry from supported headphones such as Sennheiser Momentum 4.</string>
+  <string>timbr uses Bluetooth (RFCOMM) only to read battery, ANC and EQ telemetry from supported headphones such as Sennheiser Momentum 4.</string>
   <key>NSPrincipalClass</key>
   <string>NSApplication</string>
 </dict>

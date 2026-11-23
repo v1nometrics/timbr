@@ -1,6 +1,6 @@
 # Especificação funcional
 
-> Status: v1.2 · 2026-11-23 (§3 reescrita com o comportamento implementado; §4, §10 e §11 atualizadas) · Produto: **`timbr.`** ([ADR-0014](../07-decisoes/ADR-0014-nome-identidade-e-i18n.md)) · Localização v1: **`PT / ES / EN`**. Descreve **comportamento**. A aparência está no design system (`05-design-system/`). Os IDs RF-xxxx vêm do PRD.
+> Status: v1.2 · 2026-11-23 (§3 reescrita com o comportamento implementado; §4, §10 e §11 atualizadas) · Produto: **`timbr`** ([ADR-0014](../07-decisoes/ADR-0014-nome-identidade-e-i18n.md)) · Localização v1: **`PT / ES / EN`**. Descreve **comportamento**. A aparência está no design system (`05-design-system/`). Os IDs RF-xxxx vêm do PRD.
 
 ## 1. Modelo de domínio
 
@@ -53,13 +53,13 @@ Identidade: dispositivos por **UID** (nunca por `AudioObjectID`, que muda); apps
 
 Regras:
 - O notch **nunca rouba foco** do app do usuário (painel não ativante); aceita o primeiro clique sem "clique de foco". Teclado só é capturado no Expandido.
-- **Clique direito** no notch (fechado ou aberto): Abrir Estúdio, Ajustes…, Mostrar ícone na barra de menus, Sair do timbr.
+- **Clique direito** no notch (fechado ou aberto): Abrir Estúdio, Ajustes…, Mostrar ícone na barra de menus, Sair do timbr
 - **Barra de menus:** o estado persistente (compacto) nunca cobre menus de outros apps. Os estados abertos são transitórios, abertos por intenção, e cobrem a barra enquanto abertos. Se o ponteiro vai para a faixa da barra, o fechamento acontece em 30 pt.
 - **Ícone na barra de menus:** só existe quando o notch não é a entrada do app: sem tela com notch, notch desligado, modo "só barra de menus" ou opção ligada em Ajustes.
 - **Volume geral e mudo em 0%:** arrastar o controle Geral (ou descer por tecla) para `0%` (`< 0,5%`) zera o scalar e aciona o **mute de hardware** do CoreAudio (como o macOS faz), eliminando o piso residual de `-63,5 dB` dos alto-falantes internos. Aumentar um app, tirar um app do mudo ou subir o fader geral reativa o som com segurança (subindo para `25%` se estava em `0%`).
 - **Tela cheia:** com a preferência **Ocultar em tela cheia** (ligada por padrão), o indicador compacto e o sensor de hover ficam ocultos em vídeos e apps em tela cheia (Spaces nativos, YouTube HTML5 em Chrome/Safari, players sem borda) para zero distração e para nunca bloquear o botão de sair; o painel ainda acompanha espaços (`fullScreenAuxiliary`) apenas para ações explícitas (teclas de volume/brilho no HUD e atalho `⌥⌘V`).
 - Vários monitores: o notch vive na tela com notch; sem tela com notch, a forma vira uma pílula flutuante e o ícone da barra de menus aparece.
-- Dois apps de notch competindo: o timbr. detecta apps conhecidos e oferece o modo "só barra de menus".
+- Dois apps de notch competindo: o timbr detecta apps conhecidos e oferece o modo "só barra de menus".
 
 ## 4. Mixer (Expandido e Estúdio)
 

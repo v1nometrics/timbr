@@ -5,7 +5,7 @@
 
 ## Contexto
 
-A v1 do design system especificava Geist (herança do Órbita). O gerador de tokens emitia `Font.custom("Geist-Regular")`, mas **nenhum arquivo de fonte foi empacotado no app** (`Resources/` só tinha o `.icns`) e a Geist não está instalada no sistema. Resultado verificado em 2026-11-21: todo o app renderizava na fonte de fallback, e os valores de tracking e caixa alta dos tokens **nunca eram aplicados** (o campo existia, mas nenhum modificador o usava). O dono pediu estética Apple como direção de arte.
+A v1 do design system especificava `Geist`. O gerador de tokens emitia `Font.custom("Geist-Regular")`, mas **nenhum arquivo de fonte foi empacotado no app** (`Resources/` só tinha o `.icns`) e a `Geist` não vem instalada no macOS. Resultado verificado em 2026-11-21: todo o app caía na fonte de fallback e os valores de tracking e caixa alta dos tokens **não eram aplicados**. A direção visual do app nativo segue os princípios de tipografia nativa da Apple.
 
 ## Decisão
 
@@ -22,4 +22,4 @@ A v1 do design system especificava Geist (herança do Órbita). O gerador de tok
 
 ## Consequências
 
-O DNA do Órbita (eyebrows em mono maiúsculo com tracking, números grandes tabulares, hierarquia editorial) é preservado com as fontes do sistema. O app fica coerente com o macOS e com a Dynamic Island.
+O DNA editorial (eyebrows em mono maiúsculo com tracking, números grandes tabulares, hierarquia por tinta) é preservado com as fontes nativas do sistema, mantendo total coerência com o macOS e com a linguagem da Dynamic Island.

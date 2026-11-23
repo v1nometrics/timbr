@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MPL-2.0
-// Fail-closed mute (ADR-0017): an app the user silenced in timbr. stays silent even if timbr. dies.
+// Fail-closed mute (ADR-0017): an app the user silenced in timbr stays silent even if timbr dies.
 // Pure rules here (testable without Core Audio); the holder is timbr-mute-keeper (MuteKeeperProtocol).
 import Foundation
 

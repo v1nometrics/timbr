@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "timbr. Tab Audio Control",
+  "name": "timbr Tab Audio Control",
   "version": "1.0.0",
-  "description": "Per-tab gain & mute bridge for timbr. on macOS (local loopback IPC only, zero telemetry).",
+  "description": "Per-tab gain & mute bridge for timbr on macOS (local loopback IPC only, zero telemetry).",
   "permissions": [
     "activeTab",
     "storage",
@@ -13,7 +13,7 @@
   ],
   "action": {
     "default_popup": "popup.html",
-    "default_title": "timbr. Tab Audio"
+    "default_title": "timbr Tab Audio"
   },
   "background": {
     "scripts": [

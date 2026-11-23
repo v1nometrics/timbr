@@ -4,7 +4,7 @@ import Foundation
 
 // MARK: - Timbre harmonic mark math
 
-/// Drives `MiniMeter` in the notch compact ear using `timbr.`'s 5-bar symmetric harmonic silhouette.
+/// Drives `MiniMeter` in the notch compact ear using `timbr`'s 5-bar symmetric harmonic silhouette.
 /// When audio is active without DSP measurement (zero-tap native pass-through), it renders a calm,
 /// slow harmonic breathing (~2.6 s period) instead of faking level peaks; when DSP telemetry exists,
 /// measured loudness gently lifts the harmonic envelope within a restrained ceiling.

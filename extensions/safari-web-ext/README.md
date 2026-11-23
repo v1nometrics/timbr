@@ -1,4 +1,4 @@
-# timbr. Safari Web Extension
+# timbr Safari Web Extension
 
 Convert this WebExtension into a native Safari app extension wrapper when Xcode is installed:
 
@@ -6,4 +6,4 @@ Convert this WebExtension into a native Safari app extension wrapper when Xcode 
 xcrun safari-web-extension-converter extensions/safari-web-ext --app-name "timbr Safari Bridge"
 ```
 
-Pair it by copying the ephemeral Bearer token from **timbr. Studio -> Settings -> Extension IPC**.
+Pair it by copying the ephemeral Bearer token from **timbr Studio -> Settings -> Extension IPC**.

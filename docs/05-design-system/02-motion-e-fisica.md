@@ -1,10 +1,10 @@
 # 02 · Motion e física
 
-> Fonte: `design-system/tokens/motion.tokens.json` → `TimbreMotion`. Regras de `apple-design` (molas interrompíveis, velocidade preservada) e `emil-design-eng` (frequência decide se anima; ease-in proibido; < 300 ms em UI).
+> Fonte: `design-system/tokens/motion.tokens.json` → `TimbreMotion`. Princípios de motion nativo (molas interrompíveis, velocidade preservada) e engenharia de UI (frequência decide se anima; `ease-in` proibido; transições `< 300 ms`).
 
 ## 1. Decisão: deve animar?
 
-| Frequência | Exemplo no timbr. | Decisão |
+| Frequência | Exemplo no timbr | Decisão |
 |---|---|---|
 | Centenas por dia | Atalhos ⌥⌘V/⌥⌘B, troca de aba do Estúdio por ⌘1–5 | **Sem animação** (aba do Estúdio: 140 ms de opacidade, só para não piscar) |
 | Dezenas por dia | Hover no notch, arrastar fader, hover em linha | Resposta imediata; polegar cresce 10→13 pt em `snappy` |
@@ -55,15 +55,11 @@ Modelo estudado no código dos apps de referência (DynamicNotchKit e NotchDrop,
 
 Todo token de movimento é **calculado**: lê "Reduzir movimento" do macOS (`NSWorkspace.accessibilityDisplayShouldReduceMotion`) no instante em que a animação começa. Com a opção ligada, molas e curvas viram um **fade de 120 ms**, o escalonamento (`stagger`) some e o corpo do notch troca de estado só por opacidade, sem blur nem escala. **Exceção deliberada:** `dismissFollow` e `responsive` continuam, porque seguir o dedo ou o ponteiro é manipulação direta, não decoração. `Timbr --reduce-motion` força o modo para revisão; `Tests/TimbreTokensTests` confere token por token no CI.
 
-Regras antigas, que continuam valendo:
-
-Com "Reduzir movimento": o notch troca de estado com 120 ms de opacidade, sem mola e sem blur; números trocam sem transição; o resto mantém apenas mudanças de cor/opacidade.
-
 ## 6. Proibições
 
 - `ease-in` em qualquer UI. **O gerador de tokens recusa** qualquer curva com os dois pontos de controle no chão (`y1 = 0` e `y2 ≤ 0,2`).
 - Valores de animação escritos à mão nas views (`.easeOut(duration:)`, `.linear(duration:)`, `.interactiveSpring(...)`): use um token.
 - Animar a partir de `scale(0)`.
-- Visualizador "decorativo" que finge picos de áudio: o `MiniMeter` usa a silhueta simétrica de 5 barras do `timbr.` com respiração harmônica sutil (~2,6 s, amplitude ≤ 1,1 pt, opacidade contida em 0,70–0,86) quando ativo sem DSP, acoplamento suave ao nível real quando há medição, silhueta estática com "Reduzir movimento" e pausa total quando inativo ou oculto.
+- Visualizador "decorativo" que finge picos de áudio: o `MiniMeter` usa a silhueta simétrica de 5 barras do `timbr` com respiração harmônica sutil (~2,6 s, amplitude ≤ 1,1 pt, opacidade contida em 0,70–0,86) quando ativo sem DSP, acoplamento suave ao nível real quando há medição, silhueta estática com "Reduzir movimento" e pausa total quando inativo ou oculto.
 - Animação em ação de teclado.
 - Loops infinitos em repouso (o notch em repouso não desenha nada).

@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MPL-2.0
-// timbr-mute-keeper (ADR-0017): holds the mutes the user set in timbr., and keeps holding them if
-// timbr. crashes, is force-quit, SIGKILLed or updated. Nothing else: no UI, no DSP, no network.
+// timbr-mute-keeper (ADR-0017): holds the mutes the user set in timbr, and keeps holding them if
+// timbr crashes, is force-quit, SIGKILLed or updated. Nothing else: no UI, no DSP, no network.
 //
 // Each mute is a `.mutedWhenTapped` process tap read by an IOProc that writes silence — the same
-// mechanism timbr. has always used in-process, which is the only kind of tap that actually mutes
+// mechanism timbr has always used in-process, which is the only kind of tap that actually mutes
 // (an unread tap does not; measured 2026-11-23). It runs while `request.json` lists something and
 // exits on its own when the list is empty.
 //
-// Usage (spawned by timbr.): timbr-mute-keeper [--dir <state dir>]
+// Usage (spawned by timbr): timbr-mute-keeper [--dir <state dir>]
 import Foundation
 import CoreAudio
 import AudioToolbox

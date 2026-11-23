@@ -15,15 +15,15 @@
 | **ScrubValue** | campos numéricos | Valor mono em pastilha; arraste horizontal; frequência logarítmica | hover (cursor ↔), arrastando | FabFilter Pro-Q |
 | **MenuChip** | `Menu` com cara de sistema | Cápsula `bg.selected`, rótulo `caption`, ⌃⌄; menu nativo ao abrir | — | macOS |
 | **TField** | `.roundedBorder` | 30 pt, `bg.inset`, hairline; foco = borda em tinta 50% | — | shadcn `input` |
-| **Hairline** | `Divider` | 0,5 pt em `line.default` (ou `strong`) | — | ronda |
-| **Card / ListCard** | cartões empilhados | Raio 12, `bg.surface`, borda 1 pt; ListCard agrupa linhas com hairlines recuadas | — | ronda, Ajustes do macOS |
-| **SectionHeader** | títulos soltos | Índice `01` em `eyebrow` + `ink.faint`, título `sectionTitle`, subtítulo `small`, ação à direita | — | ronda ("01 Audiência…") |
-| **KPITile** | caixas de métrica | Eyebrow + marca de origem, valor `mediumValue`, unidade mono, nota | sem sinal: "—" | ronda (blocos de KPI) |
-| **Badge** | etiquetas | Cápsula, ponto 5 pt, texto `micro`; tons neutral, accent, positive, warning, negative, info | — | ronda |
+| **Hairline** | `Divider` | 0,5 pt em `line.default` (ou `strong`) | — | editorial |
+| **Card / ListCard** | cartões empilhados | Raio 12, `bg.surface`, borda 1 pt; ListCard agrupa linhas com hairlines recuadas | — | editorial, Ajustes do macOS |
+| **SectionHeader** | títulos soltos | Índice `01` em `eyebrow` + `ink.faint`, título `sectionTitle`, subtítulo `small`, ação à direita | — | editorial (seções numeradas `01`, `02`…) |
+| **KPITile** | caixas de métrica | Eyebrow + marca de origem, valor `mediumValue`, unidade mono, nota | sem sinal: "—" | editorial (blocos de KPI) |
+| **Badge** | etiquetas | Cápsula, ponto 5 pt, texto `micro`; tons neutral, accent, positive, warning, negative, info | — | editorial |
 | **OriginMark** | badges de texto "MEDIDO" | Ponto 7 pt: cheio = medido, anel = reportado, tracejado = inferido, verde = bit-perfect | — | próprio (P4) |
 | **AppIcon** | iniciais ou texto | Ícone real do app (`NSWorkspace`), cache; fallback: quadrado com inicial | — | macOS |
 | **DeviceGlyph** | ícones genéricos | SF Symbol do dispositivo (airpodspro, headphones, laptopcomputer…) em quadrado 30 pt | ativo/inativo | — |
-| **MiniMeter** | visualizador aleatório | Marca harmônica simétrica de 5 barras do `timbr.` (`1,5 pt`); respiração harmônica sutil (~2,6 s, ≤ 1,1 pt) sem medição e envelope suavizado pelo nível real quando há DSP | ativo, inativo (5 pontos em 2,5 pt), reduzir movimento (estático) | Ícone do `timbr.` (`Timbr.icns`) + acústica de harmônicos |
+| **MiniMeter** | visualizador aleatório | Marca harmônica simétrica de 5 barras do `timbr` (`1,5 pt`); respiração harmônica sutil (~2,6 s, ≤ 1,1 pt) sem medição e envelope suavizado pelo nível real quando há DSP | ativo, inativo (5 pontos em 2,5 pt), reduzir movimento (estático) | Visualizador de sinal + acústica de harmônicos; não é o símbolo da marca (ADR-0025) |
 | **LevelBar** | — | Barra 3 pt, segmento âmbar acima de −1 dBFS | — | medidores de pico |
 
 ## 2. Gráficos e visualização de áudio
@@ -75,7 +75,7 @@ Na web os mesmos papéis usam shadcn/ui: `slider` → TFader, `switch` → TSwit
 
 Inspiradas na biblioteca open-source [`audiocn/ui`](https://github.com/audiocn/ui) (`MIT`, `audiocn.dev`) e adaptadas nativamente em SwiftUI (`DSComponents.swift`) + `TimbreCore` (`AudioUIMath.swift`) sob a identidade acromática estrita do **ADR-0016**:
 
-| Componente SwiftUI (`DSComponents.swift`) | Equivalente `audiocn` | Matemática / Regra (`AudioUIMath.swift`) | Onde vive no `timbr.` |
+| Componente SwiftUI (`DSComponents.swift`) | Equivalente `audiocn` | Matemática / Regra (`AudioUIMath.swift`) | Onde vive no `timbr` |
 |---|---|---|---|
 | `TFader` (`liveMeterNorm`, `scaleMarks`) | `Fader` + `Parameter Slider` | Preenchimento de nível ao vivo translúcido dentro da trilha, pino de unidade (`100%` / `0 dB`), marcas de escala opcionais (`scaleMarks`), duplo clique para reset e modo fino (`⌥`/`⇧` a `0,2×`). | Mixer (`SourceRow`, `TabRow`, `OutputRow`), Equalizador (cartões de Gosto), `MenuBarPanel` |
 | `TKnob` | `Knob` (`KnobTrack`, `KnobRange`, `KnobCap`, `KnobPointer`, `KnobScale`) | Arco de 270° (`-135°…+135°`), origem bipolar em 12h (`0 dB`), ticks periféricos iluminados apenas na excursão ativa, arraste vertical/horizontal com modo fino (`⌥`/`⇧`) e duplo clique para `0 dB`. | Equalizador — seção `01 Seu gosto` (`Graves`, `Calor`, `Presença`, `Ar`) em par com `TFader` bipolar |

@@ -50,10 +50,10 @@
 
 | Referência | Fonte / Link | Papel no Timbre |
 |---|---|---|
-| **Órbita (SIP) & Ronda Diária** | Referências locais documentadas em [09 · DNA Visual](../00-pesquisa/notas-fase-2/09_dna_visual_orbita_e_ronda.md) | Neutros OKLCH croma 0, acento único `#7747FF`/`#A78BFF`, regra OKLab, grade 7/5, 3 vozes Geist |
-| **Apple Design & Emil Kowalski** | Skills locais `$apple-design` e `$emil-design-eng` | Springs `bounce: 0`, *velocity handoff*, `0 ms` teclado, `scale(0.97)`, nunca `scale(0)` |
+| **Sistema Editorial Acromático** | Princípios documentados em [09 · DNA Visual Editorial](../00-pesquisa/notas-fase-2/09_dna_visual_editorial.md) | Neutros puros em papel quente/carbono, regra OKLab, seções numeradas, números tabulares; acento de marca removido em ADR-0016 e tipografia nativa SF/New York em ADR-0015 |
+| **Apple HIG & Emil Kowalski** | Apple Human Interface Guidelines (Fluid Interfaces) · *Design Engineering* | Molas interrompíveis, *velocity handoff*, `0 ms` teclado, `scale(0.97)`, sem `ease-in`, nunca `scale(0)` |
 | **FabFilter Pro-Q 4** | [Pro-Q 4 Release](https://www.fabfilter.com/news/1733994000/fabfilter-releases-pro-q-4-equalizer-plug-in) · [Sound On Sound](https://www.soundonsound.com/reviews/fabfilter-pro-q-4?amp) | Ergonomia do editor PEQ no Estúdio (escalas dB, spectrum grab, curvas) |
-| **Libraries.dev / Bencho / Spell UI / shadcn** | [libraries.dev/waves](https://libraries.dev/waves) · [bencho.dev](https://bencho.dev/) · [spell.sh](https://spell.sh/docs/components) · [ui.shadcn.com](https://ui.shadcn.com/charts) | Pacotes MIT Swift (`VoiceGlowKit`, `BorderBeamKit`) e stack Web/Playground (`tokens.css`) |
+| **audiocn/ui / shadcn / Bencho / Spell UI / Libraries.dev** | [audiocn/ui](https://github.com/audiocn/ui) · [ui.shadcn.com](https://ui.shadcn.com/charts) · [bencho.dev](https://bencho.dev/) · [spell.sh](https://spell.sh/docs/components) · [libraries.dev/waves](https://libraries.dev/waves) | Primitivas MIT de áudio (`AudioUIMath`, `TLevelMeter`, `TLCDDisplay`, `TKnob`) e stack Web/Playground (`tokens.css`) |
 
 ---
 
@@ -77,7 +77,7 @@ A matriz completa de 62+ repositórios com **URL, SHA exato, licença verificada
   - [12 · Linha Apple Audio Accessory (AirPods → Max) no macOS](../00-pesquisa/notas-fase-2/12_airpods_linha_apple.md)
   - [Laboratório AirPods](../03-viabilidade/airpods-laboratorio.md)
   - [08 · Referências UI e Componentes](../00-pesquisa/notas-fase-2/08_referencias_ui_componentes.md)
-  - [09 · DNA Visual Órbita e Ronda](../00-pesquisa/notas-fase-2/09_dna_visual_orbita_e_ronda.md)
+  - [09 · DNA Visual Editorial](../00-pesquisa/notas-fase-2/09_dna_visual_editorial.md)
   - [10 · Engenharia de Áudio, Precisão DSP, Segurança Auditiva e Testes](../00-pesquisa/notas-fase-2/10_engenharia_de_audio_qualidade_e_testes.md)
   - [11 · Auditoria de Repositórios OSS](../00-pesquisa/notas-fase-2/11_auditoria_repositorios_oss.md) (`11a`, `11b`, `11c`)
 
@@ -85,8 +85,14 @@ A matriz completa de 62+ repositórios com **URL, SHA exato, licença verificada
 
 ## 7. Referências Adicionais de Protocolo, Metrologia & Identidade (Fase 2)
 
-| Domínio | Referência | Uso no `timbr.` |
+| Domínio | Referência | Uso no `timbr` |
 |---|---|---|
 | **Momentum 4 (GAIA v3)** | `timmo001/omarchy-momentumctl` (Apache-2.0) · `f3y0/momentum4-control` (MIT) · `Picazsoo/android-momentum-4-widget` (MIT) · `gjabell/momentumctl` (MIT) · `DanSmith888/omarchy-momentum4` (MIT) · `xndbogdan/sennheiser-control` · `dvf` Gist #4841058 | Mapa de opcodes `0x0495`, firmware gates Gen1/Gen2, denylist `0x0607`, vetores binários de teste e confirmação da obsolescência de `bluetoothaudiod` defaults |
 | **Áudio RT & Metrologia** | Ross Bencina (*RT Audio 101*) · Timur Doumler · Apple *Audio Workgroups* & *Audio System Trace* · Vicanek (2016/2024) · Orfanidis (1997) · Cytomic SVF · Gardner (1995) · Wannamaker et al. (2000) · Farina (2000 ESS) · ITU-R BS.1770-5 · EBU Tech 3341 · Lund/AES (*0 dBFS+*) · WHO-ITU H.870 · ITU-R BS.1116/1534 · InfiniteWave | Critérios numéricos dos RNFs, RTSan CI gate, null test, THD+N `< -130 dB`, `4× dBTP`, ABX `p < 0,05` |
-| **Identidade do Autor** | `v1torres.dev` (`v1dev app/frontend/DESIGN_SYSTEM.md` v3.0) + Wordmark `timbr.` | Alinhamento filosófico lowercase, neutros puros OKLCH e tipografia Geist ([ADR-0014](../07-decisoes/ADR-0014-nome-identidade-e-i18n.md)) |
+| **Identidade do Projeto** | `v1torres.dev` + Wordmark `timbr` + *Ilha refinada* | Alinhamento minimalista lowercase, paleta acromática ([ADR-0014](../07-decisoes/ADR-0014-nome-identidade-e-i18n.md), [ADR-0016](../07-decisoes/ADR-0016-identidade-acromatica.md), [ADR-0025](../07-decisoes/ADR-0025-ilha-refinada-e-marca-sem-ponto.md)) |
+
+## Retomada de resiliência · 2026-11-23
+
+- [Snapshot de issues e limites da coleta](../00-pesquisa/resiliencia-2026-11-23/README.md): 7.682 registros de 19 repositórios, com corpos e paginação completa, sem comentários/PRs.
+- [Cobertura da bibliografia anterior](../00-pesquisa/resiliencia-2026-11-23/cobertura-bibliografia.md): 69 referências de repositórios; pendências explícitas.
+- [Auditoria e gates de resiliência](../08-registro/auditoria-resiliencia-2026-11-23.md): fontes comerciais, falhas examinadas, lacunas no código e critérios de aceite.

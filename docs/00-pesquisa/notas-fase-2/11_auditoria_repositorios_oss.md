@@ -151,7 +151,7 @@
 ### Adendo 2026-11-23 — Auditoria e Adoção de `audiocn/ui` (`audiocn.dev`)
 
 - **Repositório:** `https://github.com/audiocn/ui` (`https://www.audiocn.dev/docs/components`), criado por `fortysevenfx` e `orcdev`.
-- **Licença verificada:** **MIT** (`package.json` → `"license": "MIT"`), 100% compatível com o núcleo **MPL-2.0** do `timbr.` e com a política zero-GPL/AGPL.
+- **Licença verificada:** **MIT** (`package.json` → `"license": "MIT"`), 100% compatível com o núcleo **MPL-2.0** do `timbr` e com a política zero-GPL/AGPL.
 - **O que foi modelado e integrado nativamente em Swift 6 / SwiftUI:**
   1. `Sources/TimbreCore/AudioUIMath.swift`: matemática de decibéis com *audio taper* (`1,65`), zonas semânticas (`safe`, `warning` ≥ -6 dB, `clip` ≥ -1 dB), balística IEC/audiocn (`AudioMeterBallistics` com ataque rápido, queda de 20 dB/s, retenção de pico de 1,2 s e *latch* de clip em ≥ 0,0 dBFS), quantização inteira de segmentos LCD (`LCDSegmentLayout`) e geometria de arco rotativo bipolar de 270° (`KnobArcGeometry`).
   2. `Sources/TimbreApp/DSComponents.swift`: `TKnob`, `TChannelButton`, `TClipIndicator`, `TdBReadout`, `TdBScale`, `TLevelMeter`, `TLCDDisplay`, `TLCDMeterRow` e `TFader` com medidor embutido e marcas de escala, aplicados em `StudioWindow.swift`, `MenuBarPanel.swift` e no Playground web (`design-system/playground/`).

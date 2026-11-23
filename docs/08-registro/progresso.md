@@ -6,29 +6,34 @@
 
 ## Estado Atual
 
-- **Atualizado em:** 2026-11-23. **Fase:** MVP (Fase 1) em uso diário pelo autor; Gate G2 (14 dias como único mixer e EQ) ainda não contado. Todo o trabalho está no `main` (PR #1 mesclado em 2026-11-22, commit `5c33e74`).
+- **Atualizado em:** 2026-11-23. **Fase:** MVP (Fase 1) em uso diário (dogfood); Gate G2 (14 dias consecutivos como único mixer e EQ) em andamento. Histórico consolidado em `main` até PR #23 (`2cf4c92`), mais a rodada atual de marca definitiva ([ADR-0025](../07-decisoes/ADR-0025-ilha-refinada-e-marca-sem-ponto.md)), alvo de build macOS 15.0, auditoria de resiliência e higiene de lançamento público.
 - **Funciona e foi verificado:**
-  - volume e mudo por app (autoteste E2E com ganho exato);
-  - mudo à prova de falha: app mudo continua mudo se o timbr. morrer (`timbr-mute-keeper`, ADR-0017; teste de ouvido + `selftest_mute_persistence.sh`);
-  - fontes simultâneas com atribuição correta e serviços do macOS nomeados;
-  - EQ `Float64` com limiter true-peak; gosto em 4, 5 ou 10 bandas e PEQ livre com reset (ADR-0019);
-  - notch nos cinco estados, com volume geral, menu de contexto e teclas de volume e brilho; sons curtos do sistema não o acordam e ele recolhe sem esperar o macOS quando há tap (ADR-0020, 0021);
-  - Observatório com linha do tempo paginada, busca e exportação (ADR-0018) e seção de tempo de escuta (ADR-0023);
-  - feedback por e-mail, local e visível (ADR-0024); ícone novo (ADR-0022);
-  - Estúdio; ícone de barra de menus condicional; identidade acromática.
-  
+  - volume e mudo por app (autoteste E2E com ganho exato: −6,02 / −12,04 / +6,02 / +3,52 dB e mudo em silêncio);
+  - mudo à prova de falha: app mudo (ou em 0 %) continua mudo mesmo se o `timbr` encerrar ou sofrer `kill -9` (`timbr-mute-keeper`, ADR-0017; teste auditivo + `selftest_mute_persistence.sh`);
+  - fontes simultâneas com atribuição de processos e serviços do macOS nomeados;
+  - EQ `Float64` com limiter true-peak; modo simples em 4, 5 ou 10 bandas + PEQ livre sincronizado com a curva e "Resetar filtros" com desfazer (ADR-0019), mais ajuda contextual (`InfoHintButton`);
+  - primitivas de áudio baseadas em `audiocn/ui` (`TLevelMeter`, `TLCDDisplay`, `TKnob`, `TChannelButton`, `TClipIndicator`) no Estúdio, painel de menu e Playground;
+  - notch nos cinco estados, com volume geral, menu de contexto, teclas de volume e brilho, continuidade entre Spaces (`NotchSpaceOverlay`), ocultação inteligente em tela cheia (`FullscreenEvaluator`), ícones lado a lado sem sobreposição (`CompactIconLayoutEvaluator`), sem queixo indevido em apps como Chrome (`CompactPlacement.hiddenInNotch`), sem acordar com sons curtos do sistema e percebendo pausas sem esperar o macOS quando há tap (ADR-0020, ADR-0021);
+  - Observatório com linha do tempo paginada, busca FTS5 trigram e exportação CSV/JSON (ADR-0018) e seção de tempo de escuta 60/60 sem decibéis simulados (ADR-0023);
+  - feedback por e-mail local e transparente (ADR-0024); marca definitiva `timbr` sem ponto e ícone *Ilha refinada* (ADR-0025);
+  - auditoria de movimento concluída (`exit` sem `ease-in`, tokens `TimbreMotion` verificados em `TimbreTokensTests` para *Reduzir movimento*);
+  - binários (`Timbr` e `timbr-mute-keeper`) e `Info.plist` alinhados em `macosx15.0` e conferidos no CI (`check_deployment_target.py`);
+  - Estúdio, ícone de barra de menus condicional e identidade acromática (ADR-0016).
+
   Estado por item em [roadmap · Situação](../06-plano/roadmap-e-backlog.md).
-- **CI:** `./scripts/ci_check.sh` verde localmente (Swift 6.3) e no GitHub (`macos-15`, Swift 6.1). E2E de áudio: `./scripts/selftest_audio.sh`.
+- **CI:** `./scripts/ci_check.sh` verde localmente (Swift 6.3) e no GitHub (`macos-15`, Swift 6.1). E2E de áudio: `./scripts/selftest_audio.sh`; mudo persistente: `./scripts/selftest_mute_persistence.sh`.
 - **Desenvolvimento:** builds locais assinados com identidade estável (`./scripts/setup_dev_signing.sh`), para a permissão de Acessibilidade sobreviver aos builds.
 - **Pendências honestas:**
-  - RF-0201 (rotear app para outra saída), a maior lacuna do mixer;
-  - Sparkle e notarização, que exigem conta Apple Developer;
-  - now playing, letras, reconhecimento e cenas;
+  - fechamento das lacunas críticas da [auditoria de resiliência](auditoria-resiliencia-2026-11-23.md) (RES-02 recuperação após reset do `coreaudiod`, RES-03 sleep/wake, RES-04 readback do keeper);
+  - RF-0201 (rotear cada app para uma saída diferente), maior lacuna funcional do mixer;
+  - Sparkle 2 e notarização (exigem conta Apple Developer);
+  - now playing, letras, reconhecimento acústico e cenas;
   - bancada E-08/E-09/E-10 com Momentum 4 e AirPods;
-  - consumo em repouso e latência por tap (não medidos);
+  - validação em hardware/VM com macOS 15 real (binário fixado em `15.0`, execução ainda não ensaiada nesse OS);
+  - consumo em repouso e latência por tap (não medidos em loopback);
   - MacBook Pro OLED com Dynamic Island (desconhecido);
-  - helper XPC (E-16).
-- **Próximo passo sugerido:** RF-0201 (rotear app para outra saída), depois a sessão de bancada com os fones (E-08, E-09).
+  - helper XPC do motor completo (E-16).
+- **Próximo passo sugerido:** fechar recuperação de `coreaudiod`/sleep-wake/readback do keeper (RES-02/03/04), seguido de RF-0201 e bancada com fones (E-08, E-09).
 
 ---
 
@@ -37,8 +42,8 @@
 ### 2026-11-23 · Auditoria de animações de ponta a ponta
 
 - **Pedido:** revisar e refinar todas as animações do app.
-- **Método e resultado:** [registro da auditoria](auditoria-animacoes-2026-11-23.md). Seis achados: o token `exit` era um ease-in (agora o gerador recusa qualquer um); "Reduzir movimento" só era respeitado em poucos lugares (agora todos os tokens o respeitam, com teste no CI); doze valores soltos viraram tokens; o vigia de pausa que eu tinha feito era o item mais caro do app (5,0% da thread principal, agora 1,3%); a faixa de aviso e as linhas do mixer ganharam transição.
-- **O que a auditoria desmentiu:** a suspeita de que a telemetria de 30 Hz pesava na interface (o perfil não mostrou custo, então não mexi).
+- **Método e resultado:** [registro da auditoria](auditoria-animacoes-2026-11-23.md). Seis achados: o token `exit` era um ease-in (agora o gerador recusa qualquer um); "Reduzir movimento" só era respeitado em poucos lugares (agora todos os tokens o respeitam, com teste no CI); doze valores soltos viraram tokens; o vigia de pausa era o item mais caro na thread principal (5,0%, reduzido para 1,3%); a faixa de aviso e as linhas do mixer ganharam transição.
+- **O que a auditoria desmentiu:** a hipótese de que a telemetria de 30 Hz pesava na interface (o perfil não mostrou custo mensurável, mantendo-se sem alteração).
 - **Verificado:** `./scripts/ci_check.sh` verde (inclui o novo `TimbreTokensTests`), perfil antes e depois, reação do notch ao parar o som sem regressão.
 - **Limite:** o efeito visual de "Reduzir movimento" não foi medido por captura; vale ver ao vivo com `--reduce-motion`.
 
@@ -50,7 +55,7 @@
 
 ### 2026-11-23 · Feedback por e-mail e documentação em dia
 
-- **Pedido:** uma seção de feedback e sugestões perto da doação, direcionada ao e-mail do dono, de forma eficiente e "inteligente"; e deixar tudo publicado e a documentação atualizada.
+- **Escopo:** seção de feedback e sugestões próxima à área de apoio, direcionada ao e-mail oficial do projeto (`vinicius@v1torres.dev`) de forma local e transparente, com documentação sincronizada.
 - **Feito ([ADR-0024](../07-decisoes/ADR-0024-feedback-por-email-local.md)):** em Sobre, abaixo de código-fonte e doação, e no menu do notch. O app **não envia nada**: abre o e-mail da pessoa com a mensagem pronta para `vinicius@v1torres.dev`, mostra exatamente o que vai, e só leva cinco fatos genéricos que a pessoa liga ou desliga (versão do app, do macOS, tipo de saída, modo do EQ, idioma). Nunca nome de fone, áudio ou histórico. Rascunho guardado localmente. Caminho público: issue no GitHub.
 - **Por que não coleta automática:** quebraria "100% local, sem telemetria", que é parte do produto.
 - **Documentação:** README (tabela de estado, feedback, intervalo de ADRs), PRD (RF-0312, RF-0709, RF-1308, RF-1408, RF-1409; RF-0706 implementado), especificação funcional (§6.3), roadmap, glossário, CONTRIBUTING e AGENTS.
@@ -59,7 +64,7 @@
 
 ### 2026-11-23 · Pendências aplicadas: audição, pausa instantânea e histórico limpo
 
-- **Contexto:** o dono pediu para aplicar tudo o que eu tinha deixado em aberto ou sugerido. Mesclados: #16 (linha do tempo), #17 (equalizador 4/5/10 + PEQ livre), #18 (sons do sistema), #19 (notch percebe a pausa).
+- **Contexto:** consolidação das melhorias pendentes após o merge dos PRs #16 (linha do tempo), #17 (equalizador 4/5/10 + PEQ livre), #18 (sons do sistema) e #19 (detecção rápida de pausa no notch).
 - **Nomes das bandas** (ADR-0019): português primeiro com o termo do meio audiófilo entre parênteses, e dica ao passar o mouse.
 - **Tempo de escuta e volume alto** ([ADR-0023](../07-decisoes/ADR-0023-tempo-de-escuta-e-volume-alto.md)): seção "Audição" no Observatório e aviso discreto no notch, regra 60/60, sem decibéis e sem tap.
 - **Chave "Perceber pausas na hora"** (ADR-0021): opt-in; pausa recolhe o compacto em 1,63 s no caminho antes nativo.
@@ -70,8 +75,8 @@
 ### 2026-11-23 · Ícone novo: o notch e o som (ADR-0022)
 
 - **Pedido:** um logo mais original que o das barras de onda com ponto.
-- **Feito:** duas rodadas de propostas; o dono rejeitou a primeira e pediu partir do que é só do timbr.; apliquei a recomendação da segunda (notch + som, papel quente) com autorização geral. Gerado por `scripts/generate_icns.py`, com variante forte para ≤ 64 px.
-- **Limite:** o dono não escolheu entre as opções; trocar é editar o script. O wordmark `timbr.` não mudou.
+- **Feito:** duas rodadas de exploração visual; a primeira foi descartada por ser genérica e a segunda explorou o conceito *notch + som* sobre papel quente (`scripts/generate_icns.py`, com variante óptica para ≤ 64 px).
+- **Nota:** posteriormente substituído pela marca definitiva em [ADR-0025](../07-decisoes/ADR-0025-ilha-refinada-e-marca-sem-ponto.md).
 
 ### 2026-11-23 · Equalizador de 4, 5 ou 10 bandas; PEQ livre acompanha a curva e ganha Resetar
 
@@ -87,7 +92,7 @@
 - **Estado anterior (Comprovado):** o SQLite já guardava tudo, mas a tela mostrava 20 eventos, a memória 120, o diagnóstico exportava os mesmos 120, e não havia índice por data nem busca.
 - **Feito ([ADR-0018](../07-decisoes/ADR-0018-linha-do-tempo-busca-e-exportacao.md)):** leitor próprio com conexão somente leitura; paginação por cursor `(timestamp, rowid)` (100 por vez, ao rolar); busca FTS5 trigram por trecho (3+ letras); filtro por categoria; exportação CSV/JSON em fluxo de tudo que casa com o filtro; gravação de eventos fora da thread principal. Flag de revisão `--timeline-preview [--timeline-search] [--timeline-category]`.
 - **Medido (500 mil eventos):** primeira página e página 2000 em ~0,1 ms; busca em 7–43 ms; exportar tudo em 4,6 s, em segundo plano. Detalhes na ADR.
-- **Verificado:** testes de unidade (paginação, busca, exportação, leitura concorrente), capturas reais com o histórico do dono, `./scripts/ci_check.sh` verde.
+- **Verificado:** testes de unidade (paginação, busca, exportação, leitura concorrente), capturas reais com histórico populado, `./scripts/ci_check.sh` verde.
 - **Limites:** sem poda automática do histórico; busca não ignora acentos nem aceita 1–2 letras; a caixa de salvar da exportação não foi acionada por automação.
 ### 2026-11-23 · O notch não reage mais ao clique de ação inválida e outros sons do sistema
 
@@ -96,14 +101,14 @@
 - **Correção ([ADR-0020](../07-decisoes/ADR-0020-sons-do-sistema-nao-acordam-o-notch.md)):** Sons do sistema e Outro áudio do macOS nunca contam como "tocando" para o notch (compacto, espiada, console). Seguem no Mixer, com volume ajustável.
 - **Verificado:** medição no notch real (quadros da janela do notch): antes, 3 bipes animavam; depois, 24 quadros idênticos; um app de verdade ainda anima. Testes de unidade e `./scripts/ci_check.sh` verdes.
 
-### 2026-11-23 · Mudo à prova de falha (o app silenciado não volta a tocar se o timbr. fechar)
+### 2026-11-23 · Mudo à prova de falha (o app silenciado não volta a tocar se o timbr fechar)
 
-- **Relato:** quando o timbr. fechava por algum motivo, os apps silenciados nele voltavam a tocar (ex.: Spotify mudo no meio de uma aula). "Isso em hipótese alguma pode acontecer."
-- **Causa (Comprovado):** o mudo era um tap privado lido dentro do processo do timbr.; o Core Audio destrói esses taps com o processo. Não havia relatório de crash do timbr. no sistema: as saídas vinham de reinstalação/`pkill`/encerramento, e a correção cobre qualquer tipo de morte.
+- **Relato:** quando o timbr fechava por algum motivo, os apps silenciados nele voltavam a tocar (ex.: Spotify mudo no meio de uma aula). "Isso em hipótese alguma pode acontecer."
+- **Causa (Comprovado):** o mudo era um tap privado lido dentro do processo do timbr; o Core Audio destrói esses taps com o processo. Não havia relatório de crash do timbr no sistema: as saídas vinham de reinstalação/`pkill`/encerramento, e a correção cobre qualquer tipo de morte.
 - **Tentativa descartada:** tap público `.muted` sem leitor. Sobrevive ao criador (comprovado), mas **não silencia** (teste de ouvido, refutado).
-- **Correção ([ADR-0017](../07-decisoes/ADR-0017-mudo-a-prova-de-falha.md)):** `timbr-mute-keeper`, um processo mínimo separado que segura os mudos (e faders em 0 %), sobrevive a crash/SIGKILL/atualização do timbr., segue o app quando ele reabre (`bundleIDs` + `processRestoreEnabled`) e sai sozinho quando nada está mudo. O timbr. só solta o próprio mudo depois que o keeper confirma. Ao reabrir, adota os mudos vivos e avisa. Sair pelo menu pergunta se mantém o silêncio. `Timbr --release-all-mutes` é a saída de emergência.
-- **Verificado:** `selftest_mute_persistence.sh` 5/5; `listen_mute_crash.sh` com o dono do produto (silêncio com o timbr. vivo e depois do `kill -9`); `selftest_audio.sh` sem regressão no ganho; `./scripts/ci_check.sh` verde; app instalado em `/Applications/Timbr.app`.
-- **Limites:** `kill -9` no próprio keeper solta o mudo (o timbr., se aberto, refaz em ≤ 2 s); logout/reinício encerram tudo.
+- **Correção ([ADR-0017](../07-decisoes/ADR-0017-mudo-a-prova-de-falha.md)):** `timbr-mute-keeper`, um processo mínimo separado que segura os mudos (e faders em 0 %), sobrevive a crash/SIGKILL/atualização do timbr, segue o app quando ele reabre (`bundleIDs` + `processRestoreEnabled`) e sai sozinho quando nada está mudo. O timbr só solta o próprio mudo depois que o keeper confirma. Ao reabrir, adota os mudos vivos e avisa. Sair pelo menu pergunta se mantém o silêncio. `Timbr --release-all-mutes` é a saída de emergência.
+- **Verificado:** `selftest_mute_persistence.sh` 5/5; `listen_mute_crash.sh` em escuta real (silêncio com o `timbr` ativo e após `kill -9`); `selftest_audio.sh` sem regressão no ganho; `./scripts/ci_check.sh` verde; app instalado em `/Applications/Timbr.app`.
+- **Limites:** `kill -9` no próprio keeper solta o mudo (o timbr, se aberto, refaz em ≤ 2 s); logout/reinício encerram tudo.
 ### 2026-11-23 · Introdução: rodapé cortado no passo de permissões
 
 - **Relato:** no passo "Permissões no momento certo", os botões Voltar / Continuar apareciam cortados na base da janela.
@@ -127,11 +132,11 @@
 
 - **Relato:** com o notch e o menu do Mac mostrando volume 0, ainda dava para ouvir a música baixinho.
 - **Causa (Comprovado):** nos alto-falantes internos, `scalar = 0` equivale a −63,5 dB, não a silêncio, e o macOS não liga o mudo sozinho nesse ponto.
-- **Correção:** PRs #7 e #9, mesclados por outra sessão. O app liga o mudo antes de zerar o volume, se corrige sozinho quando encontra "0 % sem mudo" e zera o ganho digital dos taps.
-- **Verificado nesta sessão:**
-  - Estado forçado `scalar 0 / mute 0`: sem o timbr., fica assim; com o timbr., vira `mute 1` imediatamente.
+- **Correção:** PRs #7 e #9. O app liga o mudo antes de zerar o volume, se corrige automaticamente quando encontra "0 % sem mudo" e zera o ganho digital dos taps.
+- **Verificado:**
+  - Estado forçado `scalar 0 / mute 0`: sem o timbr, fica assim; com o timbr, vira `mute 1` imediatamente.
   - CI local verde e CI do GitHub verde no `main` (`13911bf`).
-  - Volume do dono restaurado a 53 % após o teste.
+  - Volume do sistema restaurado ao nível original após o teste.
 
 ### 2026-11-23 · Dois ou mais apps tocando: compacto e espiada no notch
 
@@ -174,10 +179,10 @@
 
 ### 2026-11-23 · Ícone da barra de menus só quando necessário
 
-- **Pedido:** não faz sentido ter o timbr. na barra de menus se ele já está no notch.
+- **Pedido:** não faz sentido ter o timbr na barra de menus se ele já está no notch.
 - **Feito:**
   - O ícone fica oculto por padrão enquanto o notch é a entrada. Ele aparece sozinho sem tela com notch, com o notch desligado ou no modo "só barra de menus". Há a opção "Ícone na barra de menus" em Ajustes.
-  - Clique direito no notch (fechado ou aberto): Abrir Estúdio, Ajustes…, Mostrar ícone na barra de menus, Sair do timbr.
+  - Clique direito no notch (fechado ou aberto): Abrir Estúdio, Ajustes…, Mostrar ícone na barra de menus, Sair do timbr
   - Reabrir o app (Finder, Spotlight, Dock) abre o Estúdio. ⌘, abre os Ajustes do Estúdio.
 - **Defeitos encontrados e corrigidos no caminho (Comprovado):**
   - `MenuBarExtra(isInserted:)` controlado pelo estado do app deixava o SwiftUI reconstruindo o menu principal em laço: 100% de CPU, e o app de teste nunca fechava (o CI travou). Trocado por `NSStatusItem` + `NSPopover` no AppKit (`MenuBarIconController`).
@@ -195,7 +200,7 @@
   - `SilentOutputApps`: superwhisper e outros apps de ditado não contam mais como "tocando".
   - O tap global só existe com áudio ativo (10 s de folga), o que reduz o "Meeting detected" falso do superwhisper e o ponto roxo em repouso.
 - **Medido:**
-  - Taps ⇒ `IsRunningInput = 1` no processo do timbr., sem usar o microfone. O superwhisper vê isso como reunião sempre que há um navegador aberto; reproduzido duas vezes.
+  - Taps ⇒ `IsRunningInput = 1` no processo do timbr, sem usar o microfone. O superwhisper vê isso como reunião sempre que há um navegador aberto; reproduzido duas vezes.
   - Chrome + Spotify simultâneos aparecem corretamente na espiada.
 
 ### 2026-11-22 · Teclas de volume e brilho no notch
@@ -209,7 +214,7 @@
   - HUD do notch com ícone de sol; ⌥⇧ dá um quarto de passo; o key-up também é consumido.
   - O interceptador liga sozinho quando a permissão é concedida com o app aberto. Se a permissão sumir, o app registra o evento e pede de novo.
 - **Verificado:** requisito estável conferido com `codesign -d -r-`; leitura e escrita de brilho testadas (0,5625 → 0,5625); evento "permission no longer applies" registrado e prompt exibido; CI passando.
-- **Pendente do dono:** reativar o timbr. em Ajustes › Privacidade e Segurança › Acessibilidade, uma vez. A permissão antiga foi removida com `tccutil reset`.
+- **Ação local:** após migrar de assinatura ad-hoc para identidade estável, é necessário reativar o `timbr` uma única vez em Ajustes › Privacidade e Segurança › Acessibilidade.
 
 ### 2026-11-22 · Fontes do macOS com nome e ícone
 
@@ -253,7 +258,7 @@
 
 ### 2026-11-22 · Identidade acromática (ADR-0016)
 
-- **Pedido do dono:** tirar a obrigação com o roxo; o Órbita continua como referência, sem o violeta dele.
+- **Motivação:** remover qualquer cor de marca decorativa (violeta), preservando apenas a estrutura editorial neutra e cores estritamente semânticas.
 - **Feito:**
   - Os tokens `accent.*` (claro, escuro, notch) passaram a apontar para a tinta da superfície, e a primitiva `brandViolet` foi removida.
   - O ponto do ícone do app ficou branco.
@@ -341,7 +346,7 @@
 8. **Bíblia do design system v2.0** reescrita (`docs/05-design-system/`).
 9. **Em aberto (sem maquiagem):** roteamento por app (P0), Sparkle (P0), now playing, cenas, bancada física M4/AirPods.
 
-### 2026-11-21 · Encerramento da Fase 0 de Planejamento, Pesquisa & Auditoria E2E (`timbr.`)
+### 2026-11-21 · Encerramento da Fase 0 de Planejamento, Pesquisa & Auditoria E2E (`timbr`)
 
 1. **Pesquisa Técnica & Benchmarking (Fase 1 e Fase 2):**
    - SDK macOS 15–27, Audio Process Taps, Core Audio HAL, DSP `Float64`, dispositivos de entrada/saída, Now Playing/MediaRemote, personalização/IA e panorama competitivo (`docs/00-pesquisa/relatorio-fase-1-notch-audiofilo.md` e `notas-fase-1/01..06`).
@@ -355,9 +360,9 @@
    - Matriz de viabilidade, matriz de dispositivos e laboratório seguro do Momentum 4 + AirPods Pro (`docs/03-viabilidade/matriz-de-viabilidade.md`, `matriz-de-dispositivos.md`, [`momentum4-laboratorio.md`](../03-viabilidade/momentum4-laboratorio.md)).
    - Arquitetura completa (`docs/04-engenharia/`): processos, motor DSP `Float64`, roteamento/abas, Observatório & Guardião, inteligência/personalização (`PairwiseGP`), segurança/privacidade/distribuição e **Requisitos Não Funcionais + Matriz 100% Local vs Rede/Nuvem** ([`requisitos-nao-funcionais.md`](../04-engenharia/requisitos-nao-funcionais.md)).
 
-3. **Design System & Identidade Oficial (`timbr.`):**
+3. **Design System & Identidade Oficial (`timbr`):**
    - Bíblia do Design System completa (`docs/05-design-system/00..05`), tokens fonte única (`design-system/tokens/*.tokens.json`) e gerador `generate_tokens.py` validado.
-   - **[ADR-0014](../07-decisoes/ADR-0014-nome-identidade-e-i18n.md) (Aceito):** definição do nome oficial **`timbr.`** (*Sound, precisely yours.* / *Som, precisamente seu.* / *Sonido, precisamente tuyo.*), alinhamento filosófico/tipográfico avaliado contra **`v1torres.dev`** (`v1dev app`), glifo geométrico `.icns` (`curva + .`) e suporte **trilíngue obrigatório (`PT / ES / EN`)** via `Localizable.xcstrings` desde a v1.
+   - **[ADR-0014](../07-decisoes/ADR-0014-nome-identidade-e-i18n.md) (Aceito):** definição do nome oficial **`timbr`** (*Sound, precisely yours.* / *Som, precisamente seu.* / *Sonido, precisamente tuyo.*), alinhamento filosófico/tipográfico avaliado contra **`v1torres.dev`**, glifo geométrico inicial `.icns` (substituído posteriormente por ADR-0025) e suporte **trilíngue obrigatório (`PT / ES / EN`)** via `Localizable.xcstrings` desde a v1.
 
 4. **Plano de Experimentos, Testes & Revisão Adversarial Obrigatória:**
    - Plano de 17 experimentos (`E-01`–`E-17`), roadmap em 4 fases com gates (`G0`–`G3`), pirâmide de testes metrológicos (`estrategia-de-testes.md`) e critérios de aceitação (`criterios-de-aceitacao.md`).
@@ -381,7 +386,7 @@
 2. **Experimentos de Fase 0 executados no hardware local:**
    - `E-06`, `E-07`, `E-12` e `E-01` executados com binários reais compilados e resultados documentados em `experiments/*/RESULTADO.md`; `H-06` e `ADR-0003` promovidos para **Comprovado / Aceito**.
 3. **Implementação completa dos 4 módulos + extensões + playground + bundle `.app`:**
-   - `CTimbreDSP` (C++20 + `Accelerate/vDSP` Float64 RT-safe), `TimbreDesignSystem` (tokens gerados fonte única + playground HTML/CSS/JS), `TimbreCore` (Swift 6: modelos, EqualizerAPO, i18n `PT/ES/EN`, Guardião `G-01`–`G-07`, SQLite, AutoEq, IA com bounds, `PairwiseGP`, IPC loopback Bearer+Origin, diagnósticos sanitizados), `TimbreEngine` (HAL + snapshot P3, Process Tap P1, GAIA v3 read-only + denylist, AirPods HAL, detector de notch concorrente, `MediaKeyTap`), `TimbreApp` (`timbr.` SwiftUI+AppKit com 5 estados de notch + Pílula, MenuBarExtra, Estúdio completo + aba Apoiar/Doações, atalhos globais `⌥⌘V/B/A/O/M/,`) e extensões MV3 (`chrome-mv3` / `safari-web-ext`).
+   - `CTimbreDSP` (C++20 + `Accelerate/vDSP` Float64 RT-safe), `TimbreDesignSystem` (tokens gerados fonte única + playground HTML/CSS/JS), `TimbreCore` (Swift 6: modelos, EqualizerAPO, i18n `PT/ES/EN`, Guardião `G-01`–`G-07`, SQLite, AutoEq, IA com bounds, `PairwiseGP`, IPC loopback Bearer+Origin, diagnósticos sanitizados), `TimbreEngine` (HAL + snapshot P3, Process Tap P1, GAIA v3 read-only + denylist, AirPods HAL, detector de notch concorrente, `MediaKeyTap`), `TimbreApp` (`timbr` SwiftUI+AppKit com 5 estados de notch + Pílula, MenuBarExtra, Estúdio completo + aba Apoiar/Doações, atalhos globais `⌥⌘V/B/A/O/M/,`) e extensões MV3 (`chrome-mv3` / `safari-web-ext`).
 4. **Testes & `CLEAN_SWEEP`:**
    - `./scripts/ci_check.sh` passou integralmente após os ajustes finais da auditoria: geração de tokens, validação JSON das extensões, guarda zero-GPL, build `dist/Timbr.app` assinado ad-hoc (`codesign --verify`), `CTimbreDSPTests` sob ASan+UBSan, `TimbreCoreTests`, `TimbreEngineTests` e `--smoke-check` no binário `Timbr.app`.
 5. **Auditoria Competitiva Ampliada & Upgrades MIT (`Notchy`, `OmniMac`, `ILoveNotch`, `R9-EQ`, `m4-companion`, `AudioRouter`):**
@@ -432,7 +437,7 @@
 
 ### 2026-11-23 · Marca harmônica sutil no notch e ocultação em tela cheia
 
-1. **Marca `timbr.` no Compacto (`TimbreHarmonicMath` + `MiniMeter`):** substitui as 3 barras genéricas pela silhueta simétrica de 5 barras do ícone do app (`Timbr.icns`), com respiração harmônica contida (~2,6 s, 12 Hz, variação ≤ 1,1 pt, opacidade 0,70–0,86) para indicar atividade sem distrair em vídeos janelados; respeita `Reduzir movimento` e pausa em repouso/tela cheia.
+1. **Marca `timbr` no Compacto (`TimbreHarmonicMath` + `MiniMeter`):** substitui as 3 barras genéricas pela silhueta simétrica de 5 barras do ícone do app (`Timbr.icns`), com respiração harmônica contida (~2,6 s, 12 Hz, variação ≤ 1,1 pt, opacidade 0,70–0,86) para indicar atividade sem distrair em vídeos janelados; respeita `Reduzir movimento` e pausa em repouso/tela cheia.
 2. **Ocultação em tela cheia (`FullscreenEvaluator` + `FullscreenProbe`):** detecta vídeo/app em tela cheia na tela do notch (YouTube HTML5 em Chrome/Safari, Spaces nativos, Split View e `AXFullScreen` sem falso positivo em janela maximizada ou monitor externo), suprime o indicador compacto e o sensor de hover imediatamente (preservando o botão `×` de saída e zero distração) e mantém HUD de teclas e `⌥⌘V` funcionais. Preferência **Ocultar em tela cheia** ligada por padrão em Ajustes → Notch (PT-BR/ES/EN).
 3. **Proteção de menus à direita + fallback seguro no queixo (`MenuBarSpaceEvaluator`):** `MenuBarSpace.freeEars` agora mede itens de menu do app em primeiro plano que transbordam à direita do notch (ex.: `Janela`/`Ajuda` no Chrome) além dos status items e dos menus à esquerda, e `shouldUseChin` move automaticamente o modo Compacto com 2+ apps para o queixo quando não há espaço limpo nas duas orelhas (evitando sobreposição com menus e corte na borda física do notch).
 4. **Consistência bilateral no Compacto:** o app em reprodução fica **sempre à esquerda** e a marca 5-bar **sempre à direita**; quando apenas um dos lados tem espaço (ex.: menus largos à esquerda ou status items até o notch à direita), o Compacto desce direto para o queixo em vez de jogar o ícone para a orelha direita, e a sonda lê `CGWindowListCopyWindowInfo([.optionAll])` em `layer == 25` para detectar ícones da Central de Controle/terceiros no macOS 26.
@@ -462,3 +467,26 @@
 2. **Política de ativação do app (`TimbrApp.swift`):** `AppDelegate` agora implementa `NSWindowDelegate` (`windowWillClose`) para restaurar `NSApp.setActivationPolicy(.accessory)` assim que Estúdio e Onboarding forem fechados, evitando que o app fique preso em `.regular` após a primeira abertura.
 3. **Ocultação em tela cheia inteligente (`FullscreenEvaluator` + `FullscreenProbe` + `LocalizationUI.swift`):** diferencia trabalho/navegação em Space nativo abaixo da moldura física (Chrome/Safari `Cmd+Ctrl+F`, Cursor, Split View — mantêm o notch ativo na faixa preta) de vídeo HTML5 em tela cheia (Chrome sem toolbar, Safari `WKFullScreenWindow` ou Safari com áudio ativo), players dedicados (`QuickTime`, `IINA`, `VLC`, `TV`, `Keynote`, etc.) e tela cheia sem borda/top-edge (`minY <= 2`).
 4. **Ícones lado a lado sem sobreposição no Compacto (`CompactIconLayoutEvaluator` + `NotchOverlay.swift`):** removida a sobreposição/recorte entre dois apps tocando ao mesmo tempo (antes espaçados em 12 pt com recorte preto de `-1.5 pt` que decepava o ícone secundário). `CompactIconLayoutEvaluator` posiciona os dois ícones lado a lado com vão explícito de 3–4 pt e margens >= 4,5 pt tanto na orelha (36–44 pt) quanto no queixo, validado em `TimbreCoreTests`.
+
+### 2026-11-23 · Retomada da auditoria de resiliência
+
+- Corrigida a divergência de deployment target: build direto e keeper geram Mach-O macOS 15.0, igual ao plist e Package.swift. Adicionado check binário ao CI. `./scripts/ci_check.sh` passou integralmente, inclusive 20/20 SIGKILL. Isso não valida execução em macOS 15 nem recuperação de coreaudiod.
+- Preservadas 7.682 issues, abertas/fechadas, de 19 rastreadores com paginação integral e corpos; CSV individual com triagem automática por título, explicitamente pendente de análise. Bibliografia anterior contém 69 URLs de repositórios, com cobertura de coleta discriminada.
+- [Auditoria de resiliência](auditoria-resiliencia-2026-11-23.md): RES-01 corrigido; RES-02/03/04 (reset do serviço, sleep/wake e readback do keeper) continuam críticos e abertos. RES-05 registra SkyLight fora da matriz R-22 anterior.
+- Próximo trabalho: recuperar motor e keeper após reset sem confirmar mudo por estado local inválido; definir ensaio real de continuidade do mudo. Depois fechar primeiro bloco/reconexão e revisão individual do inventário, comentários/PRs e demais fontes. Auditoria completa **não concluída**.
+
+### 2026-11-23 · Logo, rodada 4 (propostas)
+
+Referência *Ilha refinada* recuperada e comparada com cinco variações híbridas com notch vindo do topo (amostras 64/32/16 px). As variantes exploratórias foram posteriormente descartadas após aprovação da versão original (ADR-0025).
+
+### 2026-11-23 · Marca definitiva aprovada
+
+Aprovada a *Ilha refinada* original e a assinatura `timbr` sem ponto ([ADR-0025](../07-decisoes/ADR-0025-ilha-refinada-e-marca-sem-ponto.md)). Fonte SVG canônica e variante óptica para tamanhos pequenos em `Resources/Brand/`; `scripts/generate_icns.py` lê sua geometria diretamente. Nome sem ponto aplicado a interfaces, traduções, feedback, diagnóstico, empacotamento, README, playground e documentação, preservando identificadores técnicos (`com.timbr.app`, `dev.v1torres.timbr`, caminhos e SQLite). Ícone aplicado a Dock/Finder, Sobre/Introdução e template da barra de menus; o visualizador de cinco barras continua exclusivamente como medidor.
+
+Verificação: `./scripts/ci_check.sh` verde (Core, Engine, DSP ASan/UBSan, `TimbreTokensTests`, `check_deployment_target.py`, smoke e 20/20 SIGKILL; RTSan opcional). SVG canônico validado elemento a elemento; DMG regenerado e bundle instalado em `/Applications/Timbr.app` com hash idêntico ao artefato em `dist/`.
+
+### 2026-11-23 · Auditoria de prontidão pública e sincronização completa da documentação
+
+- **Higiene e privacidade do repositório:** removidas referências a projetos privados, caminhos locais de máquina e dumps brutos de trackers de terceiros (~13 MB em JSON/CSV agora ignorados via `.gitignore`, preservando manifesto e metodologia reproduzível). Nota visual `09` destilada em [`09_dna_visual_editorial.md`](../00-pesquisa/notas-fase-2/09_dna_visual_editorial.md). Exploratórios intermediários de logo removidos após aprovação da ADR-0025.
+- **Alinhamento técnico:** `Packaging/Homebrew/timbr.rb` corrigido para `depends_on macos: ">= :sequoia"` (compatível com o alvo `15.0` de `Package.swift`, `Info.plist` e `build_app.sh`); `Package.swift` atualizado com os targets `TimbrMuteKeeper` e `TimbreTokensTests`; comentários internos em `Sources/TimbreApp/` higienizados.
+- **Sincronização de documentação e README público:** índice de ADRs (`0001`–`0025`) ordenado e formatado; `estrategia-open-source.md`, `arquitetura-geral.md`, `seguranca-privacidade-distribuicao.md`, `roadmap-e-backlog.md`, `05-design-system/*`, `10-referencias/` e `README.md` atualizados para refletir 100% do estado comprovado e das pendências honestas antes da divulgação pública.

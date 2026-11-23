@@ -22,3 +22,7 @@ Taps existem desde o 14.2, mas a prática recomenda 14.4+ (categorias de TCC mud
 ## Observação
 
 O público-alvo (audiófilo com MacBook de notch, 2021+) atualiza o sistema com frequência; o custo de suportar o 14 dificilmente se paga.
+
+## Verificação de build · 2026-11-23
+
+O `Package.swift` já fixa macOS 15. A auditoria encontrou plist 14.2 e executáveis com `minos 26.0`: o build direto herdava o deployment target da toolchain. `build_app.sh` agora passa `-target <arch>-apple-macosx15.0` para C++ e todos os módulos Swift, incluindo o keeper, e emite plist 15.0. O CI verifica os dois Mach-O com `otool` (`check_deployment_target.py`). Compilação e suíte local passaram. Execução em macOS 15 ainda não foi ensaiada; este registro não promove o ADR a Aceito nem encerra E-02.

@@ -22,7 +22,7 @@ A Dynamic Island nativa do MacBook Pro OLED pode impedir overlays de terceiros; 
 
 ## Revisão 2026-11-23 · Ícone da barra de menus condicional
 
-O dono apontou que, com o notch ativo, o ícone na barra de menus é redundante. Decisão:
+Com o notch ativo, manter um ícone permanente na barra de menus cria redundância visual. Decisão:
 
 - Com o notch ativo, o ícone fica **oculto por padrão**.
 - Os acessos que só ele dava passam para o próprio notch, via **menu de contexto** (clique direito: Abrir Estúdio, Ajustes…, Mostrar ícone na barra de menus, Sair).

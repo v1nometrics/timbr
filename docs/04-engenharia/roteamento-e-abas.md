@@ -11,7 +11,7 @@
 
 - **Slots de captura** (`ProcessTapEngine.reconcileMultiTap`):
   - um tap `stereoMixdownOfProcesses` por app com volume ≠ 100 % ou mudo, com `.mutedWhenTapped` e ganho próprio;
-  - um tap global `stereoGlobalTapButExcludeProcesses` quando há EQ, crossfeed ou ducking. Ele exclui os apps com slot próprio, os de VoIP e o próprio timbr., e só existe enquanto há áudio tocando (desmontado 10 s depois do silêncio);
+  - um tap global `stereoGlobalTapButExcludeProcesses` quando há EQ, crossfeed ou ducking. Ele exclui os apps com slot próprio, os de VoIP e o próprio timbr, e só existe enquanto há áudio tocando (desmontado 10 s depois do silêncio);
   - um tap sem mudo por saída espelhada, que exclui os apps no mudo. Limite conhecido: o volume por app não é replicado nos espelhos.
 - **Ganho medido:** 50/25/200/150 % = −6,02/−12,04/+6,02/+3,52 dB; mudo em silêncio. Acima de 100 %, o limiter segura −0,3 dBTP, e música já masterizada perto de 0 dBFS quase não fica mais alta. O Mixer mostra "No limite".
 - **Atribuição (`AudioProcessAttribution`):** processo responsável (`responsibility_get_pid_responsible_for_pid`, buscado em runtime) → pacote `.app` mais externo do executável → cadeia de pais → bundle ID reportado. Apps de barra de menus (accessory) contam como donos. Resultado: o áudio WebKit do Raycast é "Raycast" (antes era "Safari"), e o helper do Chrome é "Google Chrome".

@@ -4,7 +4,7 @@
 >
 > Regras: (1) cada experimento vive em `experiments/E-XX-nome/` com README, código descartável e `RESULTADO.md`; (2) resultados usam as classes de evidência do `AGENTS.md`; (3) "não deu tempo de medir" é um resultado válido, inventar número não é; (4) todo experimento registra máquina, versão exata do macOS, dispositivos e data.
 
-## Bancada de referência (hardware do dono)
+## Bancada de referência
 
 | Item | Uso nos experimentos |
 |---|---|
@@ -25,9 +25,9 @@ Ver `06-plano/estrategia-de-testes.md` para o método completo. Resumo: sinais d
 
 ## Gate G1: as seis provas de risco
 
-O Gate G1 corresponde aos seis riscos que o dono priorizou. A arquitetura só é decidida (ADRs passam de "Proposto" para "Aceito") quando cada linha abaixo tiver resultado.
+O Gate G1 corresponde aos seis riscos críticos priorizados. A arquitetura só é decidida (ADRs passam de "Proposto" para "Aceito") quando cada linha abaixo tiver resultado.
 
-| Risco do dono | Experimentos | Critério para avançar |
+| Risco prioritário | Experimentos | Critério para avançar |
 |---|---|---|
 | 1. Volume granular por app | E-01, E-02, E-03 | Volume por app sem glitch audível em 1 h de uso misto; fail-safe comprovado; estouro inicial medido e com mitigação escolhida |
 | 2. Controle por aba e várias saídas | E-04, E-05 | Multissaída estável 1 h; extensão de pelo menos um navegador atenuando por aba; decisão documentada sobre boost/EQ/rota por aba |
@@ -94,7 +94,7 @@ O Gate G1 corresponde aos seis riscos que o dono priorizou. A arquitetura só é
 - **Sucesso.** Matriz preenchida; lista de "ignorar por padrão" definida; avisos de conflito especificados.
 
 ### E-11 · Cadeia completa (dogfood)
-- **Pergunta.** Tudo junto, no uso real do dono, funciona sem conflito?
+- **Pergunta.** Tudo junto, em uso diário real, funciona sem conflito?
 - **Método.** Protótipo integrado (mixer + EQ + multissaída + guardião BT + leitura do M4) em 72 h de uso real + 24 h de soak automatizado; registro de cada incidente.
 - **Sucesso.** Zero incidente de áudio corrompido não explicado; todos os incidentes com causa e plano.
 
@@ -109,7 +109,7 @@ O Gate G1 corresponde aos seis riscos que o dono priorizou. A arquitetura só é
 - **Sucesso.** ≥ 95% de saídas válidas pelo esquema (proposta) e preferência ≥ neutro na maioria dos pedidos concretos.
 
 ### E-14 · Aprendizado de preferência (piloto)
-- **Pergunta.** Em quantas comparações A/B cegas, com volume nivelado, o otimizador converge para o dono? O resultado se repete uma semana depois?
+- **Pergunta.** Em quantas comparações A/B cegas, com volume nivelado, o otimizador converge para um ouvinte? O resultado se repete uma semana depois?
 - **Método.** GP de preferência em 3 dimensões (graves, agudos, presença) sobre a correção AutoEq do Momentum 4; 20 comparações; reteste em 7 dias.
 - **Sucesso.** Diferença entre sessões menor que o passo perceptível definido; tempo total < 10 min.
 

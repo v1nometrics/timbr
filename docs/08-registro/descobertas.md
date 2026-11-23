@@ -13,7 +13,7 @@
 
 1. **Só silencia o tap que está sendo lido (Comprovado: teste de ouvido, macOS 26.6).**
    - Um tap `.muted` criado sem aggregate nem IOProc deixou o app audível, com o criador vivo e depois do SIGKILL. A doc de `CATapMuted` ("no audio is sent … to the audio hardware") não menciona essa condição.
-   - *Impacto:* um mudo que sobrevive ao timbr. precisa de outro processo vivo lendo o tap (`timbr-mute-keeper`).
+   - *Impacto:* um mudo que sobrevive ao timbr precisa de outro processo vivo lendo o tap (`timbr-mute-keeper`).
 2. **Taps públicos sobrevivem ao processo que os criou (Comprovado).** `isPrivate = false` mantém o tap em `kAudioHardwarePropertyTapList` depois do SIGKILL do criador, e outro processo consegue destruí-lo. Taps privados morrem junto com o criador.
 3. **Process taps leem o áudio antes do mudo (Comprovado).** Um tap num app silenciado por outro tap `.muted` ainda lê o tom inteiro (−33 dBFS). Nenhum tap serve para medir o que chega ao alto-falante: sem permissão de microfone, a audibilidade só se verifica de ouvido.
 4. **`bundleIDs` + `processRestoreEnabled` (macOS 26) funcionam (Comprovado).** O tap passou a incluir o processo novo de um app relançado. Com `bundleIDs`, o tap também inclui sozinho os processos que já estão rodando com aquele bundle ID.
@@ -44,7 +44,7 @@
 6. **CamillaDSP v5 adota licença dupla GPL-3.0 ou MPL-2.0 (Comprovado — README v5.0.0-beta.2).**
    - Abre caminho para um núcleo DSP de 64 bits de referência mundial dentro de um produto sob licença permissiva/MPL-2.0 ([ADR-0001](../07-decisoes/ADR-0001-licenca.md), [ADR-0003](../07-decisoes/ADR-0003-nucleo-dsp.md)).
 
-7. **Mistura de cores em OKLCH puxa para o rosa em produção (Comprovado — Código Órbita `badge.module.css:7`).**
+7. **Mistura de cores em OKLCH pode desviar para o magenta/rosa (Comprovado — CSS Color 4 / testes de renderização).**
    - Toda tintura programática deve rodar em **OKLab**, não em OKLCH nem RGB linear direto.
    - *Impacto:* regra documentada em [01 · Fundações e Tokens](../05-design-system/01-fundacoes-tokens.md).
 
@@ -77,8 +77,8 @@
 14. **AirPods Pro AACP (L2CAP `0x1001`) bloqueado em user-space no macOS (Comprovado — Nota 07 / `LibrePods`, `BeatsBar`).**
     - `bluetoothd` reserva o canal de controle dos AirPods; apps Developer ID não conseguem alternar ANC/Transparency via L2CAP no macOS. O valor entregue para AirPods Pro é HAL + proteção anti-HFP ("Output Only") + AutoEq + pesquisa read-only de beacons BLE Continuity (`0x004C`).
 
-15. **Diretriz visual `timbr.` × `v1torres.dev` consolidada (Comprovado — `v1dev app/frontend/DESIGN_SYSTEM.md` + captura `timbr.`).**
-    - `timbr.` herda o DNA minimalista, lowercase com pontuação (`.` vs `›v1_`), superfícies neutras puras e tipografia Geist do `v1torres.dev`, mantendo raios concêntricos do notch e cor funcional apenas para telemetria/segurança sonora (ADR-0014).
+15. **Diretriz visual `timbr` × `v1torres.dev` consolidada (ADR-0014, ADR-0015, ADR-0016 e ADR-0025).**
+    - `timbr` adota estética minimalista em caixa baixa, superfícies neutras puras sem cor de marca (ADR-0016), tipografia nativa do sistema no app (ADR-0015) e marca sem ponto com ícone *Ilha refinada* (ADR-0025), reservando cor exclusivamente para telemetria e segurança sonora.
 
 16. **Validação empírica da Fase 0 no host local (`E-06`, `E-07`, `E-12`, `E-01` — Comprovado em 2026-11-21).**
     - **E-06 (`Float64` + Vicanek):** em `MacBook Air arm64, macOS 26.6`, o Null Test neutro atingiu `0.000e+00` (`-240 dBFS`); pico `12 kHz +6dB Q=1.8 @ 48 kHz` teve erro máximo `0.3019 dB` (Vicanek) vs `1.6869 dB` (RBJ); filtro `20 Hz Q=4.0 +8dB @ 192 kHz` obteve THD+N **`-43.86 dB` em Float32 vs `-149.23 dB` em Float64** (+105 dB comprovando `H-06`); CPU `28.90 µs/bloco (0.27%)` em 10 bandas @ 48 kHz.
@@ -97,14 +97,14 @@
     - **Higiene de Process Tap pós-crash (`AbhisekGanguly/AudioRouter`, MIT):** adicionado `OrphanedTapCleanup` em [`ProcessTapEngine.swift`](../../Sources/TimbreEngine/ProcessTapEngine.swift) para destruir aggregates `dev.v1torres.timbr.agg.*` órfãos antes de criar novos taps, evitando que apps fiquem silenciosamente mudos após `SIGKILL`. Atribuições MIT formalizadas em [`NOTICE`](../../NOTICE).
 
 
-15. **Linha Apple Continuity no `timbr.` (Comprovado em parser / Provável em hardware — 2026-11-21).**
+15. **Linha Apple Continuity no `timbr` (Comprovado em parser / Provável em hardware — 2026-11-21).**
     - Implementado `ContinuityProximityParser` + `ContinuityBLEScanner` (manufacturer `0x004C`, type `0x07`) com classificação AirPods/Pro/Max/Beats e telemetria L/R/Case sem AACP.
     - UI do Observatório nunca inventa ANC/Transparency (P11); aviso de Spatial Audio em A2DP.
     - Validação com case aberto e E-08 HFP permanecem como bancada física.
 
 19. **`CATapDescription.isExclusive` inverte o tap (Comprovado, 2026-11-22).** `stereoMixdownOfProcesses:` nasce com `isExclusive = false` e `stereoGlobalTapButExcludeProcesses:` com `true`. Forçar `true` depois transforma "só estes processos" em "todos menos estes". Era a causa de "o volume por app não funciona". Medido com `--selftest-audio`.
 
-20. **Um segundo tap no mesmo processo para de receber áudio (Comprovado, 2026-11-22).** Com o timbr. já capturando um processo com `.mutedWhenTapped`, um tap de medição sobre o mesmo processo lia silêncio. O autoteste mede a fonte antes de o motor assumir o processo.
+20. **Um segundo tap no mesmo processo para de receber áudio (Comprovado, 2026-11-22).** Com o timbr já capturando um processo com `.mutedWhenTapped`, um tap de medição sobre o mesmo processo lia silêncio. O autoteste mede a fonte antes de o motor assumir o processo.
 
 21. **O HAL não notifica `IsRunningOutput` para processos novos (Comprovado, macOS 26, 2026-11-22).** Para um processo que acabou de aparecer, só `kAudioProcessPropertyIsRunning` dispara. O `AudioProcessMonitor` ouve os dois e relê a saída 60 ms depois; senão, sons curtos (um alerta de 0,3 s) se perdiam.
 
@@ -126,5 +126,13 @@
 
 30. **Vídeo mudo no player do navegador não gera áudio para o macOS (Comprovado, 2026-11-23).** Com o YouTube em `muted: true`, nenhum processo do Chrome tinha saída ativa. Não aparece como fonte, e está correto.
 
-31. **Volume 0 não é silêncio nos alto-falantes do MacBook, e o macOS não muta sozinho (Comprovado, 2026-11-23).** No `BuiltInSpeakerDevice`, `kAudioDevicePropertyVolumeScalarToDecibels(0.0)` = **−63,5 dB**. Forçando `scalar = 0` e `mute = 0` **com o timbr. fechado**, o dispositivo ficou assim por tempo indefinido: o vazamento baixinho que o dono ouvia num quarto silencioso. **Com o timbr. aberto**, o mesmo estado virou `mute = 1` na hora (autocorreção do PR #9). Regra: tudo que aparece como "0 %" precisa do mudo de hardware ligado.
+31. **Volume 0 não é silêncio nos alto-falantes do MacBook, e o macOS não muta sozinho (Comprovado, 2026-11-23).** No `BuiltInSpeakerDevice`, `kAudioDevicePropertyVolumeScalarToDecibels(0.0)` = **−63,5 dB**. Forçando `scalar = 0` e `mute = 0` **com o timbr fechado**, o dispositivo ficou assim por tempo indefinido: causando um vazamento audível em ambiente silencioso. **Com o timbr aberto**, o mesmo estado virou `mute = 1` na hora (autocorreção do PR #9). Regra: tudo que aparece como "0 %" precisa do mudo de hardware ligado.
 
+
+### 2026-11-23 · Compatibilidade e alcance da pesquisa
+
+**Comprovado no binário local:** sem `-target`, app e keeper tinham `minos 26.0` apesar do plist 14.2 e Package.swift 15. Corrigido build para 15.0, verificação binária no CI. Compatibilidade executada em macOS 15 permanece desconhecida.
+
+**Comprovado por inspeção:** R-06 descrevia uma mitigação planejada, não implementada: não havia listener de ServiceRestarted nem sleep/wake no motor; keeper confirma held por estado em memória. Não extrapolar o teste de crash da UI para queda do Core Audio. Ver auditoria-resiliencia-2026-11-23.md.
+
+**Coleta verificada:** consultas anteriores com `--limit 300` truncavam histórico; novo snapshot inclui 7.682 issues de 19 repositórios, sem PRs, comentários ou anexos. Zero issues retornadas não significa ausência de defeitos.

@@ -8,7 +8,7 @@
 
 O preenchimento é `Color(.sRGB, 0, 0, 0, 1)`: zero absoluto, sem contorno, sem sombra, sem blur, sem transparência (lei L1).
 
-**Limite do hardware, dito com honestidade.** O notch físico é um vazio sem pixels. A área que o timbr. desenha ao redor dele são pixels de tela exibindo preto:
+**Limite do hardware, dito com honestidade.** O notch físico é um vazio sem pixels. A área que o timbr desenha ao redor dele são pixels de tela exibindo preto:
 
 | Tela | O preto desenhado parece… | Por quê |
 |---|---|---|
@@ -34,7 +34,7 @@ Estudamos o código dos apps de notch abertos mais usados: DynamicNotchKit (base
 - **Ombros** côncavos no topo continuam a curva do hardware: 7 pt fechado, 14 pt aberto (os apps de referência usam 6 → 15/19 pt).
 - **Sombra preta suave só enquanto aberto** (raio 14, y 6, 50%). Ela dá a profundidade de "ilha" sobre conteúdo claro; sobre conteúdo escuro some.
 
-**Por que abandonamos o "pescoço" da v2.1.** Na v2.1 os estados abertos desciam só para baixo, sem tocar a barra. O dono do produto testou e achou estranho: parecia um cartão pendurado, não o notch crescendo. Nenhum app de referência faz isso. O que resolve a disputa com os menus é separar os estados persistentes dos transitórios (§1.3 e §1.5), não deformar a abertura.
+**Por que abandonamos o "pescoço" da v2.1.** Na v2.1 os estados abertos desciam apenas para baixo, sem tocar a barra, o que parecia um cartão pendurado em vez de o notch expandir naturalmente. O que resolve a disputa com os menus é separar os estados persistentes dos transitórios (§1.3 e §1.5), não deformar a geometria de abertura.
 
 **Master (Geral):** o volume por app só faz sentido com o volume geral à mão. O expandido tem a faixa "Geral", depois das fontes e separada por uma linha, como o master de uma mesa: volume do hardware da saída e mudo.
 
@@ -102,7 +102,7 @@ Painel de 348 pt num `NSPopover` ancorado ao `NSStatusItem` (`MenuBarIconControl
 ```
 ┌────────────┬──────────────────────────────────────────────────────┐
 │ ● ● ●      │ 01 — MIXER                                           │
-│ timbr.     │ Cada fonte no seu volume                [Ação]       │
+│ timbr     │ Cada fonte no seu volume                [Ação]       │
 │            │ Frase-resumo do caminho do sinal                     │
 │ ▤ Mixer    │ ┌KPI┐ ┌KPI┐ ┌KPI┐ ┌KPI┐                              │
 │ ∿ EQ       │ 01 Fontes de áudio ───────────────────────────────── │

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 // Feedback by e-mail (ADR-0024). The app promises "100% local, zero telemetry", so nothing here is sent
-// by timbr.: the person writes, sees exactly what the e-mail will contain, and their own mail app sends it.
+// by timbr: the person writes, sees exactly what the e-mail will contain, and their own mail app sends it.
 // The context that travels with it is five coarse facts, each one switchable. Never device names, event
 // logs, file paths, user names or audio.
 import Foundation
@@ -71,12 +71,12 @@ public enum FeedbackComposer {
 
     public static func isSendable(_ message: String) -> Bool { normalize(message).count >= minMessageLength }
 
-    public static func subject(_ category: FeedbackCategory) -> String { "[timbr.] \(category.subjectLabel)" }
+    public static func subject(_ category: FeedbackCategory) -> String { "[timbr] \(category.subjectLabel)" }
 
     public static func body(message: String, context: FeedbackContext, options: FeedbackOptions) -> String {
         var lines: [String] = [normalize(message)]
         var ctx: [String] = []
-        if options.app { ctx.append("timbr.: \(context.appVersion)") }
+        if options.app { ctx.append("timbr: \(context.appVersion)") }
         if options.system { ctx.append("macOS: \(context.macOS)") }
         if options.output { ctx.append("Saída: \(context.outputKind)") }
         if options.equalizer { ctx.append("Equalizador: \(context.equalizerMode)") }

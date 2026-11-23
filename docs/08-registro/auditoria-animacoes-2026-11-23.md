@@ -13,13 +13,13 @@ O movimento do app já estava no ponto certo na maior parte (frequência decide 
 | 1 | Alta | Curvas | O token `exit` era `cubic-bezier(.7,0,.84,0)`, um **ease-in**, proibido pelo §6 do documento de movimento (nenhuma view o usava, mas estava disponível) | Virou `cubic-bezier(.23,1,.32,1)`, 160 ms. O gerador agora **recusa** qualquer ease-in |
 | 2 | Média | Acessibilidade | Só 18 referências a "Reduzir movimento" no app inteiro; mola do corpo do notch (blur 8→0, escala 0,8→1), a abertura pelo controlador e quase todos os `snappy`/`smooth` ignoravam a opção | Todos os tokens passaram a ser calculados e viram um fade de 120 ms; o corpo do notch só faz fade; testado token a token no CI (`TimbreTokensTests`) |
 | 3 | Média | Coesão | 12 valores à mão nas views: `.easeOut(0.12)`, `.easeOut(0.09)`, `.easeOut(0.14)`, `.spring(0.36)`, `.interactiveSpring(0.16, 0.86)` (2×), `.linear(0.06/0.07/0.08/0.09)` | Tokens `fade`, `fadeOut`, `tab`, `meter`, `dismissFollow`; `smooth` no lugar da mola solta |
-| 4 | Média | Desempenho | **Defeito meu:** o vigia de 250 ms que fiz para perceber a pausa traduzia PIDs para objetos do Core Audio a cada tick (uma ida ao `coreaudiod` por processo). No perfil, era o maior item do app: 148 de 2.968 amostras da thread principal tocando (5,0%), 91 parado | Traduz uma vez por reavaliação e a cada tick só relê a flag de saída. Depois: 40 amostras (1,3%); `translatePIDsToProcessObjects` de 113 para 8 |
+| 4 | Média | Desempenho | O vigia de 250 ms da detecção de pausa traduzia PIDs para objetos do Core Audio a cada tick (uma ida ao `coreaudiod` por processo). No perfil, era o maior item do app: 148 de 2.968 amostras da thread principal tocando (5,0%), 91 parado | Traduz uma vez por reavaliação e a cada tick só relê a flag de saída. Depois: 40 amostras (1,3%); `translatePIDsToProcessObjects` de 113 para 8 |
 | 5 | Baixa | Oportunidade | A faixa de aviso do Estúdio (`statusBanner`) aparecia de uma vez e empurrava a página sem transição | Fade com deslocamento de 8 pt e a página desce junto (`standard`) |
 | 6 | Baixa | Oportunidade | Linhas do mixer do Estúdio apareciam e sumiam de uma vez quando uma fonte começava ou parava (o notch já animava) | Fade e reordenação com `smooth` |
 
 ## O que a auditoria **não** encontrou (e foi verificado, não suposto)
 
-- **Telemetria de 30 Hz redesenhando a interface:** minha suspeita inicial. O perfil mostra zero custo de SwiftUI na thread principal, então **não mexi**.
+- **Telemetria de 30 Hz redesenhando a interface:** hipótese inicial descartada. O perfil mostrou zero custo de SwiftUI na thread principal, portanto o loop foi preservado sem alteração.
 - **Animação em ação de teclado ou de alta frequência:** nenhuma. A troca de aba é um fade de 140 ms, e o `Reveal` do notch (blur 8, abaixo do limite de 20) só roda em abrir e fechar.
 - **`ease-in`, `scale(0)`, `transition: all` ou propriedades de layout animadas:** nenhum em uso.
 - **Reação ao parar o som:** não regrediu (2,74 s e 8,14 s depois da otimização, contra 2,60 s e 8,07 s antes; o resto é o tempo do macOS, ADR-0021).
