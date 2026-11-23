@@ -288,7 +288,7 @@ struct TimbreCoreTestRunner {
         expect(FullscreenEvaluator.isFullscreen(screen: nonNotchScreen, windows: [nonNotchNativeFullscreen], menuBarVisible: false, autoHideMenuBarAlways: false, frontmostAXFullScreen: true, ownPID: 999, frontmostBundleID: "com.google.Chrome", frontmostOwnerName: "Google Chrome"), "Non-notched display fullscreen covers top edge and hides pill")
         print("  [PASS] FullscreenEvaluator (browser normal vs HTML5 video, cinema apps, productivity apps, multi-monitor)")
 
-        // MenuBarSpaceEvaluator: Chrome wrapped right menus (Janela/Ajuda), dual-app chin fallback, Accessibility gating
+        // MenuBarSpaceEvaluator: Chrome wrapped right menus (Janela/Ajuda), hiddenInNotch vs pill chin, hidden menu bar, AX gating
         let freeBoth = MenuBarSpaceEvaluator.freeEars(
             hasPhysicalNotch: true,
             screenWidth: 1470,
@@ -299,10 +299,12 @@ struct TimbreCoreTestRunner {
             statusItemSpans: [MenuBarItemSpan(minX: 940, maxX: 1460)]
         )
         expect(freeBoth.left == 44 && freeBoth.right == 44, "Ample free space yields 44pt ears on both sides: \(freeBoth)")
-        expect(!MenuBarSpaceEvaluator.shouldUseChin(ears: freeBoth, hasMultipleSources: false), "1 app uses both ears")
-        expect(!MenuBarSpaceEvaluator.shouldUseChin(ears: freeBoth, hasMultipleSources: true), "2+ apps fit cleanly when both ears are free")
+        expect(MenuBarSpaceEvaluator.compactPlacement(hasPhysicalNotch: true, ears: freeBoth, hasMultipleSources: false) == .ears, "1 app uses both ears")
+        expect(MenuBarSpaceEvaluator.compactPlacement(hasPhysicalNotch: true, ears: freeBoth, hasMultipleSources: true) == .ears, "2+ apps fit cleanly when both ears are free")
 
-        // Exact Chrome scenario: left menu ends at 633, wrapped Janela/Ajuda sit at 832..959 right of notch!
+        // Exact Chrome desktop scenario (including immediately upon exiting fullscreen):
+        // left menu ends at 633, wrapped Janela/Ajuda sit at 832..959 right of notch.
+        // On a notched Mac, Compact must NEVER drop a persistent chin onto Chrome's tab bar — tuck inside notch instead.
         let chromeWrapped = MenuBarSpaceEvaluator.freeEars(
             hasPhysicalNotch: true,
             screenWidth: 1470,
@@ -317,10 +319,25 @@ struct TimbreCoreTestRunner {
             statusItemSpans: [MenuBarItemSpan(minX: 928, maxX: 1460)]
         )
         expect(chromeWrapped.left == 0 && chromeWrapped.right == 0, "Wrapped right app menus (Janela/Ajuda) zero out right ear: \(chromeWrapped)")
-        expect(MenuBarSpaceEvaluator.shouldUseChin(ears: chromeWrapped, hasMultipleSources: false), "Wrapped menus force safe chin for 1 app")
-        expect(MenuBarSpaceEvaluator.shouldUseChin(ears: chromeWrapped, hasMultipleSources: true), "Wrapped menus force safe chin for 2+ apps")
+        expect(MenuBarSpaceEvaluator.compactPlacement(hasPhysicalNotch: true, ears: chromeWrapped, hasMultipleSources: false) == .hiddenInNotch, "Chrome menus tuck 1 app into notch instead of covering tabs")
+        expect(MenuBarSpaceEvaluator.compactPlacement(hasPhysicalNotch: true, ears: chromeWrapped, hasMultipleSources: true) == .hiddenInNotch, "Chrome menus tuck 2+ apps into notch instead of covering tabs")
+        expect(!MenuBarSpaceEvaluator.shouldUseChin(hasPhysicalNotch: true, ears: chromeWrapped, hasMultipleSources: false), "Notched screen never uses persistent chin")
 
-        // Bilateral consistency: if EITHER ear is blocked (left=0 OR right=0), always drop to chin
+        // Hidden menu bar (e.g. native fullscreen with compact chrome enabled): both ears beside physical notch are free
+        let hiddenMenuBar = MenuBarSpaceEvaluator.freeEars(
+            hasPhysicalNotch: true,
+            screenWidth: 1470,
+            notchLeft: 645.5,
+            notchRight: 824.5,
+            axTrusted: false,
+            menuBarVisible: false,
+            appMenuSpans: [MenuBarItemSpan(minX: 520, maxX: 633), MenuBarItemSpan(minX: 832, maxX: 959)],
+            statusItemSpans: [MenuBarItemSpan(minX: 928, maxX: 1460)]
+        )
+        expect(hiddenMenuBar.left == 44 && hiddenMenuBar.right == 44, "Hidden menu bar keeps 44pt ears clear beside physical notch: \(hiddenMenuBar)")
+        expect(MenuBarSpaceEvaluator.compactPlacement(hasPhysicalNotch: true, ears: hiddenMenuBar, hasMultipleSources: false) == .ears, "Hidden menu bar uses ears without chin")
+
+        // Bilateral consistency: if EITHER ear is blocked (left=0 OR right=0), tuck inside physical notch
         // so the app icon never jumps across the camera to the right or cramps next to the harmonic mark.
         let rightOnly = MenuBarSpaceEvaluator.freeEars(
             hasPhysicalNotch: true,
@@ -332,14 +349,18 @@ struct TimbreCoreTestRunner {
             statusItemSpans: [MenuBarItemSpan(minX: 928, maxX: 1460)]
         )
         expect(rightOnly.left == 0 && rightOnly.right == 44, "Left busy + right free yields (0, 44): \(rightOnly)")
-        expect(MenuBarSpaceEvaluator.shouldUseChin(ears: rightOnly, hasMultipleSources: false), "Left busy drops 1 app to chin instead of jumping icon to right ear")
-        expect(MenuBarSpaceEvaluator.shouldUseChin(ears: rightOnly, hasMultipleSources: true), "Left busy drops 2+ apps to chin")
-        expect(MenuBarSpaceEvaluator.shouldUseChin(ears: (44, 0), hasMultipleSources: false), "Right busy drops 1 app to chin instead of cramping icon + mark")
+        expect(MenuBarSpaceEvaluator.compactPlacement(hasPhysicalNotch: true, ears: rightOnly, hasMultipleSources: false) == .hiddenInNotch, "Left busy tucks 1 app inside notch instead of jumping icon to right ear")
+        expect(MenuBarSpaceEvaluator.compactPlacement(hasPhysicalNotch: true, ears: rightOnly, hasMultipleSources: true) == .hiddenInNotch, "Left busy tucks 2+ apps inside notch")
+        expect(MenuBarSpaceEvaluator.compactPlacement(hasPhysicalNotch: true, ears: (44, 0), hasMultipleSources: false) == .hiddenInNotch, "Right busy tucks 1 app inside notch instead of cramping icon + mark")
 
-        expect(MenuBarSpaceEvaluator.shouldUseChin(ears: (30, 44), hasMultipleSources: true), "30pt left ear drops 2+ apps to chin (< 36pt)")
-        expect(!MenuBarSpaceEvaluator.shouldUseChin(ears: (30, 44), hasMultipleSources: false), "30pt left + 44pt right fits 1 app cleanly across both ears")
+        expect(MenuBarSpaceEvaluator.compactPlacement(hasPhysicalNotch: true, ears: (30, 44), hasMultipleSources: true) == .hiddenInNotch, "30pt left ear tucks 2+ apps inside notch (< 36pt)")
+        expect(MenuBarSpaceEvaluator.compactPlacement(hasPhysicalNotch: true, ears: (30, 44), hasMultipleSources: false) == .ears, "30pt left + 44pt right fits 1 app cleanly across both ears")
 
-        // Without AX permission, never guess over wrapped or left menus
+        // Non-notched displays & explicit --review-chin still use the floating chin pill
+        expect(MenuBarSpaceEvaluator.compactPlacement(hasPhysicalNotch: false, ears: (0, 0), hasMultipleSources: false) == .chin, "Non-notched display uses floating pill chin")
+        expect(MenuBarSpaceEvaluator.compactPlacement(hasPhysicalNotch: true, ears: (0, 0), hasMultipleSources: false, forceChin: true) == .chin, "Explicit --review-chin forces chin")
+
+        // Without AX permission while menu bar is visible, never guess over wrapped or left menus
         let untrusted = MenuBarSpaceEvaluator.freeEars(
             hasPhysicalNotch: true,
             screenWidth: 1470,
@@ -349,8 +370,8 @@ struct TimbreCoreTestRunner {
             appMenuSpans: [],
             statusItemSpans: [MenuBarItemSpan(minX: 940, maxX: 1460)]
         )
-        expect(untrusted.left == 0 && untrusted.right == 0, "Without Accessibility trust, falls back to safe chin")
-        print("  [PASS] MenuBarSpaceEvaluator (wrapped menus, dual-app chin fallback, AX gating)")
+        expect(untrusted.left == 0 && untrusted.right == 0, "Without Accessibility trust, tucks cleanly inside notch")
+        print("  [PASS] MenuBarSpaceEvaluator (no persistent chin over Chrome tabs, hidden menu bar, AX gating)")
 
         // CompactIconLayoutEvaluator: dual icons must NEVER overlap or clip in either ears or chin
         for leftEar in [36.0, 38.0, 40.0, 42.0, 44.0] {
@@ -371,6 +392,11 @@ struct TimbreCoreTestRunner {
             expect(secondMinX >= earOuterX + 4.0, "Second icon stays inside outer ear margin at leftEar=\(leftEar)")
             expect(leadMaxX <= earInnerX - 4.0, "Lead icon stays inside notch bezel margin at leftEar=\(leftEar)")
         }
+        let narrowDual = CompactIconLayoutEvaluator.layout(
+            canvasCenterX: 300.0, notchHalfWidth: 90.0, notchHeight: 33.0, chinHeight: 20.0,
+            leftEar: 30.0, rightEar: 44.0, useChin: false, hasSecond: true
+        )
+        expect(!narrowDual.visible, "Dual ear icons stay hidden when left ear < 36pt and not using chin")
         let chinDual = CompactIconLayoutEvaluator.layout(
             canvasCenterX: 300.0, notchHalfWidth: 90.0, notchHeight: 33.0, chinHeight: 20.0,
             leftEar: 0.0, rightEar: 0.0, useChin: true, hasSecond: true

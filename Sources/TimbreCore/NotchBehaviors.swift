@@ -307,6 +307,12 @@ public struct MenuBarItemSpan: Equatable, Sendable {
     }
 }
 
+public enum CompactPlacement: Equatable, Sendable {
+    case ears
+    case chin
+    case hiddenInNotch
+}
+
 public enum MenuBarSpaceEvaluator: Sendable {
     public static let earMax: Double = 44
     public static let earMin: Double = 26
@@ -316,17 +322,24 @@ public enum MenuBarSpaceEvaluator: Sendable {
     /// Computes safe left and right ear widths beside the physical notch, never overlapping either:
     /// - status items (`layer == 25`) on the right, or
     /// - frontmost app menus (`AXMenuBar`) on BOTH the left and wrapped right sides (e.g. Chrome `Janela` / `Ajuda`).
-    /// Without Accessibility trust, both sides return `0` so Compact falls back to the safe chin instead of guessing over menus.
+    /// When the macOS menu bar is hidden on a notched display (e.g. native fullscreen with compact chrome enabled),
+    /// both ears beside the hardware bezel are completely clear.
+    /// Without Accessibility trust while the menu bar is visible, both sides return `0` so Compact tucks cleanly inside the notch.
     public static func freeEars(
         hasPhysicalNotch: Bool,
         screenWidth: Double,
         notchLeft: Double,
         notchRight: Double,
         axTrusted: Bool,
+        menuBarVisible: Bool = true,
         appMenuSpans: [MenuBarItemSpan],
         statusItemSpans: [MenuBarItemSpan]
     ) -> (left: Double, right: Double) {
-        guard hasPhysicalNotch, axTrusted, screenWidth > 0 else { return (0, 0) }
+        guard hasPhysicalNotch, screenWidth > 0 else { return (0, 0) }
+        if !menuBarVisible {
+            return (earMax, earMax)
+        }
+        guard axTrusted else { return (0, 0) }
 
         var leftOccupiedMaxX = 0.0
         var rightOccupiedMinX = screenWidth
@@ -359,12 +372,39 @@ public enum MenuBarSpaceEvaluator: Sendable {
     }
 
     /// Consistent bilateral rule ("App(s) always on the left, harmonic mark always on the right"):
-    /// Compact uses the ears only when BOTH sides have room (left >= 26 for 1 app or >= 36 for 2+ apps,
-    /// and right >= 26 for the 5-bar mark). Otherwise it drops cleanly into the chin beneath the notch
-    /// so the app icon never jumps across the camera to the right ear or cramps beside the meter.
-    public static func shouldUseChin(ears: (left: Double, right: Double), hasMultipleSources: Bool) -> Bool {
+    /// - On notched Macs (`hasPhysicalNotch == true`), persistent Compact ONLY uses the menu-bar ears when BOTH
+    ///   sides have clean room (`left >= 26` for 1 app or `>= 36` for 2+ apps, `right >= 26`). When menus or
+    ///   status items block either ear (e.g. Chrome desktop after exiting fullscreen), Compact tucks cleanly
+    ///   inside the physical notch (`hiddenInNotch`) instead of dropping a persistent chin over app tabs/toolbars.
+    /// - On non-notched displays (`!hasPhysicalNotch`) or explicit `--review-chin`, Compact uses the floating chin pill.
+    public static func compactPlacement(
+        hasPhysicalNotch: Bool,
+        ears: (left: Double, right: Double),
+        hasMultipleSources: Bool,
+        forceChin: Bool = false
+    ) -> CompactPlacement {
+        if forceChin || !hasPhysicalNotch {
+            return .chin
+        }
         let minLeft = hasMultipleSources ? dualIconMinEar : earMin
-        return ears.left < minLeft || ears.right < earMin
+        if ears.left >= minLeft && ears.right >= earMin {
+            return .ears
+        }
+        return .hiddenInNotch
+    }
+
+    public static func shouldUseChin(
+        hasPhysicalNotch: Bool = true,
+        ears: (left: Double, right: Double),
+        hasMultipleSources: Bool,
+        forceChin: Bool = false
+    ) -> Bool {
+        compactPlacement(
+            hasPhysicalNotch: hasPhysicalNotch,
+            ears: ears,
+            hasMultipleSources: hasMultipleSources,
+            forceChin: forceChin
+        ) == .chin
     }
 }
 
@@ -434,7 +474,8 @@ public enum CompactIconLayoutEvaluator: Sendable {
         }
 
         let y = notchHeight / 2.0
-        if leftEar > 0 && rightEar > 0 {
+        let minLeft = hasSecond ? MenuBarSpaceEvaluator.dualIconMinEar : MenuBarSpaceEvaluator.earMin
+        if leftEar >= minLeft && rightEar >= MenuBarSpaceEvaluator.earMin {
             let earMid = canvasCenterX - notchHalfWidth - leftEar / 2.0
             if hasSecond {
                 let size: Double

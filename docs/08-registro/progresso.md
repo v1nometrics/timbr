@@ -31,6 +31,18 @@
 
 ## Histórico Consolidado
 
+### 2026-11-23 · Correção definitiva do notch ao sair da tela cheia do Chrome (zero queixo sobre abas)
+
+- **Relato:** ao sair da tela cheia do Chrome (e com Chrome no desktop), o notch descia 20 pt sobre a barra de abas cobrindo o topo das guias abertas e interceptando cliques.
+- **Causa raiz comprovada:**
+  1. Quando o Chrome volta ao desktop, seus menus ocupam os dois lados do notch (`ears = (0, 0)` por causa de `Guia` à esquerda e `Janela`/`Ajuda` à direita). `MenuBarSpaceEvaluator.shouldUseChin` caía no queixo persistente de 20 pt mesmo em Mac com notch físico (`hasPhysicalNotch == true`), invadindo `visibleFrame` direto em cima da barra de abas do Chrome (`y = 32..52 pt`).
+  2. `MenuBarSpace.freeEars` também consultava `AXMenuBar` sem verificar `NSMenu.menuBarVisible()`, lendo menus ocultos em tela cheia; além disso, `apply(state: .compact)` posicionava o sensor antes de atualizar `ears`, e `CompactIconLayoutEvaluator` / `compact(canvas:)` não exigiam a largura mínima bilateral para renderizar.
+- **Correção (`MenuBarSpaceEvaluator`, `CompactIconLayoutEvaluator`, `NotchOverlay.swift`):**
+  - Introduzido `CompactPlacement` (`.ears`, `.chin`, `.hiddenInNotch`): em Mac com **notch físico**, o estado Compacto persistente nunca mais desce para abaixo de `H` (zero queixo sobre abas/toolbars); se alguma orelha estiver ocupada, recolhe silenciosamente dentro do próprio hardware mantendo hover/clique intactos (queixo mantido apenas em telas sem notch físico ou `--review-chin`).
+  - `MenuBarSpace.freeEars` respeita `NSMenu.menuBarVisible()`, sincroniza `ears` sem flash antes de exibir `.compact`, revalida após `activeSpaceDidChangeNotification` (`0`, `0,15`, `0,45`, `0,85 s`) e usa ciclo de `0,5 s` em `.compact`.
+  - `NotchOverlayView` e `CompactIconLayoutEvaluator` agora aplicam exatamente o mesmo limiar bilateral antes de desenhar ícones, onda e área de sensor.
+- **Verificado:** testes unitários em `TimbreCoreTests`, `./scripts/ci_check.sh` completo e deploy em `/Applications/Timbr.app`.
+
 ### 2026-11-23 · Verificação no hardware: volume 0 sem vazamento
 
 - **Relato:** com o notch e o menu do Mac mostrando volume 0, ainda dava para ouvir a música baixinho.
