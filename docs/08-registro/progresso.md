@@ -511,3 +511,7 @@ O filtro por PID já excluía o processo atual. Agora o mixer também exclui o b
 ### 2026-11-24 · Identidade de assinatura e HUD
 
 Na build pública 89, o macOS deixou de reconhecer a autorização de Acessibilidade após a troca da assinatura local por uma assinatura ad hoc. O atualizador agora só troca o bundle automaticamente quando o candidato satisfaz o requisito de assinatura do app instalado. Caso contrário, entrega o DMG verificado para instalação manual. Preservar a autorização entre diferentes builds públicas requer uma identidade de distribuição estável. Ao perder a autorização, o app encerra o monitor de teclas. Com autorização válida, ele recria o monitor se ficar inválido ou desabilitado.
+
+### 2026-11-24 · Instalação, permissões e distribuição pública
+
+Comparação com Rasc v0.1.14. O Rasc tem guia de DMG, explicação de Gatekeeper, prática na introdução e atualização Sparkle. Seu DMG publicado continua ad hoc. O timbr adota o percurso claro de instalação e teste, com implementação própria. Na introdução, o usuário vê áudio e Acessibilidade. Bluetooth fica em Ajustes. A interface deixa de tratar captura de áudio não verificada como autorizada. Os atalhos para áudio, Acessibilidade e Bluetooth abriram diretamente as listas correspondentes no macOS 26.6. O ajuste do fluxo de atualização e os requisitos de distribuição estão no ADR-0026.

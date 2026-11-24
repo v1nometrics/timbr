@@ -12,6 +12,14 @@ func expect(_ condition: @autoclosure () -> Bool, _ msg: String) {
 @main
 struct TimbreCoreTestRunner {
     static func main() async {
+        let panels: [(SystemPermission, String)] = [
+            (.accessibility, "Privacy_Accessibility"), (.systemAudio, "Privacy_AudioCapture"), (.bluetooth, "Privacy_Bluetooth")
+        ]
+        for (permission, anchor) in panels {
+            expect(permission.settingsURL.absoluteString == "x-apple.systempreferences:com.apple.preference.security?" + anchor,
+                   "Open the right macOS privacy list for \(permission)")
+        }
+
         print("[TimbreCoreTests] Running core unit & security tests...")
 
         // 1. EqualizerAPO parser + negative/fuzz bounds

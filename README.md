@@ -14,7 +14,7 @@ O timbr é um notch audiófilo para macOS que reúne mixer de áudio por aplicat
 ![100% Local](https://img.shields.io/badge/Privacy-100%25%20Local%20%C2%B7%20Zero%20Telemetry-111111?style=flat-square)
 ![i18n PT ES EN](https://img.shields.io/badge/i18n-PT--BR%20%C2%B7%20ES%20%C2%B7%20EN-111111?style=flat-square)
 
-[Baixar DMG](https://github.com/v1nometrics/timbr/releases/latest/download/Timbr.dmg) · [Instalar](#instalação-rápida) · [Estado atual](#estado-atual-2026-11-23) · [Como compilar e testar](#build-testes-e-instala%C3%A7%C3%A3o-macos-15--apple-silicon) · [Arquitetura](#arquitetura-e-estrutura-do-c%C3%B3digo) · [Documentação](#mapa-da-documenta%C3%A7%C3%A3o) · [Contribuir](CONTRIBUTING.md)
+[Instalar e atualizar](docs/instalacao.md) · [Estado atual](#estado-atual-2026-11-23) · [Como compilar e testar](#build-testes-e-instala%C3%A7%C3%A3o-macos-15--apple-silicon) · [Arquitetura](#arquitetura-e-estrutura-do-c%C3%B3digo) · [Documentação](#mapa-da-documenta%C3%A7%C3%A3o) · [Contribuir](CONTRIBUTING.md)
 
 </div>
 
@@ -62,7 +62,7 @@ O projeto está em **MVP funcional (uso diário / dogfood)** com histórico cons
 | **Recuperação pós-reset do `coreaudiod`, sleep/wake e readback do keeper** | **Em aberto (prioridade)** | [Auditoria de resiliência (RES-02/03/04)](docs/08-registro/auditoria-resiliencia-2026-11-23.md) |
 | **Roteamento de cada app para uma saída diferente (`RF-0201`)** | **Não implementado** | Maior lacuna funcional do mixer ([Roadmap](docs/06-plano/roadmap-e-backlog.md)) |
 | **Now Playing, letras (LRCLIB), ShazamKit e cenas automáticas** | **Não implementado** | Planejado para Fase 2 ([PRD](docs/02-produto/PRD.md)) |
-| **Notarização Apple Developer ID e Sparkle 2** | **Parcial (updates via GitHub Releases ativos)** | Atualização automática com SHA-256 + troca atômica ativa ([ADR-0026](docs/07-decisoes/ADR-0026-atualizacoes-github-releases.md)); notarização depende de conta Apple Developer |
+| **Notarização Apple Developer ID e Sparkle 2** | **Parcial (updates via GitHub Releases ativos)** | Verificação via GitHub Releases e troca automática quando a assinatura é compatível ([ADR-0026](docs/07-decisoes/ADR-0026-atualizacoes-github-releases.md)); notarização depende de conta Apple Developer |
 | **Bancada física com Momentum 4 / AirPods (`E-08`, `E-09`) e macOS 15 real** | **Não executada** | Código de leitura existe; binário fixado em `15.0`, ainda sem ensaio em máquina com macOS 15 |
 | **Consumo em repouso, latência em loopback e MacBook Pro OLED** | **Não medido / Desconhecido** | [Plano de Experimentos](docs/06-plano/plano-de-experimentos.md) |
 
@@ -72,13 +72,9 @@ Compatibilidade documentada com apps de terceiros: [superwhisper e Google Chrome
 
 ## Instalação rápida
 
-[![Baixar DMG para macOS](https://img.shields.io/badge/Baixar_DMG-macOS_15%2B_Apple_Silicon-111111?style=for-the-badge&logo=apple)](https://github.com/v1nometrics/timbr/releases/latest/download/Timbr.dmg)
+O timbr roda em Macs com Apple Silicon e macOS 15 ou mais recente. O instalador público assinado e notarizado ainda está em preparação. As builds históricas no GitHub são betas de desenvolvimento.
 
-Baixe o DMG mais recente, abra o arquivo e arraste **Timbr** para **Aplicativos**. Não precisa de Xcode, Terminal ou App Store. Uma vez instalado em **Aplicativos**, o próprio `timbr` avisa quando sai uma nova versão oficial em `main` e atualiza com verificação SHA-256 (sem telemetria; configurável em **Ajustes → Atualizações**).
-
-Esta é uma versão beta, sem notarização Apple. Se o macOS bloquear a primeira abertura, tente abrir o app e depois vá a **Ajustes do Sistema → Privacidade e Segurança → Abrir Mesmo Assim**. Confirme a abertura ([instruções da Apple](https://support.apple.com/102445)).
-
-Na primeira execução, conceda **Gravação de áudio do sistema** para volume por app e EQ, e **Acessibilidade** para as teclas de volume e brilho.
+Para instalar e entender quais recursos usam permissões do macOS, veja o [guia de instalação e atualização](docs/instalacao.md).
 
 ### Instalar pelo código-fonte
 

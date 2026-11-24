@@ -136,3 +136,7 @@
 **Comprovado por inspeção:** R-06 descrevia uma mitigação planejada, não implementada: não havia listener de ServiceRestarted nem sleep/wake no motor; keeper confirma held por estado em memória. Não extrapolar o teste de crash da UI para queda do Core Audio. Ver auditoria-resiliencia-2026-11-23.md.
 
 **Coleta verificada:** consultas anteriores com `--limit 300` truncavam histórico; novo snapshot inclui 7.682 issues de 19 repositórios, sem PRs, comentários ou anexos. Zero issues retornadas não significa ausência de defeitos.
+
+### 2026-11-24 · Rotas de privacidade em macOS 26.6
+
+Comprovado localmente pelo título da janela de Ajustes do Sistema. `com.apple.preference.security` com `Privacy_Accessibility`, `Privacy_AudioCapture` ou `Privacy_Bluetooth` abre a lista específica. `General` abre Privacidade e Segurança, sem evidência de navegação até a exceção do Gatekeeper. A instalação notarizada elimina a necessidade do caminho de exceção para quem baixa a versão de distribuição.
