@@ -15,6 +15,18 @@ struct TimbreEngineTestRunner {
     static func main() {
         print("[TimbreEngineTests] Running Momentum 4 protocol, HAL & ProcessTap tests...")
 
+        // A previous instance can leave a recent or muted row under the same bundle ID.
+        // The real Core Audio enumeration must discard these rows while keeping other apps.
+        let ownRows = ["com.timbr.app", "com.timbr.app.helper"].map {
+            AudioSourceDescriptor(bundleID: $0, name: "timbr", volume: 1.0, isMuted: true)
+        }
+        let otherRow = AudioSourceDescriptor(bundleID: "org.example.audio", name: "timbr", volume: 1.0, isMuted: true)
+        let refreshed = ProcessTapEngine().enumerateRunningAudioSources(existing: ownRows + [otherRow])
+        expect(!refreshed.contains { row in ownRows.contains { $0.bundleID == row.bundleID } },
+               "A previously observed timbr instance or helper never remains in the mixer")
+        expect(refreshed.contains { $0.bundleID == otherRow.bundleID && $0.isMuted },
+               "An unrelated source with the same display name retains its mute setting")
+
         // 1. Legacy GAIA v3 packet encode/decode & safety denylist (0x0607, 0x02xx DFU)
         let safePkt = GAIAv3Packet(featureID: 0x06, pduType: 0x00, pduID: 0x01, payload: [0x01, 0x02])
         let encoded = try! safePkt.encode()

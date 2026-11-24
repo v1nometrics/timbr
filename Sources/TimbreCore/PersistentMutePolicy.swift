@@ -7,7 +7,7 @@ public enum PersistentMutePolicy {
     /// The user silenced this app: muted, or its fader at zero. Both must survive a crash —
     /// a fader pulled to 0 % in a lecture hall is a mute in everything but name.
     public static func isSilenced(_ src: AudioSourceDescriptor) -> Bool {
-        !src.isVoIPExcluded && (src.isMuted || src.volume < OutputVolumeBehavior.zeroThreshold)
+        !AudioSourceIdentity.isTimbr(src.bundleID) && !src.isVoIPExcluded && (src.isMuted || src.volume < OutputVolumeBehavior.zeroThreshold)
     }
 
     /// Bundle IDs the tap may follow across relaunches (`processRestoreEnabled`, macOS 26+).
@@ -28,8 +28,8 @@ public enum PersistentMutePolicy {
         into sources: [AudioSourceDescriptor],
         displayName: (String) -> String?
     ) -> [AudioSourceDescriptor] {
-        var out = sources
-        for bid in bundleIDs {
+        var out = sources.filter { !AudioSourceIdentity.isTimbr($0.bundleID) }
+        for bid in bundleIDs where !AudioSourceIdentity.isTimbr(bid) {
             if let i = out.firstIndex(where: { $0.bundleID == bid }) {
                 out[i].isMuted = true
             } else {

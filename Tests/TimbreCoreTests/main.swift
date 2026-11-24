@@ -554,6 +554,15 @@ struct TimbreCoreTestRunner {
         expect(PersistentMutePolicy.restorableBundleIDs(owner: "com.google.Chrome", reported: ["com.google.Chrome.helper", "com.google.Chrome.helper", "com.apple.WebKit.GPU", "com.google.ChromeX"])
                == ["com.google.Chrome", "com.google.Chrome.helper"],
                "Restore follows the app and its helpers, never shared system processes or look-alike IDs")
+        expect(AudioSourceIdentity.isTimbr("com.Timbr.App") && AudioSourceIdentity.isTimbr("com.timbr.app.helper"),
+               "The mixer excludes the product bundle and its helpers across process identities")
+        expect(!AudioSourceIdentity.isTimbr(SystemAudioClient.systemSounds.rawValue)
+               && !AudioSourceIdentity.isTimbr("com.timbr.appstore") && !AudioSourceIdentity.isTimbr(nil),
+               "Synthetic system sounds and unrelated or missing bundle IDs are not self identities")
+        let staleSelf = AudioSourceDescriptor(bundleID: "com.timbr.app", name: "timbr", volume: 0, isMuted: true)
+        expect(!PersistentMutePolicy.isSilenced(staleSelf), "Internal sources are never handed to the mute keeper")
+        expect(PersistentMutePolicy.mergeSurvivingMutes(["com.timbr.app", "com.timbr.app.helper"],
+               into: [staleSelf], displayName: { _ in nil }).isEmpty, "An old keeper request cannot restore an internal row")
         let pmMerged = PersistentMutePolicy.mergeSurvivingMutes(["com.spotify.client", "com.apple.Music"],
                                                               into: [pmQuiet], displayName: { $0 == "com.apple.Music" ? "Music" : nil })
         expect(pmMerged.count == 2 && pmMerged[0].isMuted && pmMerged[0].volume == 0.25, "A surviving mute marks the existing row muted and keeps its volume")
