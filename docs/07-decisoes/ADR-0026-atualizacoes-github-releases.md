@@ -46,3 +46,7 @@ O [ADR-0007](ADR-0007-distribuicao.md) define a trilha de distribuição definit
 - **Positivo:** qualquer mudança aprovada e mesclada em `main` chega a todos os usuários em minutos, com verificação criptográfica de integridade (HTTPS + SHA-256 + `codesign`) e sem servidor próprio nem telemetria.
 - **Limitação transitória (honesta):** enquanto as compilações do GitHub Actions usarem assinatura **ad-hoc** (sem `Developer ID` + notarização Apple do [ADR-0007](ADR-0007-distribuicao.md)), o `cdhash` muda a cada release e o macOS pode pedir reconfirmação das permissões TCC (Gravação de áudio do sistema / Acessibilidade) após atualizar. A interface informa isso explicitamente.
 - **Caminho de evolução:** ao habilitar `DEVELOPER_ID` e `NOTARY_PROFILE` no workflow de release (ou migrar o transporte para Sparkle 2 com EdDSA), o mesmo pipeline de build/versionamento/manifesto e os mesmos testes de política continuam válidos.
+
+### 2026-11-24 · Identidade de assinatura e HUD
+
+Na build pública 89, o macOS deixou de reconhecer a autorização de Acessibilidade após a troca da assinatura local por uma assinatura ad hoc. O atualizador agora só troca o bundle automaticamente quando o candidato satisfaz o requisito de assinatura do app instalado. Caso contrário, entrega o DMG verificado para instalação manual. Preservar a autorização entre diferentes builds públicas requer uma identidade de distribuição estável. Ao perder a autorização, o app encerra o monitor de teclas. Com autorização válida, ele recria o monitor se ficar inválido ou desabilitado.

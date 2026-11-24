@@ -4,6 +4,7 @@
 import Foundation
 import AppKit
 import CryptoKit
+import Security
 import TimbreCore
 
 public enum UpdateStatus: Equatable, Sendable {
@@ -544,6 +545,22 @@ public final class AppUpdater: ObservableObject {
         return (proc.terminationStatus, data)
     }
 
+    /// The updater can preserve TCC grants only when the candidate satisfies the installed
+    /// app's designated requirement. A structurally valid ad hoc signature is insufficient.
+    private nonisolated static func preservesSigningIdentity(from installed: URL, to candidate: URL) -> Bool {
+        let flags = SecCSFlags(rawValue: 0)
+        var current: SecStaticCode?
+        var next: SecStaticCode?
+        var requirement: SecRequirement?
+        guard SecStaticCodeCreateWithPath(installed as CFURL, flags, &current) == errSecSuccess,
+              let current,
+              SecCodeCopyDesignatedRequirement(current, flags, &requirement) == errSecSuccess,
+              let requirement,
+              SecStaticCodeCreateWithPath(candidate as CFURL, flags, &next) == errSecSuccess,
+              let next else { return false }
+        return SecStaticCodeCheckValidity(next, flags, requirement) == errSecSuccess
+    }
+
     private nonisolated static func verifyAndPrepare(
         dmgURL: URL,
         expectedSHA256: String,
@@ -600,7 +617,7 @@ public final class AppUpdater: ObservableObject {
         }
 
         // 3. Atomic in-place swap when installed in /Applications or ~/Applications; otherwise deliver verified DMG.
-        if allowInPlace {
+        if allowInPlace, preservesSigningIdentity(from: bundleURL, to: mountedApp) {
             let parentDir = bundleURL.deletingLastPathComponent()
             let stagedApp = parentDir.appendingPathComponent(".Timbr-update-\(UUID().uuidString).app")
             let (copyStatus, _) = try runProcess("/usr/bin/ditto", arguments: [mountedApp.path, stagedApp.path])
