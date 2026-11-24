@@ -1620,11 +1620,11 @@ private struct SettingsPage: View {
                 }
             }
             group("03", appState.t("ui.settings.permissions")) {
-                tcc(appState.t("tcc.audio.title"), appState.t("tcc.audio.why"), granted: !appState.tapEngine.tccAudioCaptureDeniedOrZeroed, pane: "audio")
+                tcc(appState.t("tcc.audio.title"), appState.t("tcc.audio.why"), granted: nil, pane: .systemAudio)
                 Hairline().padding(.leading, 20)
-                tcc(appState.t("tcc.ax.title"), appState.t("tcc.ax.why"), granted: appState.accessibilityGranted, pane: "accessibility")
+                tcc(appState.t("tcc.ax.title"), appState.t("tcc.ax.why"), granted: appState.accessibilityGranted, pane: .accessibility)
                 Hairline().padding(.leading, 20)
-                tcc(appState.t("tcc.bt.title"), appState.t("tcc.bt.why"), granted: CBCentralManager.authorization == .allowedAlways, pane: "bluetooth")
+                tcc(appState.t("tcc.bt.title"), appState.t("tcc.bt.why"), granted: CBCentralManager.authorization == .allowedAlways, pane: .bluetooth)
             }
             group("04", appState.t("ui.settings.browsers")) {
                 row(appState.t("ui.settings.bridge"), appState.ipcPortActive ? appState.t("ui.settings.bridge_on") : appState.t("ui.settings.bridge_off")) {
@@ -1686,15 +1686,13 @@ private struct SettingsPage: View {
         .frame(minHeight: 54)
     }
 
-    private func tcc(_ title: String, _ why: String, granted: Bool, pane: String) -> some View {
+    private func tcc(_ title: String, _ why: String, granted: Bool?, pane: SystemPermission) -> some View {
         row(title, why) {
             HStack(spacing: 10) {
-                Badge(text: granted ? appState.t("tcc.status.ok") : appState.t("tcc.status.pending"), tone: granted ? .positive : .warning)
+                Badge(text: appState.t(granted == nil ? "tcc.status.check_in_settings" : granted == true ? "tcc.status.ok" : "tcc.status.pending"),
+                      tone: granted == nil ? .neutral : granted == true ? .positive : .warning)
                 Button(appState.t("tcc.open_settings")) {
                     appState.openSystemSettingsTCC(pane)
-                    if pane == "accessibility" {
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { appState.setupMediaKeysIfGranted() }
-                    }
                 }
                 .buttonStyle(.t(.ghost, compact: true))
             }
@@ -1815,7 +1813,7 @@ private struct AboutPage: View {
                     Button(appState.t("ui.about.sponsor")) { NSWorkspace.shared.open(sp) }.buttonStyle(.t(.secondary))
                 }
                 if let remote = appState.updater.availableManifest {
-                    Button(appState.updater.canInstallInPlace ? appState.t("ui.updates.install_restart") : appState.t("ui.updates.download_dmg")) {
+                    Button(appState.updater.canInstallInPlace ? appState.t("ui.updates.prepare") : appState.t("ui.updates.download_dmg")) {
                         appState.updater.downloadAndInstall(remote)
                     }
                     .buttonStyle(.t(.secondary))
@@ -1943,7 +1941,7 @@ private struct UpdateBannerView: View {
             EmptyView()
         default:
             HStack(spacing: 8) {
-                Button(appState.updater.canInstallInPlace ? appState.t("ui.updates.install_restart") : appState.t("ui.updates.download_dmg")) {
+                Button(appState.updater.canInstallInPlace ? appState.t("ui.updates.prepare") : appState.t("ui.updates.download_dmg")) {
                     appState.updater.downloadAndInstall(manifest)
                 }
                 .buttonStyle(.t(.primary, compact: true))
@@ -2059,7 +2057,7 @@ private struct UpdateStatusRow: View {
         switch appState.updater.status {
         case .available(let m):
             HStack(spacing: 8) {
-                Button(appState.updater.canInstallInPlace ? appState.t("ui.updates.install_restart") : appState.t("ui.updates.download_dmg")) {
+                Button(appState.updater.canInstallInPlace ? appState.t("ui.updates.prepare") : appState.t("ui.updates.download_dmg")) {
                     appState.updater.downloadAndInstall(m)
                 }
                 .buttonStyle(.t(.primary, compact: true))
@@ -2079,6 +2077,9 @@ private struct UpdateStatusRow: View {
             .buttonStyle(.t(.ghost, compact: true))
         case .verifying, .installing:
             EmptyView()
+        case .downloadedToFolder(_, let fileURL):
+            Button(appState.t("ui.updates.open_dmg")) { NSWorkspace.shared.open(fileURL) }
+                .buttonStyle(.t(.secondary, compact: true))
         default:
             Button(appState.updater.isBusy ? appState.t("ui.updates.checking") : appState.t("ui.updates.check_now")) {
                 appState.updater.checkForUpdates(manual: true)

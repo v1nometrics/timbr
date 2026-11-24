@@ -1576,32 +1576,21 @@ public final class AppState: ObservableObject {
         trainerHistory = []
     }
 
-    public func openSystemSettingsTCC(_ pane: String) {
-        // Prefer modern System Settings deep links; fall back to legacy Security pane URLs.
-        let candidates: [String]
-        switch pane {
-        case "audio":
-            candidates = [
-                "x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension?Privacy_AudioCapture",
-                "x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent",
-                "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture"
-            ]
-        case "accessibility":
-            candidates = [
-                "x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension?Privacy_Accessibility",
-                "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"
-            ]
-        case "bluetooth":
-            candidates = [
-                "x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension?Privacy_Bluetooth",
-                "x-apple.systempreferences:com.apple.preference.security?Privacy_Bluetooth"
-            ]
-        default:
-            candidates = ["x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension"]
-        }
-        for urlStr in candidates {
-            if let url = URL(string: urlStr), NSWorkspace.shared.open(url) {
-                return
+    private var permissionSettingsRetry: Task<Void, Never>?
+
+    public func openSystemSettingsTCC(_ permission: SystemPermission) {
+        permissionSettingsRetry?.cancel()
+        let workspace = NSWorkspace.shared
+        let settingsID = "com.apple.systempreferences"
+        let coldStart = NSRunningApplication.runningApplications(withBundleIdentifier: settingsID).isEmpty
+        workspace.open(permission.settingsURL)
+        if coldStart {
+            // A cold launch can consume the first URL before the privacy extension finishes loading.
+            // Retry the same destination once without touching any setting or sending clicks.
+            permissionSettingsRetry = Task { @MainActor in
+                try? await Task.sleep(for: .seconds(2))
+                guard !Task.isCancelled else { return }
+                NSWorkspace.shared.open(permission.settingsURL)
             }
         }
     }

@@ -28,7 +28,7 @@ public struct OnboardingWindow: View {
 
     private var colors: TimbreColors { .dark }
 
-    /// Tall enough for the permissions step (three cards + hint) without scrolling at default text size.
+    /// The footer stays visible when the permissions step scrolls.
     public static let windowHeight: CGFloat = 640
 
     public var body: some View {
@@ -48,6 +48,7 @@ public struct OnboardingWindow: View {
                         .padding(.vertical, TimbreSpacing.s6)
                         .frame(maxWidth: .infinity, alignment: .topLeading)
                 }
+                .id(step)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
 
                 footer
@@ -158,25 +159,17 @@ public struct OnboardingWindow: View {
             permissionCard(
                 title: appState.t("tcc.audio.title"),
                 detail: appState.t("tcc.audio.why"),
-                status: appState.t("tcc.status.pending"),
-                required: true,
-                pane: "audio"
+                status: appState.t("tcc.status.check_in_settings"),
+                granted: false,
+                pane: .systemAudio
             )
             permissionCard(
                 title: appState.t("tcc.ax.title"),
                 detail: appState.t("tcc.ax.why"),
                 status: appState.accessibilityGranted ? appState.t("tcc.status.ok") : appState.t("tcc.status.optional"),
-                required: false,
-                pane: "accessibility"
+                granted: appState.accessibilityGranted,
+                pane: .accessibility
             )
-            permissionCard(
-                title: appState.t("tcc.bt.title"),
-                detail: appState.t("tcc.bt.why"),
-                status: appState.t("tcc.status.optional"),
-                required: false,
-                pane: "bluetooth"
-            )
-
             Text(appState.t("onboard.permissions.later"))
                 .type(TimbreTypography.caption)
                 .foregroundStyle(colors.ink_muted)
@@ -195,6 +188,13 @@ public struct OnboardingWindow: View {
                 .foregroundStyle(colors.ink_secondary)
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: 520, alignment: .leading)
+
+            if appState.accessibilityGranted {
+                Text(appState.t("onboard.ready.try_keys"))
+                    .type(TimbreTypography.prose)
+                    .foregroundStyle(colors.ink_secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
 
             Text(appState.t("onboard.ready.hint"))
                 .type(TimbreTypography.monoValue)
@@ -227,12 +227,6 @@ public struct OnboardingWindow: View {
                 .keyboardShortcut(.defaultAction)
 
             case .permissions:
-                Button(appState.t("onboard.skip_perms")) {
-                    withAnimation(reduceMotion ? nil : TimbreMotion.enter) {
-                        step = .ready
-                    }
-                }
-                .buttonStyle(.t(.secondary))
                 Button(appState.t("onboard.next")) {
                     withAnimation(reduceMotion ? nil : TimbreMotion.enter) {
                         step = .ready
@@ -270,7 +264,7 @@ public struct OnboardingWindow: View {
         }
     }
 
-    private func permissionCard(title: String, detail: String, status: String, required: Bool, pane: String) -> some View {
+    private func permissionCard(title: String, detail: String, status: String, granted: Bool, pane: SystemPermission) -> some View {
         HStack(alignment: .top, spacing: TimbreSpacing.s3) {
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: TimbreSpacing.s2) {
@@ -281,8 +275,8 @@ public struct OnboardingWindow: View {
                         .type(TimbreTypography.micro)
                         .padding(.horizontal, 7)
                         .padding(.vertical, 3)
-                        .background((required ? colors.semantic_warning : colors.semantic_info).opacity(0.16))
-                        .foregroundStyle(required ? colors.semantic_warning : colors.semantic_info)
+                        .background((granted ? colors.semantic_positive : colors.semantic_info).opacity(0.16))
+                        .foregroundStyle(granted ? colors.semantic_positive : colors.semantic_info)
                         .clipShape(RoundedRectangle(cornerRadius: TimbreRadius.badge))
                 }
                 Text(detail)
@@ -293,11 +287,6 @@ public struct OnboardingWindow: View {
             Spacer(minLength: TimbreSpacing.s3)
             Button(appState.t("tcc.open_settings")) {
                 appState.openSystemSettingsTCC(pane)
-                if pane == "accessibility" {
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
-                        appState.setupMediaKeysIfGranted()
-                    }
-                }
             }
             .buttonStyle(.t(.secondary))
         }

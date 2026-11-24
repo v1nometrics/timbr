@@ -50,3 +50,9 @@ O [ADR-0007](ADR-0007-distribuicao.md) define a trilha de distribuição definit
 ### 2026-11-24 · Identidade de assinatura e HUD
 
 Na build pública 89, o macOS deixou de reconhecer a autorização de Acessibilidade após a troca da assinatura local por uma assinatura ad hoc. O atualizador agora só troca o bundle automaticamente quando o candidato satisfaz o requisito de assinatura do app instalado. Caso contrário, entrega o DMG verificado para instalação manual. Preservar a autorização entre diferentes builds públicas requer uma identidade de distribuição estável. Ao perder a autorização, o app encerra o monitor de teclas. Com autorização válida, ele recria o monitor se ficar inválido ou desabilitado.
+
+### 2026-11-24 · Preparação para distribuição notarizada
+
+A trilha pública passa a exigir Developer ID Application do time configurado e tickets de notarização válidos para app e DMG. Builds de validação ficam nos artefatos do Actions até que a distribuição seja habilitada. O pacote público tem um manifesto imutável por versão. O fallback manual mostra os passos e deixa a pessoa decidir quando abrir o DMG. A instalação automática preserva a identidade, mantém a quarentena do macOS e restaura o app anterior se o comando de abertura falhar. A abertura aceita pelo LaunchServices não substitui um teste de relançamento funcional.
+
+O [guia de instalação](../instalacao.md) reúne os passos para o usuário. O [procedimento de publicação](../../Packaging/README.md) especifica a validação com dois builds assinados e perfis limpos. A credencial Apple ainda não foi configurada e o aceite de distribuição está pendente.

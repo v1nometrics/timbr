@@ -398,8 +398,6 @@ public final class AppUpdater: ObservableObject {
                 } else if let dmgURL = prep.downloadedDMGURL {
                     self.status = .downloadedToFolder(manifest, fileURL: dmgURL)
                     self.onLog?("Verified DMG saved to \(dmgURL.path)")
-                    NSWorkspace.shared.activateFileViewerSelecting([dmgURL])
-                    NSWorkspace.shared.open(dmgURL)
                 }
             } catch UpdaterError.cancelled {
                 try? FileManager.default.removeItem(at: tempDMG)
@@ -643,6 +641,11 @@ public final class AppUpdater: ObservableObject {
               sleep 0.1
               i=$((i + 1))
             done
+            if kill -0 "$PID" 2>/dev/null; then
+              rm -rf "$STAGED"
+              rm -f "$0"
+              exit 1
+            fi
             rm -rf "$BACKUP"
             if [ -d "$TARGET" ]; then
               mv "$TARGET" "$BACKUP"

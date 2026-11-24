@@ -14,6 +14,7 @@ on:
       - "design-system/scripts/**"
       - "scripts/build_app.sh"
       - "scripts/build_dmg.sh"
+      - "scripts/package_public_release.sh"
       - "scripts/generate_icns.py"
       - "scripts/check_deployment_target.py"
       - ".github/workflows/release.yml"
@@ -23,6 +24,10 @@ on:
         description: "Optional short release summary embedded in update-manifest.json"
         required: false
         default: ""
+      staging:
+        description: "Keep the signed installer as a GitHub Actions artifact for validation"
+        type: boolean
+        default: true
 
 concurrency:
   group: release-main
@@ -33,6 +38,7 @@ permissions:
 
 jobs:
   publish-release:
+    if: github.ref == 'refs/heads/main'
     runs-on: macos-15
     steps:
       - name: Checkout full history
@@ -77,10 +83,48 @@ jobs:
       - name: Run full CI verification suite
         run: ./scripts/ci_check.sh
 
-      - name: Package signed DMG
+      - name: Select distribution mode
+        id: distribution
+        env:
+          SIGNED_BUILDS: ${{ vars.TIMBR_SIGNED_BUILDS }}
+          PUBLIC_RELEASES: ${{ vars.TIMBR_PUBLIC_RELEASES }}
+          STAGING: ${{ inputs.staging }}
+        run: |
+          if [[ "$PUBLIC_RELEASES" == true && "$SIGNED_BUILDS" != true ]]; then
+            echo '::error::Public releases require Developer ID signing and Apple notarization.'
+            exit 1
+          fi
+          signed=false
+          public=false
+          if [[ "$SIGNED_BUILDS" == true ]]; then signed=true; fi
+          if [[ "$PUBLIC_RELEASES" == true && "$STAGING" != true ]]; then public=true; fi
+          printf 'signed=%s\npublic=%s\n' "$signed" "$public" >> "$GITHUB_OUTPUT"
+
+      - name: Package and notarize Developer ID DMG
+        if: steps.distribution.outputs.signed == 'true'
+        env:
+          TIMBR_APPLE_TEAM_ID: ${{ vars.TIMBR_APPLE_TEAM_ID }}
+          TIMBR_DEVELOPER_ID_P12: ${{ secrets.TIMBR_DEVELOPER_ID_P12 }}
+          TIMBR_DEVELOPER_ID_PASSWORD: ${{ secrets.TIMBR_DEVELOPER_ID_PASSWORD }}
+          TIMBR_NOTARY_KEY: ${{ secrets.TIMBR_NOTARY_KEY }}
+          TIMBR_NOTARY_KEY_ID: ${{ secrets.TIMBR_NOTARY_KEY_ID }}
+          TIMBR_NOTARY_ISSUER: ${{ secrets.TIMBR_NOTARY_ISSUER }}
+        run: ./scripts/package_public_release.sh
+
+      - name: Package development DMG
+        if: steps.distribution.outputs.signed != 'true'
         run: ./scripts/build_dmg.sh
 
+      - name: Store validation installer
+        if: steps.distribution.outputs.public != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: timbr-${{ env.RELEASE_TAG }}-validation
+          path: dist/Timbr.dmg
+          if-no-files-found: error
+
       - name: Generate SHA-256 and update-manifest.json
+        if: steps.distribution.outputs.public == 'true'
         run: |
           DMG_SHA256="$(shasum -a 256 dist/Timbr.dmg | awk '{print $1}')"
           echo "DMG_SHA256=${DMG_SHA256}" >> "$GITHUB_ENV"
@@ -103,6 +147,7 @@ jobs:
 
           manifest = {
               "schemaVersion": 1,
+              "distribution": "developer-id-notarized",
               "version": version,
               "build": build,
               "tag": tag,
@@ -121,6 +166,7 @@ jobs:
           PY
 
       - name: Generate release notes
+        if: steps.distribution.outputs.public == 'true'
         run: |
           PREV_TAG="$(git describe --tags --abbrev=0 --match 'v*-b*' HEAD^ 2>/dev/null || true)"
           if [ -n "$PREV_TAG" ]; then
@@ -141,24 +187,26 @@ jobs:
           - **Minimum macOS:** 15.0 (Sequoia) or newer
           - **DMG SHA-256:** \`${DMG_SHA256}\`
           - **Automatic updates:** Installed copies of \`timbr\` read \`update-manifest.json\` over HTTPS (zero cookies, zero telemetry) and verify SHA-256 + \`codesign\` before applying updates.
-          - **Signing status:** Currently community ad-hoc signed until Apple Developer ID notarization is enabled (see [ADR-0026](https://github.com/${GITHUB_REPOSITORY}/blob/main/docs/07-decisoes/ADR-0026-atualizacoes-github-releases.md)). macOS may ask to re-approve audio/accessibility permissions after updating.
+          - **Signing status:** Developer ID Application, Hardened Runtime and Apple notarization. Open the DMG and drag timbr into Applications.
           EOF
 
       - name: Publish GitHub Release
+        if: steps.distribution.outputs.public == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           if gh release view "${RELEASE_TAG}" >/dev/null 2>&1; then
-            echo "Updating existing release ${RELEASE_TAG}"
-            gh release upload "${RELEASE_TAG}" \
-              dist/Timbr.dmg \
-              dist/Timbr.dmg.sha256 \
-              dist/update-manifest.json \
-              --clobber
-            gh release edit "${RELEASE_TAG}" \
-              --title "timbr ${TIMBR_VERSION} (build ${TIMBR_BUILD_NUMBER})" \
-              --notes-file dist/release-notes.md \
-              --latest
+            gh release download "${RELEASE_TAG}" --pattern update-manifest.json --output "$RUNNER_TEMP/published-manifest.json" --clobber
+            python3 - "$RUNNER_TEMP/published-manifest.json" <<'PYTHON'
+          import json, os, re, sys
+          manifest = json.load(open(sys.argv[1], encoding="utf-8"))
+          assert manifest["commit"] == os.environ["TIMBR_COMMIT_SHA"]
+          assert manifest["distribution"] == "developer-id-notarized"
+          checksum = manifest["sha256"]
+          assert re.fullmatch(r"[0-9a-f]{64}", checksum)
+          with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as env:
+              env.write(f"DMG_SHA256={checksum}\n")
+          PYTHON
           else
             gh release create "${RELEASE_TAG}" \
               dist/Timbr.dmg \
@@ -171,6 +219,7 @@ jobs:
           fi
 
       - name: Verify live update-manifest.json on GitHub Releases CDN
+        if: steps.distribution.outputs.public == 'true'
         run: |
           URL="https://github.com/${GITHUB_REPOSITORY}/releases/latest/download/update-manifest.json"
           for attempt in 1 2 3 4 5; do

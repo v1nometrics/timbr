@@ -87,6 +87,25 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
             }
             return
         }
+        // Opening a copy on the disk image can grant privileges to the wrong bundle location.
+        let bundleURL = Bundle.main.bundleURL
+        if bundleURL.path.hasPrefix("/Volumes/"),
+           (try? bundleURL.resourceValues(forKeys: [.volumeIsReadOnlyKey]).volumeIsReadOnly) == true,
+           !AppState.isAuxiliaryInstance {
+            NSApp.setActivationPolicy(.regular)
+            NSApp.activate(ignoringOtherApps: true)
+            let alert = NSAlert()
+            alert.icon = NSApp.applicationIconImage
+            alert.messageText = appState.t("onboard.install.title")
+            alert.informativeText = appState.t("onboard.install.body")
+            alert.addButton(withTitle: appState.t("onboard.install.show_disk"))
+            alert.addButton(withTitle: appState.t("onboard.install.close"))
+            if alert.runModal() == .alertFirstButtonReturn {
+                NSWorkspace.shared.activateFileViewerSelecting([Bundle.main.bundleURL])
+            }
+            NSApp.terminate(nil)
+            return
+        }
         appState.openStudioHandler = { [weak self] in
             self?.openStudio()
         }

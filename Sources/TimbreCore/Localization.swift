@@ -177,14 +177,14 @@ public enum TimbreStrings {
 
         // Permissions (Pre-TCC honest explainers)
         "tcc.audio.why": [
-            .ptBR: "Necessário para ajustar volume por app e aplicar EQ de sistema. O timbr nunca grava nem envia seu áudio.",
-            .es: "Necesario para ajustar volumen por app y aplicar EQ del sistema. timbr nunca graba ni envía tu audio.",
-            .en: "Needed to adjust per-app volume and apply system EQ. timbr never records or transmits your audio."
+            .ptBR: "Necessário para ajustar volume por app e aplicar EQ de sistema. Se o timbr não aparecer na lista, ajuste o volume de um app no Mixer para solicitar acesso. O áudio não é salvo nem enviado.",
+            .es: "Necesario para ajustar volumen por app y aplicar EQ del sistema. Si timbr no aparece en la lista, ajusta el volumen de una app en el Mezclador para solicitar acceso. El audio no se guarda ni se envía.",
+            .en: "Needed to adjust per-app volume and apply system EQ. If timbr is missing from the list, adjust an app’s volume in Mixer to request access. Audio is never saved or sent."
         ],
         "tcc.ax.why": [
-            .ptBR: "Opcional: permite que as teclas de volume controlem o destino ativo e exibam o HUD no notch.",
+            .ptBR: "Ative timbr em Acessibilidade para usar as teclas de volume e brilho no notch. Use + se ele não aparecer.",
             .es: "Opcional: permite que las teclas de volumen controlen la salida activa y muestren el HUD en el notch.",
-            .en: "Optional: lets media volume keys control the active output and show the notch HUD."
+            .en: "Enable timbr in Accessibility to use volume and brightness keys in the notch. Use + if it is missing."
         ],
         "tcc.bt.why": [
             .ptBR: "Opcional: lê telemetria (bateria, ANC e EQ interno) no Sennheiser Momentum 4 via RFCOMM.",
@@ -196,10 +196,15 @@ public enum TimbreStrings {
         "tcc.bt.title": [.ptBR: "Bluetooth (Momentum 4)", .es: "Bluetooth (Momentum 4)", .en: "Bluetooth (Momentum 4)"],
         "tcc.open_settings": [.ptBR: "Abrir Ajustes do Sistema", .es: "Abrir Ajustes del Sistema", .en: "Open System Settings"],
         "tcc.status.ok": [.ptBR: "Concedido", .es: "Concedido", .en: "Granted"],
+        "tcc.status.check_in_settings": [.ptBR: "Ver nos Ajustes", .es: "Ver en Ajustes", .en: "See in Settings"],
         "tcc.status.pending": [.ptBR: "Pendente", .es: "Pendiente", .en: "Pending"],
         "tcc.status.optional": [.ptBR: "Opcional", .es: "Opcional", .en: "Optional"],
 
         // First-run onboarding (RF-1401)
+        "onboard.install.title": [.ptBR: "Instale o timbr em Aplicativos", .es: "Instala timbr en Aplicaciones", .en: "Install timbr in Applications"],
+        "onboard.install.body": [.ptBR: "No disco timbr, arraste o app para Aplicativos. Abra a cópia instalada para configurar as permissões.", .es: "En el disco timbr, arrastra la app a Aplicaciones. Abre la copia instalada para configurar los permisos.", .en: "On the timbr disk, drag the app to Applications. Open the installed copy to set up permissions."],
+        "onboard.install.show_disk": [.ptBR: "Mostrar disco no Finder", .es: "Mostrar disco en Finder", .en: "Show disk in Finder"],
+        "onboard.install.close": [.ptBR: "Fechar", .es: "Cerrar", .en: "Close"],
         "onboard.kicker": [.ptBR: "Bem-vindo", .es: "Bienvenido", .en: "Welcome"],
         "onboard.step.welcome": [.ptBR: "Olá", .es: "Hola", .en: "Hello"],
         "onboard.step.promise": [.ptBR: "Promessa", .es: "Promesa", .en: "Promise"],
@@ -245,6 +250,7 @@ public enum TimbreStrings {
             .es: "timbr vive en la barra de menús y en el notch. Abre el Estudio para el mezclador y el EQ, o reproduce música y expande el notch con ⌥⌘V.",
             .en: "timbr lives in the menu bar and notch. Open Studio for the mixer and EQ, or start playing music and expand the notch with ⌥⌘V."
         ],
+        "onboard.ready.try_keys": [.ptBR: "Experimente uma tecla de volume ou brilho. O ajuste aparece no notch.", .es: "Prueba una tecla de volumen o brillo. El ajuste aparece en el notch.", .en: "Try a volume or brightness key. The adjustment appears in the notch."],
         "onboard.ready.hint": [
             .ptBR: "Atalhos: ⌥⌘, Estúdio · ⌥⌘V Notch · ⌥⌘B Bypass · ⌥⌘A A/B neutro",
             .es: "Atajos: ⌥⌘, Estudio · ⌥⌘V Notch · ⌥⌘B Bypass · ⌥⌘A A/B neutro",
@@ -252,7 +258,6 @@ public enum TimbreStrings {
         ],
         "onboard.next": [.ptBR: "Continuar", .es: "Continuar", .en: "Continue"],
         "onboard.back": [.ptBR: "Voltar", .es: "Atrás", .en: "Back"],
-        "onboard.skip_perms": [.ptBR: "Continuar sem conceder agora", .es: "Continuar sin conceder ahora", .en: "Continue without granting now"],
         "onboard.open_studio": [.ptBR: "Abrir o Estúdio", .es: "Abrir el Estudio", .en: "Open Studio"],
         "onboard.finish_menubar": [.ptBR: "Começar pela barra de menus", .es: "Empezar desde la barra de menús", .en: "Start from the menu bar"],
         "onboard.replay": [.ptBR: "Repetir introdução", .es: "Repetir introducción", .en: "Replay introduction"],
