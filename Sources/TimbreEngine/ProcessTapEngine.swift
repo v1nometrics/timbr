@@ -229,6 +229,7 @@ public final class ProcessTapEngine: @unchecked Sendable {
     }
 
     public func enumerateRunningAudioSources(existing: [AudioSourceDescriptor] = [], recentlyStarted: Set<AudioObjectID> = []) -> [AudioSourceDescriptor] {
+        let knownSources = existing.filter { !AudioSourceIdentity.isTimbr($0.bundleID) }
         var addr = AudioObjectPropertyAddress(
             mSelector: kAudioHardwarePropertyProcessObjectList,
             mScope: kAudioObjectPropertyScopeGlobal,
@@ -236,12 +237,12 @@ public final class ProcessTapEngine: @unchecked Sendable {
         )
         var size: UInt32 = 0
         guard AudioObjectGetPropertyDataSize(AudioObjectID(kAudioObjectSystemObject), &addr, 0, nil, &size) == noErr,
-              size > 0 else { return existing }
+              size > 0 else { return knownSources }
 
         let count = Int(size) / MemoryLayout<AudioObjectID>.size
         var procIDs = [AudioObjectID](repeating: 0, count: count)
         guard AudioObjectGetPropertyData(AudioObjectID(kAudioObjectSystemObject), &addr, 0, nil, &size, &procIDs) == noErr else {
-            return existing
+            return knownSources
         }
 
         let selfPID = ProcessInfo.processInfo.processIdentifier
@@ -251,7 +252,7 @@ public final class ProcessTapEngine: @unchecked Sendable {
         // Keep user state (volume, mute, routing, recency) but recompute what is live on every pass:
         // a source is "playing" only if one of its processes is outputting audio right now.
         var grouped: [String: AudioSourceDescriptor] = [:]
-        for var prev in existing {
+        for var prev in knownSources {
             prev.isPlaying = false
             prev.pids = []
             grouped[prev.bundleID] = prev
@@ -278,8 +279,11 @@ public final class ProcessTapEngine: @unchecked Sendable {
 
             // Attribute helper processes (Chromium/Electron helpers, WebKit GPU processes, XPC
             // audio services) to the app the user actually sees.
-            let owner = AudioProcessAttribution.owner(of: pid, reportedBundleID: cfBundle as String?, runningApps: runningApps)
-            guard owner.pid != selfPID else { continue }
+            let reportedID = cfBundle as String?
+            guard !AudioSourceIdentity.isTimbr(reportedID),
+                  !AudioSourceIdentity.isTimbr(runningApps[pid]?.bundleIdentifier) else { continue }
+            let owner = AudioProcessAttribution.owner(of: pid, reportedBundleID: reportedID, runningApps: runningApps)
+            guard owner.pid != selfPID, !AudioSourceIdentity.isTimbr(owner.bundleID) else { continue }
             let bundleID = owner.bundleID
             // Dictation tools keep a silent output engine running: never "playing" (SilentOutputApps).
             let silentUtility = SilentOutputApps.contains(bundleID)

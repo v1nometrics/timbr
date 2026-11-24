@@ -138,7 +138,7 @@ public enum UpdateEvaluation: Equatable, Sendable {
 
 public enum UpdatePolicy {
     public static let repositorySlug = "v1nometrics/timbr"
-    public static let expectedBundleIdentifier = "com.timbr.app"
+    public static let expectedBundleIdentifier = AudioSourceIdentity.timbrBundleID
     public static let expectedExecutableName = "Timbr"
     public static let defaultManifestURL = URL(string: "https://github.com/v1nometrics/timbr/releases/latest/download/update-manifest.json")!
     public static let releasesPageURL = URL(string: "https://github.com/v1nometrics/timbr/releases")!

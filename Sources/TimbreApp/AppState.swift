@@ -391,7 +391,7 @@ public final class AppState: ObservableObject {
         // are still held by timbr-mute-keeper. Adopt them before the first reconcile, or it would
         // publish "nothing muted" and the keeper would let them play.
         if let keeper = tapEngine.muteKeeper {
-            let survivors = keeper.survivingMutes().map(\.bundleID)
+            let survivors = keeper.survivingMutes().map(\.bundleID).filter { !AudioSourceIdentity.isTimbr($0) }
             if !survivors.isEmpty {
                 sources = PersistentMutePolicy.mergeSurvivingMutes(survivors, into: sources, displayName: Self.appDisplayName(bundleID:))
                 let names = survivors.map { Self.appDisplayName(bundleID: $0) ?? $0 }.joined(separator: ", ")
