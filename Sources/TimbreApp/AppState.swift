@@ -1576,14 +1576,22 @@ public final class AppState: ObservableObject {
         trainerHistory = []
     }
 
+    private var permissionSettingsRetry: Task<Void, Never>?
+
     public func openSystemSettingsTCC(_ permission: SystemPermission) {
+        permissionSettingsRetry?.cancel()
         let workspace = NSWorkspace.shared
-        if let settingsApp = workspace.urlForApplication(withBundleIdentifier: "com.apple.systempreferences") {
-            workspace.open([permission.settingsURL], withApplicationAt: settingsApp, configuration: .init()) { _, error in
-                if error != nil { NSWorkspace.shared.open(permission.settingsURL) }
+        let settingsID = "com.apple.systempreferences"
+        let coldStart = NSRunningApplication.runningApplications(withBundleIdentifier: settingsID).isEmpty
+        workspace.open(permission.settingsURL)
+        if coldStart {
+            // A cold launch can consume the first URL before the privacy extension finishes loading.
+            // Retry the same destination once without touching any setting or sending clicks.
+            permissionSettingsRetry = Task { @MainActor in
+                try? await Task.sleep(for: .seconds(2))
+                guard !Task.isCancelled else { return }
+                NSWorkspace.shared.open(permission.settingsURL)
             }
-        } else {
-            workspace.open(permission.settingsURL)
         }
     }
 
