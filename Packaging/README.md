@@ -38,7 +38,7 @@ Template em [`Homebrew/timbr.rb`](Homebrew/timbr.rb). Em cada release tagada, su
 
 ## Publicação automatizada com Apple Developer ID
 
-O workflow **Release** compila apenas o commit da `main`. Por padrão, entrega um artefato de validação no GitHub Actions e mantém a última release publicada. Para validar uma build assinada, configure:
+O workflow **Release** compila apenas o commit da `main`. Enquanto `TIMBR_SIGNED_BUILDS` não estiver habilitado, cada push na `main` publica automaticamente uma **pré-lançamento beta (`--prerelease`)** e atualiza o manifesto do canal `beta` (sem marcar como `Latest`). Quando `TIMBR_SIGNED_BUILDS=true` estiver configurado (antes de `TIMBR_PUBLIC_RELEASES=true`) ou em execuções `staging`, entrega apenas o artefato de validação no GitHub Actions. Para validar uma build assinada, configure:
 
 | Tipo | Nome | Valor |
 |---|---|---|

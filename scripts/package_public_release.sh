@@ -23,9 +23,10 @@ trap cleanup EXIT
 chmod 700 "$work"
 keychain_password="$(openssl rand -hex 24)"
 security create-keychain -p "$keychain_password" "$keychain"
+security set-keychain-settings "$keychain"
 security unlock-keychain -p "$keychain_password" "$keychain"
-printf '%s' "$TIMBR_DEVELOPER_ID_P12" | base64 -D > "$work/certificate.p12"
-printf '%s' "$TIMBR_NOTARY_KEY" | base64 -D > "$work/notary.p8"
+printf '%s' "$TIMBR_DEVELOPER_ID_P12" | tr -d '[:space:]' | base64 -D > "$work/certificate.p12"
+printf '%s' "$TIMBR_NOTARY_KEY" | tr -d '[:space:]' | base64 -D > "$work/notary.p8"
 security import "$work/certificate.p12" -k "$keychain" -f pkcs12 -P "$TIMBR_DEVELOPER_ID_PASSWORD" -T /usr/bin/codesign
 security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$keychain_password" "$keychain" >/dev/null
 identity="$(security find-identity -v -p codesigning "$keychain" | awk -v team="($TIMBR_APPLE_TEAM_ID)" '/Developer ID Application:/ && index($0, team) { print $2; exit }')"

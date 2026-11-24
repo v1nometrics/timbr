@@ -271,16 +271,24 @@ public final class AppUpdater: ObservableObject {
         let current = currentVersion
         let skipped = skippedTagProvider?()
 
+        let bundleURL = Bundle.main.bundleURL
         activeTask?.cancel()
         activeTask = Task { [weak self] in
             guard let self else { return }
             do {
-                let manifest = try await Self.fetchManifest(url: UpdatePolicy.defaultManifestURL)
+                let isDevIDSigned = Self.isAppleAnchoredSignature(bundleURL: bundleURL)
+                let (stableManifest, betaManifest) = try await Self.fetchChannelManifests(isDeveloperIDSigned: isDevIDSigned)
                 guard !Task.isCancelled else { return }
                 let now = Date()
                 self.lastCheckedAt = now
-                let evaluation = UpdatePolicy.evaluate(
-                    manifest: manifest,
+                if stableManifest == nil && betaManifest == nil {
+                    self.status = .upToDate(checkedAt: now)
+                    return
+                }
+                let evaluation = UpdatePolicy.evaluateChannels(
+                    stable: stableManifest,
+                    beta: betaManifest,
+                    isDeveloperIDSigned: isDevIDSigned,
                     current: current,
                     skippedTag: skipped,
                     ignoreSkipped: manual
@@ -311,12 +319,6 @@ public final class AppUpdater: ObservableObject {
                     if manual {
                         self.status = .failed(reason)
                     }
-                }
-            } catch UpdaterError.httpStatus(404) {
-                if manual {
-                    self.status = .upToDate(checkedAt: Date())
-                } else if case .checking = self.status {
-                    self.status = .idle
                 }
             } catch is CancellationError {
                 if case .checking = self.status {
@@ -459,6 +461,59 @@ public final class AppUpdater: ObservableObject {
         config.timeoutIntervalForRequest = 20
         config.timeoutIntervalForResource = 300
         return config
+    }
+
+    private nonisolated static func isAppleAnchoredSignature(bundleURL: URL) -> Bool {
+        let flags = SecCSFlags(rawValue: 0)
+        var code: SecStaticCode?
+        var requirement: SecRequirement?
+        guard SecStaticCodeCreateWithPath(bundleURL as CFURL, flags, &code) == errSecSuccess,
+              let code,
+              SecRequirementCreateWithString("anchor apple generic" as CFString, flags, &requirement) == errSecSuccess,
+              let requirement else {
+            return false
+        }
+        return SecStaticCodeCheckValidity(code, flags, requirement) == errSecSuccess
+    }
+
+    private nonisolated static func fetchChannelManifests(
+        isDeveloperIDSigned: Bool
+    ) async throws -> (stable: UpdateManifest?, beta: UpdateManifest?) {
+        func fetchOptional(_ url: URL) async -> Result<UpdateManifest?, Error> {
+            do {
+                return .success(try await fetchManifest(url: url))
+            } catch UpdaterError.httpStatus(404) {
+                return .success(nil)
+            } catch {
+                return .failure(error)
+            }
+        }
+
+        if isDeveloperIDSigned {
+            switch await fetchOptional(UpdatePolicy.defaultManifestURL) {
+            case .success(let manifest):
+                return (manifest, nil)
+            case .failure(let error):
+                throw error
+            }
+        }
+
+        async let stableResult = fetchOptional(UpdatePolicy.defaultManifestURL)
+        async let betaResult = fetchOptional(UpdatePolicy.betaManifestURL)
+        let (stableRes, betaRes) = await (stableResult, betaResult)
+
+        switch (stableRes, betaRes) {
+        case (.success(let s), .success(let b)):
+            return (s, b)
+        case (.success(let s), .failure(let err)):
+            if let s { return (s, nil) }
+            throw err
+        case (.failure(let err), .success(let b)):
+            if let b { return (nil, b) }
+            throw err
+        case (.failure(let err), .failure):
+            throw err
+        }
     }
 
     private nonisolated static func fetchManifest(url: URL) async throws -> UpdateManifest {
