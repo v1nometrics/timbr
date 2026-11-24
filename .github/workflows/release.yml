@@ -25,7 +25,7 @@ on:
         required: false
         default: ""
       staging:
-        description: "Keep the signed installer as a GitHub Actions artifact for validation"
+        description: "Keep the installer as a GitHub Actions validation artifact without publishing to Releases"
         type: boolean
         default: true
 
@@ -49,7 +49,7 @@ jobs:
       - name: Compute release version and monotonic build number
         id: meta
         env:
-          INPUT_SUMMARY: ${{ github.event.inputs.summary }}
+          INPUT_SUMMARY: ${{ inputs.summary }}
         run: |
           APP_VERSION="$(tr -d '[:space:]' < VERSION)"
           APP_BUILD="$(git rev-list --count HEAD)"
@@ -96,9 +96,13 @@ jobs:
           fi
           signed=false
           public=false
+          beta=false
+          publish=false
           if [[ "$SIGNED_BUILDS" == true ]]; then signed=true; fi
           if [[ "$PUBLIC_RELEASES" == true && "$STAGING" != true ]]; then public=true; fi
-          printf 'signed=%s\npublic=%s\n' "$signed" "$public" >> "$GITHUB_OUTPUT"
+          if [[ "$signed" != true && "$STAGING" != true ]]; then beta=true; fi
+          if [[ "$public" == true || "$beta" == true ]]; then publish=true; fi
+          printf 'signed=%s\npublic=%s\nbeta=%s\npublish=%s\n' "$signed" "$public" "$beta" "$publish" >> "$GITHUB_OUTPUT"
 
       - name: Package and notarize Developer ID DMG
         if: steps.distribution.outputs.signed == 'true'
@@ -116,7 +120,7 @@ jobs:
         run: ./scripts/build_dmg.sh
 
       - name: Store validation installer
-        if: steps.distribution.outputs.public != 'true'
+        if: steps.distribution.outputs.publish != 'true'
         uses: actions/upload-artifact@v4
         with:
           name: timbr-${{ env.RELEASE_TAG }}-validation
@@ -124,7 +128,9 @@ jobs:
           if-no-files-found: error
 
       - name: Generate SHA-256 and update-manifest.json
-        if: steps.distribution.outputs.public == 'true'
+        if: steps.distribution.outputs.publish == 'true'
+        env:
+          DISTRIBUTION_CHANNEL: ${{ steps.distribution.outputs.public == 'true' && 'developer-id-notarized' || 'ad-hoc-beta' }}
         run: |
           DMG_SHA256="$(shasum -a 256 dist/Timbr.dmg | awk '{print $1}')"
           echo "DMG_SHA256=${DMG_SHA256}" >> "$GITHUB_ENV"
@@ -142,12 +148,13 @@ jobs:
           published_at = os.environ["PUBLISHED_AT"]
           sha256 = os.environ["DMG_SHA256"].lower()
           summary = os.environ.get("RELEASE_SUMMARY", "").strip()
+          distribution = os.environ["DISTRIBUTION_CHANNEL"]
 
           assert re.fullmatch(r"[0-9a-f]{64}", sha256), f"Invalid SHA-256: {sha256}"
 
           manifest = {
               "schemaVersion": 1,
-              "distribution": "developer-id-notarized",
+              "distribution": distribution,
               "version": version,
               "build": build,
               "tag": tag,
@@ -166,7 +173,9 @@ jobs:
           PY
 
       - name: Generate release notes
-        if: steps.distribution.outputs.public == 'true'
+        if: steps.distribution.outputs.publish == 'true'
+        env:
+          IS_PUBLIC: ${{ steps.distribution.outputs.public }}
         run: |
           PREV_TAG="$(git describe --tags --abbrev=0 --match 'v*-b*' HEAD^ 2>/dev/null || true)"
           if [ -n "$PREV_TAG" ]; then
@@ -175,22 +184,58 @@ jobs:
             CHANGES="$(git log --pretty='- %s (%h)' -n 10)"
           fi
 
-          cat > dist/release-notes.md <<EOF
-          ## timbr ${TIMBR_VERSION} (build ${TIMBR_BUILD_NUMBER})
+          CHANGES="$CHANGES" python3 - <<'PY'
+          import os
+          from pathlib import Path
 
-          Official build published automatically from \`main\` commit \`${TIMBR_COMMIT_SHA}\`.
+          repo = os.environ["GITHUB_REPOSITORY"]
+          ver = os.environ["TIMBR_VERSION"]
+          build = os.environ["TIMBR_BUILD_NUMBER"]
+          commit = os.environ["TIMBR_COMMIT_SHA"]
+          sha = os.environ["DMG_SHA256"]
+          tag = os.environ["RELEASE_TAG"]
+          changes = os.environ["CHANGES"]
+          is_public = os.environ.get("IS_PUBLIC") == "true"
+
+          if is_public:
+              notes = f"""## timbr {ver} (build {build})
+
+          Official build published automatically from `main` commit `{commit}`.
 
           ### Changes
-          ${CHANGES}
+          {changes}
 
           ### Verification
           - **Minimum macOS:** 15.0 (Sequoia) or newer
-          - **DMG SHA-256:** \`${DMG_SHA256}\`
-          - **Automatic updates:** Installed copies of \`timbr\` read \`update-manifest.json\` over HTTPS (zero cookies, zero telemetry) and verify SHA-256 + \`codesign\` before applying updates.
+          - **DMG SHA-256:** `{sha}`
+          - **Automatic updates:** Installed copies of `timbr` read `update-manifest.json` over HTTPS (zero cookies, zero telemetry) and verify SHA-256 + `codesign` before applying updates.
           - **Signing status:** Developer ID Application, Hardened Runtime and Apple notarization. Open the DMG and drag timbr into Applications.
-          EOF
+          """
+          else:
+              notes = f"""## timbr {ver} (beta build {build})
 
-      - name: Publish GitHub Release
+          Pre-release beta build published automatically from `main` commit `{commit}`.
+
+          ### Changes
+          {changes}
+
+          ### Verification
+          - **Minimum macOS:** 15.0 (Sequoia) or newer
+          - **DMG SHA-256:** `{sha}`
+          - **Signing status:** Ad-hoc development build (**not** signed with Apple Developer ID and **not** notarized yet).
+          - **First open / updates:** Drag **Timbr.app** into **Applications**. If macOS blocks the first launch, use **System Settings → Privacy & Security → Open Anyway** ([installation guide](https://github.com/{repo}/blob/main/docs/instalacao.md)). Because ad-hoc signatures change per build, in-app updates verify SHA-256 + `codesign` and save the verified DMG for manual replacement in Applications.
+          """
+              Path("dist/beta-channel-notes.md").write_text(
+                  f"Rolling manifest pointer for automatic **timbr** beta pre-releases.\n\n"
+                  f"Latest beta build: **{tag}** (`https://github.com/{repo}/releases/tag/{tag}`).\n",
+                  encoding="utf-8",
+              )
+
+          lines = [line[10:] if line.startswith("          ") else line for line in notes.splitlines()]
+          Path("dist/release-notes.md").write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
+          PY
+
+      - name: Publish official GitHub Release
         if: steps.distribution.outputs.public == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -218,17 +263,64 @@ jobs:
               --latest
           fi
 
-      - name: Verify live update-manifest.json on GitHub Releases CDN
-        if: steps.distribution.outputs.public == 'true'
+      - name: Publish beta pre-release and update beta channel manifest
+        if: steps.distribution.outputs.beta == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          URL="https://github.com/${GITHUB_REPOSITORY}/releases/latest/download/update-manifest.json"
-          for attempt in 1 2 3 4 5; do
-            if curl -fsSL "$URL" -o /tmp/live-manifest.json; then
-              python3 -c 'import json, sys; d = json.load(open(sys.argv[1], encoding="utf-8")); assert d["tag"] == sys.argv[2] and d["sha256"] == sys.argv[3], d; print("[PASS] Live manifest verified:", d["tag"], d["sha256"][:12])' /tmp/live-manifest.json "$RELEASE_TAG" "$DMG_SHA256"
-              exit 0
+          if ! gh release view "${RELEASE_TAG}" >/dev/null 2>&1; then
+            gh release create "${RELEASE_TAG}" \
+              dist/Timbr.dmg \
+              dist/Timbr.dmg.sha256 \
+              dist/update-manifest.json \
+              --target "${GITHUB_SHA}" \
+              --title "timbr ${TIMBR_VERSION} (beta build ${TIMBR_BUILD_NUMBER})" \
+              --notes-file dist/release-notes.md \
+              --prerelease
+          fi
+
+          git push origin "${GITHUB_SHA}:refs/tags/beta" --force
+          if gh release view beta >/dev/null 2>&1; then
+            gh release edit beta \
+              --prerelease \
+              --title "timbr ${TIMBR_VERSION} (beta channel)" \
+              --notes-file dist/beta-channel-notes.md
+            gh release upload beta dist/update-manifest.json --clobber
+          else
+            gh release create beta \
+              dist/update-manifest.json \
+              --target "${GITHUB_SHA}" \
+              --title "timbr ${TIMBR_VERSION} (beta channel)" \
+              --notes-file dist/beta-channel-notes.md \
+              --prerelease
+          fi
+
+      - name: Verify live update-manifest.json on GitHub Releases CDN
+        if: steps.distribution.outputs.publish == 'true'
+        env:
+          IS_PUBLIC: ${{ steps.distribution.outputs.public }}
+        run: |
+          if [[ "$IS_PUBLIC" == 'true' ]]; then
+            URLS=("https://github.com/${GITHUB_REPOSITORY}/releases/latest/download/update-manifest.json")
+          else
+            URLS=(
+              "https://github.com/${GITHUB_REPOSITORY}/releases/download/${RELEASE_TAG}/update-manifest.json"
+              "https://github.com/${GITHUB_REPOSITORY}/releases/download/beta/update-manifest.json"
+            )
+          fi
+          for URL in "${URLS[@]}"; do
+            ok=0
+            for attempt in 1 2 3 4 5; do
+              if curl -fsSL "$URL" -o /tmp/live-manifest.json; then
+                python3 -c 'import json, sys; d = json.load(open(sys.argv[1], encoding="utf-8")); assert d["tag"] == sys.argv[2] and d["sha256"] == sys.argv[3], d; print("[PASS] Live manifest verified:", sys.argv[4], d["tag"], d["sha256"][:12])' /tmp/live-manifest.json "$RELEASE_TAG" "$DMG_SHA256" "$URL"
+                ok=1
+                break
+              fi
+              echo "Waiting for CDN propagation ($URL, attempt $attempt)..."
+              sleep 4
+            done
+            if [ "$ok" -ne 1 ]; then
+              echo "ERROR: Could not verify live update-manifest.json at $URL"
+              exit 1
             fi
-            echo "Waiting for CDN propagation (attempt $attempt)..."
-            sleep 4
           done
-          echo "ERROR: Could not verify live update-manifest.json at $URL"
-          exit 1

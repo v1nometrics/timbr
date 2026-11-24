@@ -914,6 +914,36 @@ struct TimbreCoreTestRunner {
             expect(UpdatePolicy.isStandardApplicationsPath("/Users/alice/Applications/Timbr.app", homeDirectory: "/Users/alice"), "~/Applications/Timbr.app allows in-place install")
             expect(!UpdatePolicy.isStandardApplicationsPath("/Users/alice/Documents/timbre/dist/Timbr.app", homeDirectory: "/Users/alice"), "Dev dist checkout does not self-overwrite")
             expect(!UpdatePolicy.isStandardApplicationsPath("/Volumes/timbr/Timbr.app", homeDirectory: "/Users/alice"), "Mounted DMG volume does not self-overwrite")
+
+            expect(UpdatePolicy.isTrustedReleaseURL(UpdatePolicy.betaManifestURL.absoluteString), "Beta manifest URL is trusted")
+            let betaManifest = UpdateManifest(
+                version: "0.1.0",
+                build: 92,
+                tag: "v0.1.0-b92",
+                commit: "def5678",
+                publishedAt: "2026-04-21T12:00:00Z",
+                minimumMacOS: "15.0",
+                downloadURL: goodDL,
+                releaseNotesURL: goodNotes,
+                sha256: goodSHA,
+                summary: "Automatic beta"
+            )
+            expect(
+                UpdatePolicy.evaluateChannels(stable: baseManifest, beta: betaManifest, isDeveloperIDSigned: true, current: current, currentMacOS: macOS15) == .available(baseManifest),
+                "Developer ID build ignores beta channel even when beta build is higher"
+            )
+            expect(
+                UpdatePolicy.evaluateChannels(stable: baseManifest, beta: betaManifest, isDeveloperIDSigned: false, current: current, currentMacOS: macOS15) == .available(betaManifest),
+                "Non-Developer-ID build picks newer beta pre-release"
+            )
+            expect(
+                UpdatePolicy.evaluateChannels(stable: nil, beta: betaManifest, isDeveloperIDSigned: false, current: current, currentMacOS: macOS15) == .available(betaManifest),
+                "Beta build works cleanly when no stable Latest release exists yet"
+            )
+            expect(
+                UpdatePolicy.evaluateChannels(stable: baseManifest, beta: baseManifest, isDeveloperIDSigned: false, current: current, currentMacOS: macOS15) == .available(baseManifest),
+                "Stable release wins ties over beta"
+            )
             print("  [PASS] UpdatePolicy (SemVer/build ordering, fail-closed URL/SHA-256/schema/OS checks, skip/manual override, safe install paths)")
         }
 

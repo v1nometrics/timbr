@@ -141,6 +141,7 @@ public enum UpdatePolicy {
     public static let expectedBundleIdentifier = AudioSourceIdentity.timbrBundleID
     public static let expectedExecutableName = "Timbr"
     public static let defaultManifestURL = URL(string: "https://github.com/v1nometrics/timbr/releases/latest/download/update-manifest.json")!
+    public static let betaManifestURL = URL(string: "https://github.com/v1nometrics/timbr/releases/download/beta/update-manifest.json")!
     public static let releasesPageURL = URL(string: "https://github.com/v1nometrics/timbr/releases")!
     public static let automaticCheckIntervalSeconds: TimeInterval = 4 * 60 * 60
     public static let initialCheckDelaySeconds: TimeInterval = 12
@@ -231,6 +232,74 @@ public enum UpdatePolicy {
             return .skipped(manifest)
         }
         return .available(manifest)
+    }
+
+    /// Evaluates the official release channel and (for non-Developer-ID builds only) the beta pre-release channel.
+    /// Official Apple-signed builds never fall back to ad-hoc betas; beta builds upgrade smoothly to official `Latest`
+    /// releases and prefer the official channel on equal version/build.
+    public static func evaluateChannels(
+        stable: UpdateManifest?,
+        beta: UpdateManifest?,
+        isDeveloperIDSigned: Bool,
+        current: AppVersion,
+        currentMacOS: SemVer = currentMacOSVersion(),
+        skippedTag: String? = nil,
+        ignoreSkipped: Bool = false
+    ) -> UpdateEvaluation {
+        let candidates: [UpdateManifest] = isDeveloperIDSigned
+            ? [stable].compactMap { $0 }
+            : [stable, beta].compactMap { $0 }
+        guard !candidates.isEmpty else { return .upToDate }
+
+        var bestAvailable: UpdateManifest? = nil
+        var bestSkipped: UpdateManifest? = nil
+        var sawUpToDate = false
+        var firstUnsupportedOS: UpdateEvaluation? = nil
+        var firstInvalid: UpdateEvaluation? = nil
+
+        func isStrictlyNewer(_ lhs: UpdateManifest, than rhs: UpdateManifest) -> Bool {
+            isNewer(manifest: lhs, than: AppVersion(version: rhs.version, build: rhs.build, commit: rhs.commit))
+        }
+
+        for manifest in candidates {
+            let result = evaluate(
+                manifest: manifest,
+                current: current,
+                currentMacOS: currentMacOS,
+                skippedTag: skippedTag,
+                ignoreSkipped: ignoreSkipped
+            )
+            switch result {
+            case .available(let m):
+                if let currentBest = bestAvailable {
+                    if isStrictlyNewer(m, than: currentBest) {
+                        bestAvailable = m
+                    }
+                } else {
+                    bestAvailable = m
+                }
+            case .skipped(let m):
+                if let currentBest = bestSkipped {
+                    if isStrictlyNewer(m, than: currentBest) {
+                        bestSkipped = m
+                    }
+                } else {
+                    bestSkipped = m
+                }
+            case .upToDate:
+                sawUpToDate = true
+            case .unsupportedOS:
+                if firstUnsupportedOS == nil { firstUnsupportedOS = result }
+            case .invalid:
+                if firstInvalid == nil { firstInvalid = result }
+            }
+        }
+
+        if let bestAvailable { return .available(bestAvailable) }
+        if let bestSkipped { return .skipped(bestSkipped) }
+        if sawUpToDate { return .upToDate }
+        if let firstUnsupportedOS { return firstUnsupportedOS }
+        return firstInvalid ?? .upToDate
     }
 
     /// True only when running from a standard Applications folder (`/Applications` or `~/Applications`),
