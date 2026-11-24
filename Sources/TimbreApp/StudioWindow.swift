@@ -204,20 +204,21 @@ private struct PageHeader<Actions: View>: View {
     @Environment(\.palette) private var c
 
     var body: some View {
-        HStack(alignment: .bottom, spacing: TimbreSpacing.s6) {
-            VStack(alignment: .leading, spacing: 8) {
+        HStack(alignment: .bottom, spacing: TimbreSpacing.s4) {
+            VStack(alignment: .leading, spacing: 6) {
                 Eyebrow(text: index)
-                Text(title).type(TimbreTypography.pageTitle).foregroundStyle(c.ink_primary)
+                Text(title).type(TimbreTypography.pageTitle).foregroundStyle(c.ink_primary).fixedSize(horizontal: false, vertical: true)
                 Text(summary)
                     .type(TimbreTypography.body)
                     .foregroundStyle(c.ink_secondary)
                     .fixedSize(horizontal: false, vertical: true)
-                    .frame(maxWidth: 560, alignment: .leading)
+                    .frame(maxWidth: 460, alignment: .leading)
             }
-            Spacer(minLength: 0)
+            Spacer(minLength: 12)
             HStack(spacing: 8) { actions() }
+                .fixedSize(horizontal: true, vertical: false)
         }
-        .padding(.bottom, 28)
+        .padding(.bottom, 22)
     }
 }
 
@@ -489,16 +490,16 @@ private struct MixerPage: View {
     @Environment(\.palette) private var c
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 36) {
-            PageHeader(index: "01 — " + appState.t("nav.mixer"), title: appState.t("ui.mixer.title"), summary: appState.signalSummary) {
+        VStack(alignment: .leading, spacing: 32) {
+            PageHeader(index: appState.t("nav.mixer"), title: appState.t("ui.mixer.title"), summary: appState.signalSummary) {
                 Button(appState.t("ui.mixer.reset")) { appState.resetAllSourceVolumesToFlat() }
                     .buttonStyle(.t(.secondary))
                     .disabled(!appState.hasNonFlatSourceVolumes)
                     .help(appState.t("mixer.reset_flat_help"))
             }
-            .padding(.bottom, -28)
+            .padding(.bottom, -24)
 
-            kpis
+            masterConsoleStrip
 
             VStack(alignment: .leading, spacing: 14) {
                 SectionHeader(index: "01", title: appState.t("mixer.title"), subtitle: appState.t("ui.mixer.sources_sub"))
@@ -515,20 +516,167 @@ private struct MixerPage: View {
         }
     }
 
-    private var kpis: some View {
+    private var masterConsoleStrip: some View {
         let dev = appState.activeOutputDevice
-        let boosts = appState.sources.filter { $0.volume > 1.0001 }.count
-        return LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 4), spacing: 12) {
-            KPITile(label: appState.t("ui.kpi.playing"), value: "\(appState.playingCount)", unit: appState.t("ui.kpi.sources_unit"),
-                    footnote: boosts > 0 ? String(format: appState.t("ui.kpi.boost_n"), boosts) : String(format: appState.t("ui.kpi.listed_n"), appState.mixerSources.count))
-            KPITile(label: appState.t("ui.kpi.output"), value: dev?.name ?? "—",
-                    footnote: dev.map { "\($0.rateLabel) · \($0.transportLabel(appState.t))" }, origin: .reported)
-            KPITile(label: appState.t("ui.kpi.path"),
-                    value: appState.pathIsNative ? appState.t("ui.path.native_short") : appState.t("ui.path.processing_short"),
-                    footnote: String(format: appState.t("ui.kpi.taps_n"), appState.activeTapsCount),
-                    tone: appState.pathIsNative ? c.semantic_positive : c.accent_signal)
-            KPITile(label: appState.t("eq.preamp"), value: Fmt.db(appState.telemetry.preampDB), unit: "dB",
-                    footnote: String(format: appState.t("ui.kpi.ceiling"), Fmt.db(appState.activePreset.limiterCeilingDBTP)), origin: .measured)
+        let t = appState.telemetry
+        let live = appState.hasLiveSignal
+        let peakDB = live ? max(appState.meterBallisticsL.smoothedDB, appState.meterBallisticsR.smoothedDB) : -60.0
+        let holdDB = live ? max(appState.meterBallisticsL.heldPeakDB, appState.meterBallisticsR.heldPeakDB) : nil
+        let isMuted = appState.outputSilenced
+        let rawVol = appState.activeOutputVolume ?? Double(dev.flatMap { appState.halManager.readOutputVolumeScalar(deviceID: $0.audioObjectID) } ?? 0.5)
+        let vol = isMuted ? 0 : rawVol
+        let activeBands = appState.activePreset.allEffectiveBands.filter { $0.enabled && abs($0.gainDB) > 0.01 }.count
+
+        return ListCard {
+            HStack(spacing: 14) {
+                if let dev {
+                    DeviceGlyph(device: dev, size: 32, active: true)
+                }
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack(spacing: 8) {
+                        Text(dev?.name ?? "—")
+                            .type(TimbreTypography.bodyStrong)
+                            .foregroundStyle(c.ink_primary)
+                            .lineLimit(1)
+                        if appState.outputDevices.count > 1 {
+                            MenuChip(title: appState.t("ui.mixer.change_input")) {
+                                ForEach(appState.outputDevices) { d in
+                                    Button {
+                                        appState.selectDefaultOutput(d)
+                                    } label: {
+                                        if d.isDefaultOutput {
+                                            Label(d.name, systemImage: "checkmark")
+                                        } else {
+                                            Text(d.name)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    HStack(spacing: 6) {
+                        OriginMark(origin: .reported)
+                        Text(dev.map { "\($0.rateLabel) · \($0.transportLabel(appState.t))" } ?? "—")
+                            .type(TimbreTypography.monoSmall)
+                            .foregroundStyle(c.ink_muted)
+                    }
+                }
+                .frame(minWidth: 210, alignment: .leading)
+
+                Spacer(minLength: 8)
+
+                if let dev, dev.isHWVolumeMasterSettable || dev.isHWVolumeChannelSettable {
+                    let liveNorm: Double? = (!isMuted && appState.playingCount > 0)
+                        ? (live ? AudioDecibelMath.dbToNormalized(peakDB, minDB: -60, maxDB: 0) : min(1.0, rawVol * 0.52))
+                        : nil
+                    TFader(
+                        value: Binding(get: { vol }, set: { appState.setOutputVolume(dev, value: $0, showHUD: false) }),
+                        range: 0...1,
+                        tint: c.ink_primary,
+                        label: dev.name,
+                        valueText: isMuted ? appState.t("ui.notch.muted") : Fmt.percent(rawVol),
+                        liveMeterNorm: liveNorm,
+                        scaleMarks: [0.25, 0.5, 0.75]
+                    )
+                    .frame(maxWidth: 320)
+
+                    HStack(alignment: .firstTextBaseline, spacing: 1) {
+                        Text(isMuted ? "—" : Fmt.percent(rawVol)).type(TimbreTypography.monoValue)
+                        if !isMuted { Text("%").type(TimbreTypography.monoSmall).foregroundStyle(c.ink_muted) }
+                    }
+                    .foregroundStyle(isMuted ? c.semantic_warning : c.ink_primary)
+                    .frame(width: 52, alignment: .trailing)
+
+                    if dev.isHWMuteSettable {
+                        TChannelButton(
+                            text: "M",
+                            symbol: isMuted ? "speaker.slash.fill" : nil,
+                            pressed: isMuted,
+                            tone: .mute,
+                            size: 24,
+                            help: appState.t("ui.mute")
+                        ) {
+                            appState.toggleOutputMute()
+                        }
+                    }
+                } else {
+                    Badge(text: appState.t("dev.sw_volume"), tone: .warning)
+                        .help(appState.t("ui.output.sw_help"))
+                }
+            }
+            .padding(.horizontal, 20)
+            .frame(height: 62)
+
+            Hairline()
+
+            // Integrated Signal Chain Telemetry Bar (replaces the 4 separate KPI cards)
+            HStack(spacing: 14) {
+                HStack(spacing: 6) {
+                    Circle()
+                        .fill(appState.isProcessingBypassed ? c.ink_muted : (appState.pathIsNative ? c.semantic_positive : c.accent_signal))
+                        .frame(width: 6, height: 6)
+                    Text(appState.isProcessingBypassed ? appState.t("ui.path.bypassed") : (appState.pathIsNative ? appState.t("ui.path.native_short") : appState.t("ui.path.processing_short")))
+                        .type(TimbreTypography.monoSmall)
+                        .foregroundStyle(c.ink_primary)
+                    Text("· " + String(format: appState.t("ui.kpi.taps_n"), appState.activeTapsCount))
+                        .type(TimbreTypography.monoSmall)
+                        .foregroundStyle(c.ink_muted)
+                }
+                .fixedSize()
+
+                Hairline(vertical: true).frame(height: 14)
+
+                HStack(spacing: 5) {
+                    Eyebrow(text: appState.t("ui.kpi.playing"))
+                    Text("\(appState.playingCount)")
+                        .type(TimbreTypography.monoValue)
+                        .foregroundStyle(appState.playingCount > 0 ? c.ink_primary : c.ink_muted)
+                    Text("/ \(appState.mixerSources.count)")
+                        .type(TimbreTypography.monoSmall)
+                        .foregroundStyle(c.ink_faint)
+                }
+                .fixedSize()
+
+                Hairline(vertical: true).frame(height: 14)
+
+                HStack(spacing: 5) {
+                    Eyebrow(text: appState.t("eq.preamp"))
+                    Text(Fmt.db(t.preampDB) + " dB")
+                        .type(TimbreTypography.monoValue)
+                        .foregroundStyle(c.ink_primary)
+                }
+                .fixedSize()
+
+                Hairline(vertical: true).frame(height: 14)
+
+                HStack(spacing: 7) {
+                    Eyebrow(text: appState.t("ui.eq.true_peak"))
+                    TLevelMeter(peakDB: peakDB, rmsDB: live ? t.lufsMomentary : nil, heldPeakDB: holdDB, height: 5)
+                        .frame(width: 72)
+                    Text((live && max(t.truePeakL, t.truePeakR) > -70) ? Fmt.signed(max(t.truePeakL, t.truePeakR)) + " dBTP" : "—")
+                        .type(TimbreTypography.monoSmall)
+                        .foregroundStyle(c.ink_secondary)
+                }
+                .fixedSize()
+
+                Spacer(minLength: 8)
+
+                Button {
+                    appState.selectedTab = .equalizer
+                } label: {
+                    HStack(spacing: 5) {
+                        Image(systemName: "point.bottomleft.forward.to.point.topright.scurvepath")
+                            .font(.system(size: 10, weight: .medium))
+                        Text(appState.activePreset.name + (activeBands > 0 ? " (\(activeBands))" : ""))
+                            .lineLimit(1)
+                    }
+                }
+                .buttonStyle(.t(.ghost, compact: true))
+                .fixedSize()
+            }
+            .padding(.horizontal, 20)
+            .frame(height: 38)
+            .background(c.bg_inset)
         }
     }
 
@@ -547,7 +695,7 @@ private struct MixerPage: View {
                         TabRow(appState: appState, tab: tab)
                     }
                 }
-                .transition(.opacity)   // a source that starts or stops fades in/out instead of popping
+                .transition(.opacity)
             }
         }
         .animation(TimbreMotion.smooth, value: appState.mixerSources.map(\.bundleID))
@@ -836,70 +984,158 @@ private struct OutputRow: View {
 
 // MARK: - 02 Equalizer
 
-private extension Collection where Element == Int {
-    /// Indices in groups of `size` (the last may be shorter).
-    func chunked(into size: Int) -> [[Int]] {
-        let all = Array(self)
-        return stride(from: 0, to: all.count, by: size).map { Array(all[$0..<Swift.min($0 + size, all.count)]) }
-    }
-}
-
 private struct EqualizerPage: View {
     @ObservedObject var appState: AppState
     @Environment(\.palette) private var c
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 36) {
-            PageHeader(index: "02 — " + appState.t("nav.eq"), title: appState.t("ui.eq.title"), summary: eqSummary) {
+        VStack(alignment: .leading, spacing: 14) {
+            PageHeader(index: appState.t("nav.eq"), title: appState.t("ui.eq.title"), summary: eqSummary) {
                 TSegmented(options: [
                     (AppState.EQMode.four, "4"), (.five, "5"), (.ten, "10"),
                     (.free, appState.t("eq.mode.advanced")),
                 ], selection: Binding(get: { appState.eqMode }, set: { appState.setEQMode($0) }))
-                Menu {
-                    Button(appState.t("eq.import_apo")) { appState.importEqualizerAPOFromPanel() }
-                    Button(appState.t("eq.export_apo")) { appState.exportEqualizerAPOToPanel() }
-                } label: {
-                    Text(appState.t("ui.eq.file"))
-                }
-                .menuStyle(.button)
-                .menuIndicator(.hidden)
-                .fixedSize()
-                .buttonStyle(.t(.secondary))
-                Button(appState.t("ui.eq.save")) { appState.saveCurrentPreset() }
-                    .buttonStyle(.t(.primary))
-            }
-            .padding(.bottom, -28)
 
-            // Curve
+                Button(appState.t("ui.eq.save")) { appState.saveCurrentPreset() }
+                    .buttonStyle(.t(.primary, compact: true))
+            }
+            .padding(.bottom, -14)
+
+            // Unified EQ Instrument Console: Correction & Preset Bar + Curve + Metrology + Fader Bank / Band Table
             VStack(spacing: 0) {
-                HStack(spacing: 18) {
-                    legend(appState.t("eq.layer.correction"), dashed: true, color: c.ink_secondary)
-                    legend(appState.t("eq.layer.taste"), dashed: false, color: c.ink_muted)
-                    legend(appState.t("eq.layer.result"), dashed: false, color: c.accent_signal, thick: true)
-                    Spacer()
-                    if let meta = appState.activePreset.correctionMetadata {
-                        Text("\(meta.headphoneModel) · \(meta.sourceCredit)").type(TimbreTypography.monoSmall).foregroundStyle(c.ink_muted).lineLimit(1)
-                    }
-                }
-                .padding(.horizontal, 20)
-                .frame(height: 44)
-                EQCurveCanvas(appState: appState, height: 290)
+                correctionAndLegendBar
+                Hairline()
+                EQCurveCanvas(appState: appState, height: 192)
                     .padding(.horizontal, 18)
-                    .padding(.bottom, 14)
+                    .padding(.top, 6)
+                    .padding(.bottom, 8)
                 Hairline()
                 metrology
+                Hairline()
+                if appState.activePreset.useAdvancedPEQ {
+                    advancedBandsConsole
+                } else {
+                    graphicFaderBankConsole
+                }
             }
             .background(RoundedRectangle(cornerRadius: TimbreRadius.card, style: .continuous).fill(c.bg_surface))
             .overlay(RoundedRectangle(cornerRadius: TimbreRadius.card, style: .continuous).strokeBorder(c.line_default, lineWidth: 1))
+            .clipShape(RoundedRectangle(cornerRadius: TimbreRadius.card, style: .continuous))
 
-            if appState.activePreset.useAdvancedPEQ { advancedBands } else { simpleControls }
-
+            // Compact 2-Column Audition & Tone Assistant Utility Strip
             HStack(alignment: .top, spacing: 14) {
-                correctionPanel
                 comparePanel
                 assistantPanel
             }
         }
+    }
+
+    private var presetMenu: some View {
+        MenuChip(title: appState.activePreset.name, symbol: "slider.horizontal.3") {
+            Button {
+                appState.resetToDefaultNeutralPreset()
+            } label: {
+                if appState.activePreset.name == "Neutral Studio" && appState.activePreset.allEffectiveBands.allSatisfy({ abs($0.gainDB) < 0.01 }) {
+                    Label(appState.t("ui.eq.preset_default"), systemImage: "checkmark")
+                } else {
+                    Text(appState.t("ui.eq.preset_default"))
+                }
+            }
+            if !appState.savedPresets.isEmpty {
+                ForEach(appState.savedPresets) { preset in
+                    Button {
+                        appState.selectPreset(preset)
+                    } label: {
+                        if preset.id == appState.activePreset.id {
+                            Label(preset.name, systemImage: "checkmark")
+                        } else {
+                            Text(preset.name)
+                        }
+                    }
+                }
+            }
+            Button(appState.t("eq.import_apo")) { appState.importEqualizerAPOFromPanel() }
+            Button(appState.t("eq.export_apo")) { appState.exportEqualizerAPOToPanel() }
+        }
+    }
+
+    private static var cachedMatchKey: String = ""
+    private static var cachedMatches: [AutoEqEntry] = []
+
+    private var correctionAndLegendBar: some View {
+        let devName = appState.activeOutputDevice?.name ?? ""
+        let matches: [AutoEqEntry] = {
+            if Self.cachedMatchKey == devName { return Self.cachedMatches }
+            let m = AutoEqService.matchDeviceName(devName)
+            Self.cachedMatchKey = devName
+            Self.cachedMatches = m
+            return m
+        }()
+
+        return HStack(spacing: 10) {
+            HStack(spacing: 12) {
+                legend(appState.t("eq.layer.correction"), dashed: true, color: c.ink_secondary)
+                legend(appState.t("eq.layer.taste"), dashed: false, color: c.ink_muted)
+                legend(appState.t("eq.layer.result"), dashed: false, color: c.accent_signal, thick: true)
+            }
+            .fixedSize()
+
+            Spacer(minLength: 8)
+
+            // Inline AutoEq Headphone Correction + Preset & A/B Strip
+            HStack(spacing: 8) {
+                presetMenu
+
+                TSegmented(options: [
+                    (ABCompareMode.full, "EQ"),
+                    (.bypassEqualLatency, "Flat")
+                ], selection: Binding(
+                    get: { appState.abMode },
+                    set: { mode in
+                        if mode != appState.abMode { appState.toggleABNeutral() }
+                    }
+                ))
+
+                Hairline(vertical: true).frame(height: 16)
+
+                Image(systemName: "headphones")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(appState.activePreset.correctionMetadata != nil ? c.ink_primary : c.ink_muted)
+                Text("AutoEq")
+                    .type(TimbreTypography.eyebrow)
+                    .foregroundStyle(c.ink_muted)
+
+                if let meta = appState.activePreset.correctionMetadata {
+                    Badge(text: "\(meta.headphoneModel) · \(meta.sourceCredit)", tone: .accent, dot: true)
+                    Button(appState.t("ui.eq.remove")) { appState.clearCorrection() }
+                        .buttonStyle(.t(.ghost, compact: true))
+                } else if let topMatch = matches.first {
+                    Button("\(topMatch.headphoneName) · \(appState.t("ui.apply"))") {
+                        appState.applyAutoEqEntry(topMatch)
+                    }
+                    .buttonStyle(.t(.secondary, compact: true))
+                }
+
+                MenuChip(title: appState.t("ui.eq.browse_autoeq")) {
+                    if !matches.isEmpty {
+                        ForEach(matches) { entry in
+                            Button("\(entry.headphoneName) (\(entry.source))") {
+                                appState.applyAutoEqEntry(entry)
+                            }
+                        }
+                    }
+                    ForEach(AutoEqService.starterCatalog) { entry in
+                        Button("\(entry.headphoneName) · \(entry.source)") {
+                            appState.applyAutoEqEntry(entry)
+                        }
+                    }
+                }
+            }
+            .fixedSize()
+        }
+        .padding(.horizontal, 20)
+        .frame(height: 40)
+        .background(c.bg_inset.opacity(0.5))
     }
 
     private var eqSummary: String {
@@ -959,7 +1195,8 @@ private struct EqualizerPage: View {
             }
         }
         .padding(.horizontal, 20)
-        .frame(height: 54)
+        .frame(height: 52)
+        .background(c.bg_inset.opacity(0.35))
     }
 
     private func stat(_ label: String, _ value: String) -> some View {
@@ -970,11 +1207,15 @@ private struct EqualizerPage: View {
         .frame(width: 138, alignment: .leading)
     }
 
-    // Simple — four semantic tone controls (spec §6.3)
-    private var simpleControls: some View {
+    /// 31.5 Hz must not read "32 Hz" (Fmt.hz rounds).
+    private func freqLabel(_ f: Double) -> String { f < 100 && f != f.rounded() ? String(format: "%.1f", f) : Fmt.hz(f) }
+
+    // MARK: - Unified Vertical Graphic Fader Bank (4 / 5 / 10 bands)
+
+    private var graphicFaderBankConsole: some View {
         let layout = appState.activePreset.layout
-        let st = appState.activePreset.simpleTaste
         let gains = appState.activePreset.gains(for: layout)
+        let range = layout.gainRangeDB
         let sub: String = {
             switch layout {
             case .four: return appState.t("ui.eq.taste_sub")
@@ -982,114 +1223,151 @@ private struct EqualizerPage: View {
             case .ten: return appState.t("ui.eq.taste_sub_10")
             }
         }()
-        return VStack(alignment: .leading, spacing: 14) {
-            SectionHeader(index: "01", title: appState.t("ui.eq.taste_title"), subtitle: sub) {
+
+        return VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 12) {
+                Eyebrow(text: appState.t("ui.eq.taste_title"))
+                Text("·").foregroundStyle(c.ink_faint)
+                Text(sub).type(TimbreTypography.caption).foregroundStyle(c.ink_secondary).lineLimit(1)
+                Spacer()
                 Button(appState.t("ui.eq.flatten")) { appState.flattenCurrentLayout() }
                     .buttonStyle(.t(.ghost, compact: true))
                     .disabled(appState.activePreset.isLayoutFlat(layout))
             }
-            if layout == .four {
-                HStack(spacing: 12) {
-                    tone(appState.t(layout.slots[0].nameKey), "105 Hz · shelf", st.bassDB, hint: appState.t(layout.slots[0].nameKey + ".hint")) { var s = st; s.bassDB = $0; appState.updateSimpleTaste(s) }
-                    tone(appState.t(layout.slots[1].nameKey), "250 Hz · peak", st.warmthDB, hint: appState.t(layout.slots[1].nameKey + ".hint")) { var s = st; s.warmthDB = $0; appState.updateSimpleTaste(s) }
-                    tone(appState.t(layout.slots[2].nameKey), "3 kHz · peak", st.presenceDB, hint: appState.t(layout.slots[2].nameKey + ".hint")) { var s = st; s.presenceDB = $0; appState.updateSimpleTaste(s) }
-                    tone(appState.t(layout.slots[3].nameKey), "10 kHz · shelf", st.airDB, hint: appState.t(layout.slots[3].nameKey + ".hint")) { var s = st; s.airDB = $0; appState.updateSimpleTaste(s) }
-                }
-            } else {
-                // 5 and 10 bands: compact cards (a knob each would not fit), five per row.
-                let rows = layout.slots.indices.chunked(into: 5)
-                VStack(spacing: 12) {
-                    ForEach(rows.indices, id: \.self) { r in
-                        HStack(spacing: 12) {
-                            ForEach(rows[r], id: \.self) { i in
-                                compactBand(index: i, slot: layout.slots[i], gain: gains[i], range: layout.gainRangeDB,
-                                            name: appState.t(layout.slots[i].nameKey), hint: appState.t(layout.slots[i].nameKey + ".hint"))
-                            }
-                        }
+            .padding(.horizontal, 20)
+            .frame(height: 38)
+
+            Hairline()
+
+            HStack(alignment: .center, spacing: 0) {
+                // Left dB reference scale column
+                VStack(alignment: .trailing, spacing: 0) {
+                    Spacer().frame(height: 26)
+                    VStack(alignment: .trailing, spacing: 0) {
+                        Text("+\(Int(range)) dB").type(TimbreTypography.monoSmall).foregroundStyle(c.ink_faint)
+                        Spacer()
+                        Text("+\(Int(range / 2))").type(TimbreTypography.monoSmall).foregroundStyle(c.ink_faint)
+                        Spacer()
+                        Text("0 dB").type(TimbreTypography.monoSmall).foregroundStyle(c.ink_secondary)
+                        Spacer()
+                        Text("−\(Int(range / 2))").type(TimbreTypography.monoSmall).foregroundStyle(c.ink_faint)
+                        Spacer()
+                        Text("−\(Int(range)) dB").type(TimbreTypography.monoSmall).foregroundStyle(c.ink_faint)
                     }
+                    .frame(height: 90)
+                    Spacer().frame(height: 36)
+                }
+                .frame(width: 48, alignment: .trailing)
+                .padding(.trailing, 8)
+
+                ForEach(Array(layout.slots.enumerated()), id: \.offset) { idx, slot in
+                    if idx > 0 {
+                        Hairline(vertical: true).frame(height: 152)
+                    }
+                    faderChannelStrip(
+                        index: idx,
+                        slot: slot,
+                        gain: gains[idx],
+                        range: range,
+                        compact: layout == .ten,
+                        name: appState.t(slot.nameKey),
+                        hint: appState.t(slot.nameKey + ".hint")
+                    )
                 }
             }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
         }
     }
 
-    /// 31.5 Hz must not read "32 Hz" (Fmt.hz rounds).
-    private func freqLabel(_ f: Double) -> String { f < 100 && f != f.rounded() ? String(format: "%.1f", f) : Fmt.hz(f) }
-
-    private func compactBand(index: Int, slot: EQLayoutSlot, gain: Double, range: Double, name: String, hint: String) -> some View {
+    private func faderChannelStrip(index: Int, slot: EQLayoutSlot, gain: Double, range: Double, compact: Bool, name: String, hint: String) -> some View {
         let binding = Binding(get: { gain }, set: { appState.setLayoutGain($0, at: index) })
-        return VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Text("\(index + 1)").type(TimbreTypography.monoSmall).foregroundStyle(abs(gain) < 0.01 ? c.ink_faint : c.accent_signal)
-                Eyebrow(text: freqLabel(slot.freqHz) + " Hz")
+        let modified = abs(gain) > 0.01
+        let selected = appState.selectedFixedSlotIndex == index
+        let hzText = compact ? freqLabel(slot.freqHz) : (freqLabel(slot.freqHz) + " Hz")
+
+        return VStack(spacing: 4) {
+            // Top frequency + band index + info popover
+            HStack(spacing: 3) {
+                if !compact {
+                    Text("\(index + 1)")
+                        .type(TimbreTypography.monoSmall)
+                        .foregroundStyle(modified || selected ? c.accent_signal : c.ink_faint)
+                }
+                Text(hzText)
+                    .type(TimbreTypography.monoSmall)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(modified || selected ? c.ink_primary : c.ink_secondary)
+                    .lineLimit(1)
+                    .fixedSize()
+                InfoHintButton(text: hint, label: name, startsOpen: index == 0)
+            }
+            .frame(height: 18)
+
+            // Vertical tactile fader
+            TVerticalFader(
+                value: binding,
+                range: -range...range,
+                bipolar: true,
+                resetValue: 0,
+                step: 0.5,
+                tint: c.accent_signal,
+                height: 98,
+                width: 34,
+                scaleMarks: [-range, -range / 2, 0, range / 2, range],
+                label: "\(name) (\(freqLabel(slot.freqHz)) Hz)",
+                valueText: Fmt.db(gain) + " dB"
+            )
+
+            // Live tabular dB readout (click to zero) + semantic band title
+            Button {
+                appState.setLayoutGain(0, at: index)
+            } label: {
+                HStack(alignment: .firstTextBaseline, spacing: 2) {
+                    Text(Fmt.db(gain))
+                        .type(TimbreTypography.monoValue)
+                        .foregroundStyle(modified ? c.ink_primary : c.ink_muted)
+                        .contentTransition(.numericText(value: gain))
+                    Text("dB")
+                        .type(TimbreTypography.monoSmall)
+                        .foregroundStyle(c.ink_faint)
+                }
+            }
+            .buttonStyle(.plain)
+            .help(appState.t("ui.eq.flatten"))
+
+            Text(name)
+                .type(TimbreTypography.micro)
+                .foregroundStyle(selected ? c.ink_primary : c.ink_secondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+        }
+        .padding(.vertical, 5)
+        .padding(.horizontal, 4)
+        .frame(maxWidth: .infinity)
+        .background(
+            RoundedRectangle(cornerRadius: TimbreRadius.control, style: .continuous)
+                .fill(selected ? c.bg_selected.opacity(0.55) : Color.clear)
+        )
+        .contentShape(Rectangle())
+        .onHover { isHov in
+            if isHov {
+                appState.selectedFixedSlotIndex = index
+            } else if appState.selectedFixedSlotIndex == index {
+                appState.selectedFixedSlotIndex = nil
+            }
+        }
+    }
+
+    // MARK: - Free Parametric EQ Band Console (Integrated inside main EQ instrument)
+
+    private var advancedBandsConsole: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 12) {
+                Eyebrow(text: appState.t("ui.eq.bands_title"))
+                Text("·").foregroundStyle(c.ink_faint)
+                Text(appState.t("ui.eq.bands_sub")).type(TimbreTypography.caption).foregroundStyle(c.ink_secondary).lineLimit(1)
                 Spacer()
-                Text(slot.type == .peak ? "peak" : "shelf").type(TimbreTypography.monoSmall).foregroundStyle(c.ink_faint)
-                InfoHintButton(text: hint, label: name, startsOpen: index == 0).padding(.trailing, -4)
-            }
-            Text(name).type(TimbreTypography.micro).foregroundStyle(c.ink_secondary).lineLimit(1).minimumScaleFactor(0.75)
-            HStack(alignment: .firstTextBaseline, spacing: 3) {
-                Text(Fmt.db(gain)).type(TimbreTypography.mediumValue).foregroundStyle(abs(gain) < 0.01 ? c.ink_muted : c.ink_primary)
-                    .contentTransition(.numericText(value: gain))
-                Text("dB").type(TimbreTypography.monoSmall).foregroundStyle(c.ink_muted)
-            }
-            TFader(value: binding, range: -range...range, bipolar: true, resetValue: 0,
-                   tint: c.accent_signal, label: freqLabel(slot.freqHz) + " Hz", valueText: Fmt.db(gain) + " dB",
-                   scaleMarks: [-range, 0, range])
-        }
-        .padding(14)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: TimbreRadius.card, style: .continuous).fill(c.bg_surface))
-        .overlay(RoundedRectangle(cornerRadius: TimbreRadius.card, style: .continuous).strokeBorder(c.line_default, lineWidth: 1))
-    }
-
-    private func tone(_ name: String, _ spec: String, _ value: Double, hint: String = "", set: @escaping (Double) -> Void) -> some View {
-        let binding = Binding(get: { value }, set: { set(SimpleTasteControls.clampStep($0)) })
-        return VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .top, spacing: 6) {
-                VStack(alignment: .leading, spacing: 3) {
-                    Eyebrow(text: name).lineLimit(1).minimumScaleFactor(0.8)
-                    Text(spec).type(TimbreTypography.monoSmall).foregroundStyle(c.ink_faint)
-                }
-                Spacer(minLength: 0)
-                if !hint.isEmpty { InfoHintButton(text: hint, label: name, startsOpen: name == appState.t("eq.band.bass")).padding(.top, -2).padding(.trailing, -4) }
-            }
-            HStack(alignment: .center, spacing: 12) {
-                TKnob(
-                    value: binding,
-                    range: -6...6,
-                    step: 0.5,
-                    origin: 0,
-                    resetValue: 0,
-                    size: 46,
-                    tickCount: 13,
-                    label: name,
-                    valueText: Fmt.db(value) + " dB"
-                )
-                VStack(alignment: .leading, spacing: 2) {
-                    HStack(alignment: .firstTextBaseline, spacing: 3) {
-                        Text(Fmt.db(value)).type(TimbreTypography.mediumValue).foregroundStyle(abs(value) < 0.01 ? c.ink_muted : c.ink_primary)
-                            .contentTransition(.numericText(value: value))
-                        Text("dB").type(TimbreTypography.monoSmall).foregroundStyle(c.ink_muted)
-                    }
-                    Text(abs(value) < 0.01 ? "0.0 · flat" : (value > 0 ? "boost" : "cut"))
-                        .type(TimbreTypography.micro)
-                        .foregroundStyle(c.ink_muted)
-                }
-                Spacer(minLength: 0)
-            }
-            TFader(value: binding, range: -6...6, bipolar: true, resetValue: 0,
-                   tint: c.accent_signal, label: name, valueText: Fmt.db(value) + " dB",
-                   scaleMarks: [-6, -3, 0, 3, 6])
-        }
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: TimbreRadius.card, style: .continuous).fill(c.bg_surface))
-        .overlay(RoundedRectangle(cornerRadius: TimbreRadius.card, style: .continuous).strokeBorder(c.line_default, lineWidth: 1))
-    }
-
-    // Advanced — Pro-Q style band table with scrubbable values
-    private var advancedBands: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            SectionHeader(index: "01", title: appState.t("ui.eq.bands_title"), subtitle: appState.t("ui.eq.bands_sub")) {
                 HStack(spacing: 8) {
                     if appState.freeBandsBeforeReset != nil {
                         Button(appState.t("ui.undo")) { appState.undoResetFreeBands() }
@@ -1108,134 +1386,129 @@ private struct EqualizerPage: View {
                     .help(appState.canAddFreeBand ? "" : String(format: appState.t("ui.eq.max_bands"), appState.maxFreeBands))
                 }
             }
-            ListCard {
-                HStack(spacing: 0) {
-                    Eyebrow(text: "#").frame(width: 34, alignment: .leading)
-                    Eyebrow(text: appState.t("ui.eq.col.on")).frame(width: 52, alignment: .leading)
-                    Eyebrow(text: appState.t("ui.eq.col.type")).frame(width: 128, alignment: .leading)
-                    Eyebrow(text: appState.t("ui.eq.col.freq")).frame(width: 104, alignment: .trailing)
-                    Eyebrow(text: appState.t("ui.eq.col.gain")).frame(width: 104, alignment: .trailing)
-                    Eyebrow(text: "Q").frame(width: 92, alignment: .trailing)
-                    Spacer()
-                }
-                .padding(.horizontal, 20).frame(height: 34)
-                .overlay(alignment: .bottom) { Hairline() }
-                if appState.activePreset.tasteBands.isEmpty {
-                    EmptyStateView(title: appState.t("ui.eq.no_bands"), detail: appState.t("ui.eq.no_bands_detail"))
-                }
-                ForEach(Array(appState.activePreset.tasteBands.enumerated()), id: \.element.id) { i, band in
-                    if i > 0 { Hairline().padding(.leading, 20) }
-                    bandRow(i, band)
-                }
+            .padding(.horizontal, 20)
+            .frame(height: 40)
+
+            Hairline()
+
+            HStack(spacing: 0) {
+                Eyebrow(text: "#").frame(width: 34, alignment: .leading)
+                Eyebrow(text: appState.t("ui.eq.col.on")).frame(width: 52, alignment: .leading)
+                Eyebrow(text: appState.t("ui.eq.col.type")).frame(width: 136, alignment: .leading)
+                Eyebrow(text: appState.t("ui.eq.col.freq")).frame(width: 112, alignment: .trailing)
+                Eyebrow(text: appState.t("ui.eq.col.gain")).frame(width: 112, alignment: .trailing)
+                Eyebrow(text: "Q").frame(width: 96, alignment: .trailing)
+                Spacer()
+            }
+            .padding(.horizontal, 20)
+            .frame(height: 32)
+            .background(c.bg_inset.opacity(0.3))
+            .overlay(alignment: .bottom) { Hairline() }
+
+            if appState.activePreset.tasteBands.isEmpty {
+                EmptyStateView(title: appState.t("ui.eq.no_bands"), detail: appState.t("ui.eq.no_bands_detail"))
+            }
+            ForEach(Array(appState.activePreset.tasteBands.enumerated()), id: \.element.id) { i, band in
+                if i > 0 { Hairline().padding(.leading, 20) }
+                bandRow(i, band)
             }
         }
     }
 
     private func bandRow(_ i: Int, _ band: EQBand) -> some View {
-        func upd(_ f: (inout EQBand) -> Void) { var b = band; f(&b); appState.updateTasteBand(b) }
-        let types: [(EQFilterType, String)] = [(.peak, appState.t("ui.filter.peak")), (.lowShelf, appState.t("ui.filter.lowshelf")), (.highShelf, appState.t("ui.filter.highshelf")),
-                                              (.lowPass, appState.t("ui.filter.lowpass")), (.highPass, appState.t("ui.filter.highpass")), (.notch, appState.t("ui.filter.notch"))]
+        func upd(_ f: (inout EQBand) -> Void) {
+            var b = band
+            f(&b)
+            appState.selectedEQBandID = band.id
+            appState.updateTasteBand(b)
+        }
+        let selected = appState.selectedEQBandID == band.id
+        let types: [(EQFilterType, String)] = [
+            (.peak, appState.t("ui.filter.peak")),
+            (.lowShelf, appState.t("ui.filter.lowshelf")),
+            (.highShelf, appState.t("ui.filter.highshelf")),
+            (.lowPass, appState.t("ui.filter.lowpass")),
+            (.highPass, appState.t("ui.filter.highpass")),
+            (.notch, appState.t("ui.filter.notch"))
+        ]
         return HStack(spacing: 0) {
-            Text("\(i + 1)").type(TimbreTypography.monoValue).foregroundStyle(band.enabled ? c.accent_signal : c.ink_muted).frame(width: 34, alignment: .leading)
-            TSwitch(isOn: Binding(get: { band.enabled }, set: { v in upd { $0.enabled = v } }), label: "Band \(i + 1)").frame(width: 52, alignment: .leading)
+            Text("\(i + 1)")
+                .type(TimbreTypography.monoValue)
+                .foregroundStyle(band.enabled ? c.accent_signal : c.ink_muted)
+                .frame(width: 34, alignment: .leading)
+            TSwitch(isOn: Binding(get: { band.enabled }, set: { v in upd { $0.enabled = v } }), label: "Band \(i + 1)")
+                .frame(width: 52, alignment: .leading)
             MenuChip(title: types.first(where: { $0.0 == band.type })?.1 ?? band.type.rawValue) {
                 ForEach(types, id: \.0) { t in Button(t.1) { upd { $0.type = t.0 } } }
             }
-            .frame(width: 128, alignment: .leading)
+            .frame(width: 136, alignment: .leading)
             ScrubValue(value: Binding(get: { band.freqHz }, set: { v in upd { $0.freqHz = v } }), range: 20...20000, step: 1, logarithmic: true,
-                       format: { "\(Fmt.hz($0)) Hz" }, width: 84).frame(width: 104, alignment: .trailing)
+                       format: { "\(Fmt.hz($0)) Hz" }, width: 88)
+                .frame(width: 112, alignment: .trailing)
             ScrubValue(value: Binding(get: { band.gainDB }, set: { v in upd { $0.gainDB = v } }), range: -15...15, step: 0.1,
-                       format: { "\(Fmt.db($0)) dB" }, width: 84).frame(width: 104, alignment: .trailing)
+                       format: { "\(Fmt.db($0)) dB" }, width: 88)
+                .frame(width: 112, alignment: .trailing)
             ScrubValue(value: Binding(get: { band.q }, set: { v in upd { $0.q = v } }), range: 0.1...10, step: 0.01,
-                       format: { String(format: "%.2f", $0) }, width: 64).frame(width: 92, alignment: .trailing)
+                       format: { String(format: "%.2f", $0) }, width: 68)
+                .frame(width: 96, alignment: .trailing)
             Spacer()
-            IconButton(symbol: "minus.circle", size: 24, help: appState.t("ui.eq.remove_band")) { appState.removeTasteBand(id: band.id) }
+            IconButton(symbol: "minus.circle", size: 24, help: appState.t("ui.eq.remove_band")) {
+                appState.removeTasteBand(id: band.id)
+            }
         }
         .padding(.horizontal, 20)
-        .frame(height: 46)
+        .frame(height: 44)
+        .background(selected ? c.bg_selected.opacity(0.55) : Color.clear)
         .opacity(band.enabled ? 1 : 0.55)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            appState.selectedEQBandID = band.id
+        }
     }
 
-    // Lower tools — three columns
-    private func panel<Content: View>(_ index: String, _ title: String, _ sub: String, @ViewBuilder content: () -> Content) -> some View {
-        VStack(alignment: .leading, spacing: 14) {
-            VStack(alignment: .leading, spacing: 4) {
-                Eyebrow(text: index)
+    // MARK: - Lower Utility Panels (Compact 2-Column Audition & Tone Assistant)
+
+    private func panel<Content: View>(_ title: String, _ sub: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 3) {
                 Text(title).type(TimbreTypography.cardTitle).foregroundStyle(c.ink_primary)
                 Text(sub).type(TimbreTypography.caption).foregroundStyle(c.ink_muted).fixedSize(horizontal: false, vertical: true)
             }
             content()
         }
-        .padding(18)
-        .frame(maxWidth: .infinity, minHeight: 250, alignment: .topLeading)
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .topLeading)
         .background(RoundedRectangle(cornerRadius: TimbreRadius.card, style: .continuous).fill(c.bg_surface))
         .overlay(RoundedRectangle(cornerRadius: TimbreRadius.card, style: .continuous).strokeBorder(c.line_default, lineWidth: 1))
     }
 
-    private static var cachedMatchKey: String = ""
-    private static var cachedMatches: [AutoEqEntry] = []
-
-    private var correctionPanel: some View {
-        let devName = appState.activeOutputDevice?.name ?? ""
-        let matches: [AutoEqEntry] = {
-            if Self.cachedMatchKey == devName { return Self.cachedMatches }
-            let m = AutoEqService.matchDeviceName(devName)
-            Self.cachedMatchKey = devName
-            Self.cachedMatches = m
-            return m
-        }()
-        return panel("02", appState.t("ui.eq.correction_title"), appState.t("ui.eq.correction_sub")) {
-            if let meta = appState.activePreset.correctionMetadata {
-                HStack(alignment: .top) {
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text(meta.headphoneModel).type(TimbreTypography.bodyStrong).foregroundStyle(c.ink_primary)
-                        Text("\(meta.sourceCredit) · \(meta.measurementRig) · \(meta.targetCurve)").type(TimbreTypography.monoSmall).foregroundStyle(c.ink_muted)
-                    }
-                    Spacer()
-                    Button(appState.t("ui.eq.remove")) { appState.clearCorrection() }.buttonStyle(.t(.ghost, compact: true))
-                }
-                Hairline()
-            }
-            if appState.driverTelemetry?.spatialAudioMayAlterFR == true {
-                Text(appState.t("dev.apple.spatial_warn")).type(TimbreTypography.caption).foregroundStyle(c.semantic_warning).fixedSize(horizontal: false, vertical: true)
-            }
-            if matches.isEmpty {
-                Text(appState.t("ui.eq.no_match")).type(TimbreTypography.caption).foregroundStyle(c.ink_muted)
-            }
-            ForEach(matches.prefix(3)) { entry in
-                HStack(spacing: 10) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(entry.headphoneName).type(TimbreTypography.small).foregroundStyle(c.ink_primary).lineLimit(1)
-                        Text("\(entry.source) · \(entry.rig)").type(TimbreTypography.monoSmall).foregroundStyle(c.ink_muted).lineLimit(1)
-                    }
-                    Spacer()
-                    Button(appState.t("ui.apply")) { appState.applyAutoEqEntry(entry) }.buttonStyle(.t(.secondary, compact: true))
-                }
-            }
-        }
-    }
-
     private var comparePanel: some View {
-        panel("03", appState.t("ui.eq.compare_title"), appState.t("ui.eq.compare_sub")) {
-            if !appState.blindABActive {
-                Button(appState.t("ui.eq.start_blind")) { appState.startBlindAB() }.buttonStyle(.t(.primary, compact: true))
-            } else {
-                HStack(spacing: 6) {
+        panel(appState.t("ui.eq.compare_title"), appState.t("ui.eq.compare_sub")) {
+            HStack(spacing: 8) {
+                if !appState.blindABActive {
+                    Button(appState.t("ui.eq.start_blind")) { appState.startBlindAB() }
+                        .buttonStyle(.t(.secondary, compact: true))
+                } else {
                     sampleButton("X", selected: appState.blindCurrentIsX) { appState.selectBlindSample(isX: true) }
                     sampleButton("Y", selected: !appState.blindCurrentIsX) { appState.selectBlindSample(isX: false) }
-                    Spacer()
                     if !appState.blindRevealed {
                         Button(appState.t("ui.eq.reveal")) { appState.revealBlindAB() }.buttonStyle(.t(.secondary, compact: true))
                     }
                     IconButton(symbol: "xmark", size: 24, help: appState.t("ui.eq.stop")) { appState.stopBlindAB() }
                 }
+                Spacer()
                 if appState.blindRevealed {
                     Text(String(format: appState.t("ui.eq.reveal_result"), appState.blindXIsFull ? appState.t("ui.eq.with_eq") : appState.t("ui.eq.without_eq")))
                         .type(TimbreTypography.caption).foregroundStyle(c.ink_secondary)
                 }
             }
             Hairline()
-            Text(appState.t("eq.trainer_title")).type(TimbreTypography.small).fontWeight(.medium).foregroundStyle(c.ink_primary)
+            HStack(spacing: 8) {
+                Text(appState.t("eq.trainer_title")).type(TimbreTypography.small).fontWeight(.medium).foregroundStyle(c.ink_primary)
+                Spacer()
+                Text(String(format: appState.t("ui.eq.rounds"), appState.trainerHistory.count))
+                    .type(TimbreTypography.monoSmall).foregroundStyle(c.ink_muted)
+            }
             HStack(spacing: 6) {
                 Button("A") { appState.auditionTrainerCandidate(isB: false) }.buttonStyle(.t(appState.trainerListeningB ? .secondary : .primary, compact: true))
                 Button("B") { appState.auditionTrainerCandidate(isB: true) }.buttonStyle(.t(appState.trainerListeningB ? .primary : .secondary, compact: true))
@@ -1248,14 +1521,13 @@ private struct EqualizerPage: View {
                     Capsule().fill(i < appState.trainerHistory.count ? c.accent_signal : c.bg_track).frame(height: 3)
                 }
             }
-            Text(String(format: appState.t("ui.eq.rounds"), appState.trainerHistory.count)).type(TimbreTypography.monoSmall).foregroundStyle(c.ink_muted)
         }
     }
 
     private func sampleButton(_ label: String, selected: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Text(label).font(.system(size: 13, weight: .semibold, design: .monospaced))
-                .frame(width: 34, height: 28)
+                .frame(width: 34, height: 26)
                 .foregroundStyle(selected ? c.ink_inverse : c.ink_primary)
                 .background(RoundedRectangle(cornerRadius: TimbreRadius.control, style: .continuous).fill(selected ? c.ink_primary : c.bg_selected))
         }
@@ -1263,16 +1535,15 @@ private struct EqualizerPage: View {
     }
 
     private var assistantPanel: some View {
-        panel("04", appState.t("ui.eq.assistant_title"), appState.t("ui.eq.assistant_sub")) {
-            TField(placeholder: appState.t("eq.ai_placeholder"), text: $appState.aiPromptText) { appState.submitAIPrompt() }
-            HStack {
+        panel(appState.t("ui.eq.assistant_title"), appState.t("ui.eq.assistant_sub")) {
+            HStack(spacing: 8) {
+                TField(placeholder: appState.t("eq.ai_placeholder"), text: $appState.aiPromptText) { appState.submitAIPrompt() }
                 Button(appState.t("eq.ai_apply")) { appState.submitAIPrompt() }
                     .buttonStyle(.t(.primary, compact: true))
                     .disabled(appState.aiPromptText.trimmingCharacters(in: .whitespaces).isEmpty)
                 if !appState.undoTasteStack.isEmpty {
                     Button(appState.t("ui.undo")) { appState.undoLastAITweak() }.buttonStyle(.t(.ghost, compact: true))
                 }
-                Spacer()
             }
             if !appState.aiStatusMessage.isEmpty {
                 Text(appState.aiStatusMessage).type(TimbreTypography.caption).foregroundStyle(c.ink_muted).fixedSize(horizontal: false, vertical: true)
@@ -1301,7 +1572,7 @@ private struct ObservatoryPage: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 36) {
-            PageHeader(index: "03 — " + appState.t("nav.observatory"), title: appState.t("ui.obs.title"), summary: obsSummary) {
+            PageHeader(index: appState.t("nav.observatory"), title: appState.t("ui.obs.title"), summary: obsSummary) {
                 HStack(spacing: 8) {
                     Text(appState.t("guard.silent_studio")).type(TimbreTypography.caption).foregroundStyle(c.ink_secondary)
                     TSwitch(isOn: Binding(get: { appState.silentStudioMode }, set: { appState.toggleSilentStudio($0) }), label: appState.t("guard.silent_studio"))
@@ -1322,22 +1593,14 @@ private struct ObservatoryPage: View {
 
             let t = appState.telemetry
             let live = appState.hasLiveSignal
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 5), spacing: 12) {
-                KPITile(label: "LUFS · M", value: live && t.lufsMomentary > -70 ? Fmt.signed(t.lufsMomentary) : "—", footnote: appState.t("ui.obs.lufs_note"), origin: .measured)
-                let hasPeak = live && max(t.truePeakL, t.truePeakR) > -70
-                KPITile(label: appState.t("ui.eq.true_peak"), value: hasPeak ? Fmt.signed(max(t.truePeakL, t.truePeakR)) : "—", unit: hasPeak ? "dBTP" : nil,
-                        footnote: hasPeak ? "L \(Fmt.signed(t.truePeakL)) · R \(Fmt.signed(t.truePeakR))" : appState.t("ui.obs.no_signal"), origin: .measured)
-                KPITile(label: appState.t("ui.eq.limiter"), value: live ? (t.limiterActive ? Fmt.db(-abs(t.limiterGR)) : "0.0") : "—", unit: live ? "dB" : nil, footnote: appState.t("ui.obs.gr_note"), origin: .measured)
-                KPITile(label: appState.t("ui.obs.clips"), value: "\(t.clipPreventedCount)", footnote: appState.t("ui.obs.clips_note"), origin: .measured)
-                KPITile(label: "DSP", value: live ? String(format: "%.0f", t.cpuMicroseconds) : "—", unit: live ? "µs" : nil, footnote: appState.t("ui.obs.cpu_note"), origin: .measured)
-            }
+            let hasPeak = live && max(t.truePeakL, t.truePeakR) > -70
 
             TLCDDisplay(
                 title: "TRUE PEAK & LUFS RECORDER MONITOR",
                 statusText: live ? "LIVE · 4× OVERSAMPLED" : (appState.pathIsNative ? "BIT-PERFECT · 0 TAPS" : "IDLE"),
                 isLive: live
             ) {
-                VStack(spacing: 8) {
+                VStack(spacing: 10) {
                     TLCDMeterRow(
                         channelLabel: "L",
                         dbfs: live ? appState.meterBallisticsL.smoothedDB : -90,
@@ -1364,6 +1627,18 @@ private struct ObservatoryPage: View {
                         }
                         .frame(width: 68, alignment: .trailing)
                     }
+
+                    Hairline()
+
+                    HStack(spacing: 24) {
+                        lcdMetric("LUFS · M", live && t.lufsMomentary > -70 ? Fmt.signed(t.lufsMomentary) + " LUFS" : "—")
+                        lcdMetric(appState.t("ui.eq.true_peak"), hasPeak ? Fmt.signed(max(t.truePeakL, t.truePeakR)) + " dBTP" : "—")
+                        lcdMetric(appState.t("ui.eq.limiter"), live ? (t.limiterActive ? Fmt.db(-abs(t.limiterGR)) + " dB" : "0.0 dB") : "—")
+                        lcdMetric(appState.t("ui.obs.clips"), "\(t.clipPreventedCount)")
+                        lcdMetric("DSP", live ? String(format: "%.0f µs", t.cpuMicroseconds) : "—")
+                        Spacer()
+                    }
+                    .padding(.top, 2)
                 }
             }
 
@@ -1413,6 +1688,16 @@ private struct ObservatoryPage: View {
 
             ListeningSection(appState: appState, index: appState.driverTelemetry == nil ? "04" : "05")
             TimelineSection(appState: appState, index: appState.driverTelemetry == nil ? "05" : "06")
+        }
+    }
+
+    private func lcdMetric(_ label: String, _ value: String) -> some View {
+        HStack(spacing: 6) {
+            OriginMark(origin: .measured)
+            Eyebrow(text: label)
+            Text(value)
+                .type(TimbreTypography.monoValue)
+                .foregroundStyle(c.ink_primary)
         }
     }
 

@@ -177,6 +177,8 @@ public final class AppState: ObservableObject {
     // EQ & Presets
     @Published public var activePreset: TimbrePreset
     @Published public var savedPresets: [TimbrePreset] = []
+    @Published public var selectedEQBandID: UUID?
+    @Published public var selectedFixedSlotIndex: Int?
     @Published public var abMode: ABCompareMode = .full
     @Published public var blindABActive: Bool = false
     @Published public var blindXIsFull: Bool = Bool.random()
@@ -1363,6 +1365,43 @@ public final class AppState: ObservableObject {
             let text = EqualizerAPOParser.export(preampDB: curve.recommendedPreampDB, bands: activePreset.allEffectiveBands)
             try? text.write(to: url, atomically: true, encoding: .utf8)
         }
+    }
+
+    public func selectPreset(_ preset: TimbrePreset) {
+        activePreset = preset
+        selectedEQBandID = preset.tasteBands.first?.id
+        syncDSPAndTap()
+        logEvent(category: "preset", message: "Loaded preset: \(preset.name)")
+    }
+
+    public func resetToDefaultNeutralPreset() {
+        activePreset = TimbrePreset(
+            name: "Neutral Studio",
+            simpleTaste: .neutral,
+            useAdvancedPEQ: activePreset.useAdvancedPEQ,
+            layout: activePreset.layout,
+            crossfeedEnabled: false,
+            limiterCeilingDBTP: -0.3
+        )
+        if activePreset.useAdvancedPEQ {
+            activePreset.tasteBands = EQBandEditing.defaultFreeBands()
+        }
+        selectedEQBandID = activePreset.tasteBands.first?.id
+        syncDSPAndTap()
+        logEvent(category: "preset", message: "Reset to Neutral Studio")
+    }
+
+    public func addTasteBand(freqHz: Double, gainDB: Double) {
+        guard canAddFreeBand else { return }
+        activePreset.useAdvancedPEQ = true
+        freeBandsBeforeReset = nil
+        let clampedFreq = min(max(freqHz, 20.0), 20000.0)
+        let clampedGain = (min(max(gainDB, -15.0), 15.0) * 10.0).rounded() / 10.0
+        let newBand = EQBand(type: .peak, design: .vicanek, layer: .taste, freqHz: clampedFreq, gainDB: clampedGain, q: 1.0, enabled: true)
+        activePreset.tasteBands.append(newBand)
+        selectedEQBandID = newBand.id
+        activePreset.updatedAt = Date()
+        syncDSPAndTap()
     }
 
     public func saveCurrentPreset() {

@@ -537,6 +537,141 @@ struct TFader: View {
     }
 }
 
+
+/// Vertical bipolar or unipolar console fader with tick scale and 0 dB center detent.
+/// ⌥-drag = fine (1/10x). Double-click = reset to `resetValue ?? 0`.
+struct TVerticalFader: View {
+    @Binding var value: Double
+    var range: ClosedRange<Double> = -12...12
+    var bipolar: Bool = true
+    var resetValue: Double = 0
+    var step: Double = 0.5
+    var tint: Color? = nil
+    var height: CGFloat = 132
+    var width: CGFloat = 28
+    var trackWidth: CGFloat = 3
+    var scaleMarks: [Double] = []
+    var label: String = ""
+    var valueText: String = ""
+    @Environment(\.palette) private var c
+    @State private var hover = false
+    @State private var dragging = false
+    @State private var dragStartValue: Double = 0
+
+    private func norm(_ v: Double) -> CGFloat {
+        let clamped = min(max(v, range.lowerBound), range.upperBound)
+        return CGFloat((clamped - range.lowerBound) / (range.upperBound - range.lowerBound))
+    }
+
+    var body: some View {
+        GeometryReader { geo in
+            let h = geo.size.height
+            let w = geo.size.width
+            let centerX = w / 2
+            let pad: CGFloat = 8
+            let usableH = max(1, h - pad * 2)
+            let yVal = pad + (1 - norm(value)) * usableH
+            let yZero = bipolar ? (pad + (1 - norm(0)) * usableH) : (pad + usableH)
+            let fill = tint ?? c.accent_signal
+            let isModified = abs(value - resetValue) > 0.01
+
+            ZStack(alignment: .topLeading) {
+                // Scale tick marks on both sides of the vertical slot
+                ForEach(scaleMarks, id: \.self) { mark in
+                    let ym = pad + (1 - norm(mark)) * usableH
+                    let isZero = abs(mark) < 0.001
+                    Rectangle()
+                        .fill(isZero ? c.line_strong : c.ink_faint.opacity(0.45))
+                        .frame(width: isZero ? 14 : 9, height: isZero ? 1 : 0.75)
+                        .position(x: centerX, y: ym)
+                }
+
+                // Vertical groove track
+                Capsule()
+                    .fill(c.bg_track)
+                    .frame(width: trackWidth, height: usableH)
+                    .position(x: centerX, y: h / 2)
+
+                // Active bipolar or unipolar fill bar
+                if isModified {
+                    let topY = min(yVal, yZero)
+                    let barH = max(trackWidth, abs(yVal - yZero))
+                    Capsule()
+                        .fill(fill)
+                        .frame(width: trackWidth, height: barH)
+                        .position(x: centerX, y: topY + barH / 2)
+                }
+
+                // Tactile console fader cap (rectangular hardware cap with center hairline)
+                let capW: CGFloat = (hover || dragging) ? 20 : 18
+                let capH: CGFloat = (hover || dragging) ? 11 : 10
+                ZStack {
+                    RoundedRectangle(cornerRadius: 2.5, style: .continuous)
+                        .fill(isModified ? c.bg_raised : c.bg_surface)
+                        .shadow(color: .black.opacity(0.24), radius: 1.5, y: 0.8)
+                    RoundedRectangle(cornerRadius: 2.5, style: .continuous)
+                        .strokeBorder(
+                            (hover || dragging) ? c.ink_primary : (isModified ? fill : c.line_strong),
+                            lineWidth: (hover || dragging) ? 1.2 : 0.8
+                        )
+                    Rectangle()
+                        .fill(isModified ? fill : c.ink_secondary)
+                        .frame(width: capW - 6, height: 1.2)
+                }
+                .frame(width: capW, height: capH)
+                .position(x: centerX, y: yVal)
+                .animation(TimbreMotion.snappy, value: hover || dragging)
+            }
+            .frame(width: w, height: h)
+            .contentShape(Rectangle())
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { g in
+                        if !dragging {
+                            dragging = true
+                            dragStartValue = value
+                        }
+                        let fine = NSEvent.modifierFlags.contains(.option)
+                        let span = range.upperBound - range.lowerBound
+                        var next: Double
+                        if fine {
+                            next = dragStartValue + Double(-g.translation.height / usableH) * span * 0.15
+                        } else {
+                            let frac = 1.0 - Double((g.location.y - pad) / usableH)
+                            next = range.lowerBound + min(max(frac, 0), 1) * span
+                        }
+                        if !fine && abs(next - resetValue) < span * 0.025 {
+                            next = resetValue
+                        } else if step > 0 {
+                            let s = fine ? min(step, 0.1) : step
+                            next = (next / s).rounded() * s
+                        }
+                        value = min(max(next, range.lowerBound), range.upperBound)
+                    }
+                    .onEnded { _ in dragging = false }
+            )
+            .simultaneousGesture(
+                TapGesture(count: 2).onEnded {
+                    value = resetValue
+                }
+            )
+        }
+        .frame(width: width, height: height)
+        .onHover { hover = $0 }
+        .accessibilityElement()
+        .accessibilityLabel(label)
+        .accessibilityValue(valueText)
+        .accessibilityAdjustableAction { dir in
+            let s = step > 0 ? step : (range.upperBound - range.lowerBound) / 24.0
+            switch dir {
+            case .increment: value = min(value + s, range.upperBound)
+            case .decrement: value = max(value - s, range.lowerBound)
+            @unknown default: break
+            }
+        }
+    }
+}
+
 // MARK: - Scrubbable number (Pro-Q style)
 
 /// Drag horizontally to change; scroll to fine-tune. Shows value in mono.

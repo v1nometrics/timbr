@@ -14,6 +14,8 @@ public struct EQCurveCanvas: View {
     @Environment(\.palette) private var c
     @State private var dragged: UUID?
     @State private var hovered: UUID?
+    @State private var dragStartQ: Double?
+    @State private var lastClickLocation: CGPoint = .zero
 
     private let gridF: [Double] = [20, 30, 40, 50, 60, 80, 100, 200, 300, 400, 500, 600, 800, 1000, 2000, 3000, 4000, 5000, 6000, 8000, 10000, 20000]
     private let majorF: [Double] = [100, 1000, 10000]
@@ -24,7 +26,6 @@ public struct EQCurveCanvas: View {
         self.height = height
     }
 
-
     /// Stable identity for a fixed-layout handle (the bands themselves are rebuilt on every render).
     private func layoutHandleID(_ index: Int) -> UUID {
         UUID(uuid: (0xE0, 0xE0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, UInt8(index)))
@@ -32,6 +33,10 @@ public struct EQCurveCanvas: View {
 
     private var freqs: [Double] {
         (0..<240).map { i in pow(10, log10(EQAxis.fMin) + Double(i) / 239 * (log10(EQAxis.fMax) - log10(EQAxis.fMin))) }
+    }
+
+    private func freqText(_ f: Double) -> String {
+        f < 100 && f != f.rounded() ? String(format: "%.1f", f) : Fmt.hz(f)
     }
 
     public var body: some View {
@@ -42,6 +47,31 @@ public struct EQCurveCanvas: View {
         let hasCorrection = appState.activePreset.correctionBands.contains { $0.enabled }
         let spectrum = appState.telemetry.spectrumBinsDB
         let rate = appState.activeOutputDevice?.sampleRate ?? 48000
+
+        // Active / selected single band response highlight
+        let activeBandCurve: [Double]? = {
+            if appState.activePreset.useAdvancedPEQ {
+                let targetID = dragged ?? hovered ?? appState.selectedEQBandID
+                guard let id = targetID,
+                      let b = appState.activePreset.tasteBands.first(where: { $0.id == id && $0.enabled }) else { return nil }
+                return appState.tapEngine.evaluateCurve(bands: [b], freqsHz: fs, layer: .taste).magDB
+            } else {
+                let layout = appState.activePreset.layout
+                let idx: Int? = {
+                    if let d = dragged {
+                        return (0..<layout.bandCount).first(where: { layoutHandleID($0) == d })
+                    }
+                    if let h = hovered {
+                        return (0..<layout.bandCount).first(where: { layoutHandleID($0) == h })
+                    }
+                    return appState.selectedFixedSlotIndex
+                }()
+                guard let slotIdx = idx, slotIdx < appState.activePreset.layoutBands.count else { return nil }
+                let b = appState.activePreset.layoutBands[slotIdx]
+                guard abs(b.gainDB) > 0.01 else { return nil }
+                return appState.tapEngine.evaluateCurve(bands: [b], freqsHz: fs, layer: .taste).magDB
+            }
+        }()
 
         GeometryReader { geo in
             let w = geo.size.width - 34   // right gutter for dB labels
@@ -73,12 +103,7 @@ public struct EQCurveCanvas: View {
                         sp.addLine(to: CGPoint(x: w, y: h)); sp.closeSubpath()
                         ctx.fill(sp, with: .color(c.ink_primary.opacity(0.05)))
                     }
-                    // Result fill between curve and 0 dB
                     let zeroY = EQAxis.y(0, h)
-                    var fill = Path(); fill.move(to: CGPoint(x: 0, y: zeroY))
-                    for (i, fr) in fs.enumerated() { fill.addLine(to: CGPoint(x: EQAxis.x(fr, w), y: EQAxis.y(result[i], h))) }
-                    fill.addLine(to: CGPoint(x: w, y: zeroY)); fill.closeSubpath()
-                    ctx.fill(fill, with: .color(c.accent_fill))
 
                     func curve(_ m: [Double]) -> Path {
                         var p = Path()
@@ -88,13 +113,43 @@ public struct EQCurveCanvas: View {
                         }
                         return p
                     }
+
+                    // Individual active/selected band bell envelope
+                    if let single = activeBandCurve {
+                        var singleFill = Path(); singleFill.move(to: CGPoint(x: 0, y: zeroY))
+                        for (i, fr) in fs.enumerated() { singleFill.addLine(to: CGPoint(x: EQAxis.x(fr, w), y: EQAxis.y(single[i], h))) }
+                        singleFill.addLine(to: CGPoint(x: w, y: zeroY)); singleFill.closeSubpath()
+                        ctx.fill(singleFill, with: .color(c.ink_primary.opacity(0.08)))
+                        ctx.stroke(curve(single), with: .color(c.ink_secondary.opacity(0.65)), style: StrokeStyle(lineWidth: 1, dash: [2, 2]))
+                    }
+
+                    // Result fill between curve and 0 dB
+                    var fill = Path(); fill.move(to: CGPoint(x: 0, y: zeroY))
+                    for (i, fr) in fs.enumerated() { fill.addLine(to: CGPoint(x: EQAxis.x(fr, w), y: EQAxis.y(result[i], h))) }
+                    fill.addLine(to: CGPoint(x: w, y: zeroY)); fill.closeSubpath()
+                    ctx.fill(fill, with: .color(c.accent_fill))
+
                     if hasCorrection {
                         ctx.stroke(curve(corr), with: .color(c.ink_secondary), style: StrokeStyle(lineWidth: 1, dash: [3, 3]))
                         ctx.stroke(curve(taste), with: .color(c.ink_muted), style: StrokeStyle(lineWidth: 1))
                     }
-                    ctx.stroke(curve(result), with: .color(c.accent_signal), style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
+                    ctx.stroke(curve(result), with: .color(appState.isProcessingBypassed ? c.ink_muted : c.accent_signal), style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
                 }
                 .frame(width: w, height: h)
+                .contentShape(Rectangle())
+                .simultaneousGesture(
+                    DragGesture(minimumDistance: 0, coordinateSpace: .named("eq"))
+                        .onChanged { g in
+                            lastClickLocation = g.location
+                        }
+                )
+                .onTapGesture(count: 2) {
+                    if appState.activePreset.useAdvancedPEQ, appState.canAddFreeBand {
+                        let f = EQAxis.f(lastClickLocation.x, w)
+                        let db = EQAxis.db(lastClickLocation.y, h)
+                        appState.addTasteBand(freqHz: f, gainDB: db)
+                    }
+                }
 
                 // Hz labels
                 ForEach(labelF, id: \.self) { lf in
@@ -116,62 +171,135 @@ public struct EQCurveCanvas: View {
                 // Fixed layouts (4 / 5 / 10 bands): one handle per band at its fixed frequency; only the gain moves.
                 if !appState.activePreset.useAdvancedPEQ {
                     let layout = appState.activePreset.layout
+                    let gains = appState.activePreset.gains(for: layout)
                     ForEach(Array(layout.slots.enumerated()), id: \.offset) { idx, slot in
-                        let gain = appState.activePreset.gains(for: layout)[idx]
-                        let active = dragged == layoutHandleID(idx)
+                        let gain = gains[idx]
+                        let hid = layoutHandleID(idx)
+                        let active = dragged == hid || hovered == hid || appState.selectedFixedSlotIndex == idx
+                        let hx = EQAxis.x(slot.freqHz, w)
+                        let hy = EQAxis.y(gain, h)
                         ZStack {
-                            Circle().fill(c.bg_surface)
-                            Circle().strokeBorder(abs(gain) > 0.01 ? c.accent_signal : c.ink_muted, lineWidth: active ? 2 : 1.5)
+                            Circle().fill(active ? c.bg_raised : c.bg_surface)
+                            Circle().strokeBorder(abs(gain) > 0.01 || active ? c.accent_signal : c.ink_muted, lineWidth: active ? 2 : 1.5)
                             Text("\(idx + 1)")
                                 .font(.system(size: 8.5, weight: .semibold, design: .rounded))
-                                .foregroundStyle(abs(gain) > 0.01 ? c.ink_primary : c.ink_muted)
+                                .foregroundStyle(abs(gain) > 0.01 || active ? c.ink_primary : c.ink_muted)
                         }
                         .frame(width: active ? 20 : 17, height: active ? 20 : 17)
-                        .position(x: EQAxis.x(slot.freqHz, w), y: EQAxis.y(gain, h))
+                        .contentShape(Circle())
+                        .onHover { isHov in
+                            hovered = isHov ? hid : (hovered == hid ? nil : hovered)
+                        }
+                        .position(x: hx, y: hy)
                         .gesture(
                             DragGesture(minimumDistance: 0, coordinateSpace: .named("eq"))
                                 .onChanged { g in
-                                    dragged = layoutHandleID(idx)
+                                    dragged = hid
+                                    appState.selectedFixedSlotIndex = idx
                                     appState.setLayoutGain(EQAxis.db(g.location.y, h), at: idx)
                                 }
-                                .onEnded { _ in dragged = nil }
+                                .onEnded { _ in
+                                    dragged = nil
+                                    appState.selectedFixedSlotIndex = nil
+                                }
+                        )
+                        .simultaneousGesture(
+                            TapGesture(count: 2).onEnded {
+                                appState.setLayoutGain(0.0, at: idx)
+                            }
                         )
                         .animation(TimbreMotion.snappy, value: active)
                         .accessibilityLabel("Band \(idx + 1)")
                         .accessibilityValue("\(Fmt.hz(slot.freqHz)) Hz, \(Fmt.db(gain)) dB")
+
+                        if dragged == hid || hovered == hid {
+                            handleReadout(
+                                title: "#\(idx + 1) · \(freqText(slot.freqHz)) Hz · \(Fmt.db(gain)) dB",
+                                x: hx,
+                                y: hy,
+                                w: w,
+                                h: h
+                            )
+                        }
                     }
                 }
 
                 // Band handles (free PEQ)
                 if appState.activePreset.useAdvancedPEQ {
                     ForEach(Array(appState.activePreset.tasteBands.enumerated()), id: \.element.id) { idx, band in
-                        let active = dragged == band.id || hovered == band.id
+                        let selected = appState.selectedEQBandID == band.id
+                        let active = dragged == band.id || hovered == band.id || selected
+                        let hasGain = band.type == .peak || band.type == .lowShelf || band.type == .highShelf
+                        let hx = EQAxis.x(band.freqHz, w)
+                        let hy = EQAxis.y(hasGain ? band.gainDB : 0, h)
                         ZStack {
-                            Circle().fill(band.enabled ? c.bg_surface : c.bg_inset)
+                            if selected {
+                                Circle()
+                                    .strokeBorder(c.accent_signal.opacity(0.35), lineWidth: 3)
+                                    .frame(width: 24, height: 24)
+                            }
+                            Circle().fill(band.enabled ? (active ? c.bg_raised : c.bg_surface) : c.bg_inset)
                             Circle().strokeBorder(band.enabled ? c.accent_signal : c.ink_muted, lineWidth: active ? 2 : 1.5)
                             Text("\(idx + 1)")
                                 .font(.system(size: 8.5, weight: .semibold, design: .rounded))
                                 .foregroundStyle(band.enabled ? c.ink_primary : c.ink_muted)
                         }
                         .frame(width: active ? 20 : 17, height: active ? 20 : 17)
-                        .position(x: EQAxis.x(band.freqHz, w), y: EQAxis.y(band.type == .peak || band.type == .lowShelf || band.type == .highShelf ? band.gainDB : 0, h))
-                        .onHover { hovered = $0 ? band.id : (hovered == band.id ? nil : hovered) }
+                        .contentShape(Circle())
+                        .onHover { isHov in
+                            hovered = isHov ? band.id : (hovered == band.id ? nil : hovered)
+                        }
+                        .position(x: hx, y: hy)
+                        .onTapGesture(count: 2) {
+                            var b = band
+                            if hasGain && abs(b.gainDB) > 0.05 {
+                                b.gainDB = 0.0
+                            } else {
+                                b.enabled.toggle()
+                            }
+                            appState.selectedEQBandID = band.id
+                            appState.updateTasteBand(b)
+                        }
+                        .onTapGesture(count: 1) {
+                            appState.selectedEQBandID = band.id
+                        }
                         .gesture(
                             DragGesture(minimumDistance: 0, coordinateSpace: .named("eq"))
                                 .onChanged { g in
-                                    dragged = band.id
+                                    if dragged != band.id {
+                                        dragged = band.id
+                                        dragStartQ = band.q
+                                        appState.selectedEQBandID = band.id
+                                    }
                                     var b = band
-                                    b.freqHz = min(max(EQAxis.f(g.location.x, w), EQAxis.fMin), EQAxis.fMax)
-                                    if b.type == .peak || b.type == .lowShelf || b.type == .highShelf {
-                                        b.gainDB = (EQAxis.db(g.location.y, h) * 2).rounded() / 2
+                                    if NSEvent.modifierFlags.contains(.option) {
+                                        // Option-drag vertically adjusts Q (bandwidth)
+                                        let baseQ = dragStartQ ?? band.q
+                                        let factor = pow(2.0, Double(-g.translation.height) / 60.0)
+                                        b.q = ((min(max(baseQ * factor, 0.1), 10.0)) * 100).rounded() / 100
+                                    } else {
+                                        b.freqHz = min(max(EQAxis.f(g.location.x, w), EQAxis.fMin), EQAxis.fMax)
+                                        if hasGain {
+                                            b.gainDB = (EQAxis.db(g.location.y, h) * 10).rounded() / 10
+                                        }
                                     }
                                     appState.updateTasteBand(b)
                                 }
-                                .onEnded { _ in dragged = nil }
+                                .onEnded { _ in
+                                    dragged = nil
+                                    dragStartQ = nil
+                                }
                         )
                         .animation(TimbreMotion.snappy, value: active)
                         .accessibilityLabel("Band \(idx + 1)")
                         .accessibilityValue("\(Fmt.hz(band.freqHz)) Hz, \(Fmt.db(band.gainDB)) dB")
+
+                        if dragged == band.id || hovered == band.id {
+                            let readoutText = hasGain
+                                ? "#\(idx + 1) · \(Fmt.hz(band.freqHz)) Hz · \(Fmt.db(band.gainDB)) dB · Q \(String(format: "%.2f", band.q))"
+                                : "#\(idx + 1) · \(Fmt.hz(band.freqHz)) Hz · Q \(String(format: "%.2f", band.q))"
+                            handleReadout(title: readoutText, x: hx, y: hy, w: w, h: h)
+                        }
                     }
                 }
             }
@@ -179,6 +307,29 @@ public struct EQCurveCanvas: View {
         }
         .frame(height: height)
         .accessibilityElement(children: .contain)
+    }
+
+    @ViewBuilder
+    private func handleReadout(title: String, x: CGFloat, y: CGFloat, w: CGFloat, h: CGFloat) -> some View {
+        let clampedX = min(max(x, 86), max(86, w - 86))
+        let aboveY = y > 36 ? (y - 22) : min(h - 14, y + 22)
+        Text(title)
+            .type(TimbreTypography.monoSmall)
+            .foregroundStyle(c.ink_primary)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 3.5)
+            .background(
+                Capsule()
+                    .fill(c.bg_raised)
+                    .shadow(color: .black.opacity(0.22), radius: 2, y: 1)
+            )
+            .overlay(
+                Capsule()
+                    .strokeBorder(c.line_strong, lineWidth: 0.75)
+            )
+            .fixedSize()
+            .position(x: clampedX, y: aboveY)
+            .allowsHitTesting(false)
     }
 }
 

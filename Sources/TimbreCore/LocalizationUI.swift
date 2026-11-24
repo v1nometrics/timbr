@@ -337,6 +337,15 @@ extension TimbreStrings {
         "ui.updates.tcc_note": [.ptBR: "Enquanto as compilações usarem assinatura ad-hoc, o macOS pode pedir reconfirmação de permissões após atualizar.", .es: "Mientras las compilaciones usen firma ad-hoc, macOS puede pedir reconfirmar permisos tras actualizar.", .en: "While builds use ad-hoc signing, macOS may ask to re-approve permissions after updating."],
         "ui.updates.ctx_check": [.ptBR: "Verificar atualizações…", .es: "Buscar actualizaciones…", .en: "Check for updates…"],
         "ui.updates.ctx_available": [.ptBR: "Atualização disponível (%@)…", .es: "Actualización disponible (%@)…", .en: "Update available (%@)…"],
-        "ui.updates.notch_pill": [.ptBR: "Atualizar", .es: "Actualizar", .en: "Update"]
+        "ui.updates.notch_pill": [.ptBR: "Atualizar", .es: "Actualizar", .en: "Update"],
+        "ui.eq.preset": [.ptBR: "Preset", .es: "Preajuste", .en: "Preset"],
+        "ui.eq.preset_default": [.ptBR: "Neutro (Padrão)", .es: "Neutro (Predeterminado)", .en: "Neutral (Default)"],
+        "ui.eq.ab_label": [.ptBR: "A/B", .es: "A/B", .en: "A/B"],
+        "ui.eq.ab_eq": [.ptBR: "Com EQ", .es: "Con EQ", .en: "With EQ"],
+        "ui.eq.ab_flat": [.ptBR: "Plano", .es: "Plano", .en: "Flat"],
+        "ui.eq.browse_autoeq": [.ptBR: "Escolher fone…", .es: "Elegir auricular…", .en: "Choose headphone…"],
+        "ui.eq.canvas_hint_free": [.ptBR: "Duplo-clique adiciona ou zera · ⌥+arraste ajusta Q", .es: "Doble clic añade o pone a cero · ⌥+arrastrar ajusta Q", .en: "Double-click adds or resets · ⌥+drag adjusts Q"],
+        "ui.eq.canvas_hint_fixed": [.ptBR: "Duplo-clique num ponto ou fader volta a 0 dB · ⌥ ajusta fino", .es: "Doble clic en un punto o fader vuelve a 0 dB · ⌥ ajusta fino", .en: "Double-click a point or fader to reset to 0 dB · ⌥ for fine control"],
+        "ui.mixer.master_strip": [.ptBR: "Saída principal e cadeia", .es: "Salida principal y cadena", .en: "Master output & signal chain"],
     ]
 }
