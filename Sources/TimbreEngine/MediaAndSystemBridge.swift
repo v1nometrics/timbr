@@ -58,7 +58,10 @@ public final class MediaKeyTap: @unchecked Sendable {
 
     public init() {}
 
-    public var isRunning: Bool { eventTap != nil }
+    public var isRunning: Bool {
+        guard let eventTap, CFMachPortIsValid(eventTap) else { return false }
+        return CGEvent.tapIsEnabled(tap: eventTap)
+    }
 
     public static var isAccessibilityGranted: Bool {
         AXIsProcessTrusted()
@@ -66,8 +69,8 @@ public final class MediaKeyTap: @unchecked Sendable {
 
     @discardableResult
     public func start(onAction: @escaping (MediaKeyAction) -> Void) -> Bool {
-        guard Self.isAccessibilityGranted else { return false }
         stop()
+        guard Self.isAccessibilityGranted else { return false }
         self.handler = onAction
         self.ownsBrightness = DisplayBrightness.get() != nil
         let mask = CGEventMask(1 << 14) // NX_SYSDEFINED

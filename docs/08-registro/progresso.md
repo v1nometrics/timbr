@@ -507,3 +507,7 @@ Verificação: `./scripts/ci_check.sh` verde (Core, Engine, DSP ASan/UBSan, `Tim
 ### 2026-11-24 · Exclusão do timbr da lista de fontes
 
 O filtro por PID já excluía o processo atual. Agora o mixer também exclui o bundle do timbr e seus helpers pelo identificador do processo ou do app responsável no Core Audio. A atualização do mixer descarta linhas próprias já conhecidas e a restauração de mudo ignora registros internos do helper. Os sons do sistema e apps com nomes parecidos continuam elegíveis. O teste da enumeração real confirmou a regressão com uma linha antiga marcada como muda.
+
+### 2026-11-24 · Identidade de assinatura e HUD
+
+Na build pública 89, o macOS deixou de reconhecer a autorização de Acessibilidade após a troca da assinatura local por uma assinatura ad hoc. O atualizador agora só troca o bundle automaticamente quando o candidato satisfaz o requisito de assinatura do app instalado. Caso contrário, entrega o DMG verificado para instalação manual. Preservar a autorização entre diferentes builds públicas requer uma identidade de distribuição estável. Ao perder a autorização, o app encerra o monitor de teclas. Com autorização válida, ele recria o monitor se ficar inválido ou desabilitado.

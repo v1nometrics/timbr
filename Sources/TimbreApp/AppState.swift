@@ -514,7 +514,9 @@ public final class AppState: ObservableObject {
                 }
                 logEvent(category: "system", message: ok ? "Volume and brightness keys handled by the notch" : "Could not install the media key tap")
             }
-        } else if store?.getKV("accessibilityWasGranted") == "1", !accessibilityPromptedThisLaunch {
+        } else {
+            mediaKeyTap.stop()
+            guard store?.getKV("accessibilityWasGranted") == "1", !accessibilityPromptedThisLaunch else { return }
             // The grant existed but no longer applies (typically: the app's signature changed after an
             // update). Say so, and ask again, instead of silently falling back to the system HUD.
             accessibilityPromptedThisLaunch = true
