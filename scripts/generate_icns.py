@@ -1,7 +1,14 @@
 #!/usr/bin/env python3
-"""Generate Timbr.icns (ADR-0025: Ilha refinada) from the approved Ilha refinada SVG via pure Python RGBA PNGs + macOS iconutil."""
+"""Generate Timbr.icns (ADR-0025: Ilha refinada) from the approved Ilha refinada SVG via pure Python RGBA PNGs + macOS iconutil.
+
+`Timbr.icns` renders as an opaque full-bleed paper canvas (#F3F3F1) with the canonical SVG inner shapes
+scaled by 1024/824 around (512, 512). On macOS 26+ (Tahoe), IconServices masks full-bleed canvases cleanly
+to the native continuous Liquid Glass squircle (824/1024) without running the legacy pre-masked-squircle
+foreground-segmentation emboss filter, which otherwise creates blurry gray halos around the black pill and
+white bars. `Resources/Brand/timbr-icon-1024.png` keeps the standalone rounded squircle with transparent
+margin for README, web, and macOS 15 runtime Dock fallback.
+"""
 import math
-import shutil
 import struct
 import subprocess
 import tempfile
@@ -26,6 +33,7 @@ PAPER = (0xF3, 0xF3, 0xF1)
 EDGE = (0xDE, 0xDE, 0xD9)
 INK = (0x14, 0x14, 0x14)
 BLACK = (0x00, 0x00, 0x00)
+FULL_BLEED_SCALE = 1024.0 / 824.0
 
 
 def sd_box(px: float, py: float, cx: float, cy: float, hw: float, hh: float, r: float = 0.0) -> float:
@@ -54,9 +62,28 @@ SHAPES = load_shapes("timbr-icon.svg")
 SMALL_SHAPES = load_shapes("timbr-icon-small.svg")
 
 
-def pixel(x: float, y: float, scale: float, small: bool, glyph: bool = False) -> tuple:
+def pixel(x: float, y: float, scale: float, small: bool, glyph: bool = False, full_bleed: bool = False) -> tuple:
     """Rasterize the approved SVG rectangles; preserve original geometry and optical sizes."""
     shapes = SMALL_SHAPES if small else SHAPES
+    if full_bleed and not glyph:
+        r, g, b = (float(c) for c in PAPER)
+        for shape in shapes[1:]:
+            sx, sy, w, h = (float(shape[k]) for k in ("x", "y", "width", "height"))
+            rx = float(shape.get("rx", 0))
+            cx = 512.0 + (sx + w / 2.0 - 512.0) * FULL_BLEED_SCALE
+            cy = 512.0 + (sy + h / 2.0 - 512.0) * FULL_BLEED_SCALE
+            w *= FULL_BLEED_SCALE
+            h *= FULL_BLEED_SCALE
+            rx *= FULL_BLEED_SCALE
+            d = sd_box(x, y, cx, cy, w / 2.0, h / 2.0, rx)
+            alpha = cover(d, scale)
+            fill = shape["fill"].lstrip("#")
+            if len(fill) == 3:
+                fill = "".join(c * 2 for c in fill)
+            col = tuple(int(fill[j:j+2], 16) for j in (0, 2, 4))
+            r, g, b = (c * alpha + old * (1.0 - alpha) for c, old in zip(col, (r, g, b)))
+        return (round(r), round(g), round(b), 255)
+
     r = g = b = a = 0.0
     for i, shape in enumerate(shapes):
         if glyph and i == 0:
@@ -88,7 +115,7 @@ def pixel(x: float, y: float, scale: float, small: bool, glyph: bool = False) ->
     return (round(r / a) if a else 0, round(g / a) if a else 0, round(b / a) if a else 0, round(a * 255))
 
 
-def write_png(path: Path, size: int, glyph: bool = False) -> None:
+def write_png(path: Path, size: int, glyph: bool = False, full_bleed: bool = False) -> None:
     raw = bytearray()
     scale = size / 1024.0
     small = size <= 64
@@ -103,7 +130,7 @@ def write_png(path: Path, size: int, glyph: bool = False) -> None:
         raw.append(0)
         y = oy + (py + 0.5) / scale
         for px in range(size):
-            raw.extend(pixel(ox + (px + 0.5) / scale, y, scale, small, glyph))
+            raw.extend(pixel(ox + (px + 0.5) / scale, y, scale, small, glyph, full_bleed))
 
     def chunk(tag: bytes, data: bytes) -> bytes:
         return struct.pack(">I", len(data)) + tag + data + struct.pack(">I", zlib.crc32(tag + data) & 0xFFFFFFFF)
@@ -120,11 +147,11 @@ def main() -> None:
         iconset = Path(td) / "Timbr.iconset"
         iconset.mkdir()
         for fname, px in SIZES:
-            write_png(iconset / fname, px)
+            write_png(iconset / fname, px, full_bleed=True)
         subprocess.run(["iconutil", "-c", "icns", str(iconset), "-o", str(out_icns)], check=True)
     resources = out_icns.parent
     write_png(resources / "TimbrMenuTemplate.png", 64, glyph=True)
-    write_png(resources / "Brand/timbr-icon-1024.png", 1024)
+    write_png(resources / "Brand/timbr-icon-1024.png", 1024, full_bleed=False)
     print(f"Generated {out_icns}")
 
 if __name__ == "__main__":

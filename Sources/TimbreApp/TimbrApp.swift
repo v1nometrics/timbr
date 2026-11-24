@@ -20,6 +20,14 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
 
     public func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
+        // `Timbr.icns` uses an opaque full-bleed canvas so macOS 26+ applies the native continuous
+        // Liquid Glass squircle mask cleanly without auto-embossing the black pill; on macOS 15,
+        // keep the pre-masked rounded squircle for the running Dock icon.
+        if ProcessInfo.processInfo.operatingSystemVersion.majorVersion < 26,
+           let iconURL = Bundle.main.url(forResource: "TimbrBrandIcon", withExtension: "png"),
+           let icon = NSImage(contentsOf: iconURL) {
+            NSApp.applicationIconImage = icon
+        }
         // End-to-end audio measurement (no UI, no AppState): `Timbr --selftest-audio <report.json>`.
         let launchArgs = ProcessInfo.processInfo.arguments
         if let i = launchArgs.firstIndex(of: "--selftest-audio") {
