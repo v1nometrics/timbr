@@ -231,6 +231,18 @@ public final class SQLiteStore: @unchecked Sendable {
         sqlite3_step(stmt)
     }
 
+    public func deletePreset(id: UUID) throws {
+        lock.lock()
+        defer { lock.unlock() }
+        let sql = "DELETE FROM presets WHERE id = ?;"
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return }
+        defer { sqlite3_finalize(stmt) }
+        let transient = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
+        sqlite3_bind_text(stmt, 1, id.uuidString, -1, transient)
+        sqlite3_step(stmt)
+    }
+
     public func loadPresets() -> [TimbrePreset] {
         lock.lock()
         defer { lock.unlock() }

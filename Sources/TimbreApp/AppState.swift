@@ -177,6 +177,8 @@ public final class AppState: ObservableObject {
     // EQ & Presets
     @Published public var activePreset: TimbrePreset
     @Published public var savedPresets: [TimbrePreset] = []
+    @Published public var selectedEQBandID: UUID?
+    @Published public var selectedFixedSlotIndex: Int?
     @Published public var abMode: ABCompareMode = .full
     @Published public var blindABActive: Bool = false
     @Published public var blindXIsFull: Bool = Bool.random()
@@ -1365,6 +1367,47 @@ public final class AppState: ObservableObject {
         }
     }
 
+    public func selectPreset(_ preset: TimbrePreset) {
+        activePreset = preset
+        selectedEQBandID = preset.tasteBands.first?.id
+        syncDSPAndTap()
+        logEvent(category: "preset", message: "Loaded preset: \(preset.name)")
+    }
+
+    public func resetToDefaultNeutralPreset() {
+        activePreset = TimbrePreset(
+            name: "Neutral Studio",
+            simpleTaste: .neutral,
+            useAdvancedPEQ: activePreset.useAdvancedPEQ,
+            layout: activePreset.layout,
+            crossfeedEnabled: false,
+            limiterCeilingDBTP: -0.3
+        )
+        if activePreset.useAdvancedPEQ {
+            activePreset.tasteBands = EQBandEditing.defaultFreeBands()
+        }
+        selectedEQBandID = activePreset.tasteBands.first?.id
+        syncDSPAndTap()
+        logEvent(category: "preset", message: "Reset to Neutral Studio")
+    }
+
+    public func addTasteBand(freqHz: Double, gainDB: Double) {
+        guard canAddFreeBand else { return }
+        activePreset.useAdvancedPEQ = true
+        freeBandsBeforeReset = nil
+        let clampedFreq = min(max(freqHz, 20.0), 20000.0)
+        let clampedGain = (min(max(gainDB, -15.0), 15.0) * 10.0).rounded() / 10.0
+        let newBand = EQBand(type: .peak, design: .vicanek, layer: .taste, freqHz: clampedFreq, gainDB: clampedGain, q: 1.0, enabled: true)
+        activePreset.tasteBands.append(newBand)
+        selectedEQBandID = newBand.id
+        activePreset.updatedAt = Date()
+        syncDSPAndTap()
+    }
+
+    public var isCurrentPresetSaved: Bool {
+        savedPresets.contains(where: { $0.id == activePreset.id })
+    }
+
     public func saveCurrentPreset() {
         activePreset.updatedAt = Date()
         // RF-0404 / RF-0607: a saved preset belongs to the output it was tuned on (UID, never AudioObjectID).
@@ -1375,6 +1418,68 @@ public final class AppState: ObservableObject {
         } else {
             savedPresets.insert(activePreset, at: 0)
         }
+        logEvent(category: "preset", message: "Saved preset: \(activePreset.name)")
+    }
+
+    public func saveCurrentPresetAs(name: String) {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        let copy = TimbrePreset(
+            id: UUID(),
+            name: trimmed,
+            deviceUID: activeOutputDevice?.uid ?? activePreset.deviceUID,
+            correctionMetadata: activePreset.correctionMetadata,
+            correctionBands: activePreset.correctionBands,
+            tasteBands: activePreset.tasteBands,
+            simpleTaste: activePreset.simpleTaste,
+            useAdvancedPEQ: activePreset.useAdvancedPEQ,
+            layout: activePreset.layout,
+            layoutGains: activePreset.layoutGains,
+            crossfeedEnabled: activePreset.crossfeedEnabled,
+            limiterCeilingDBTP: activePreset.limiterCeilingDBTP,
+            updatedAt: Date()
+        )
+        activePreset = copy
+        try? store?.savePreset(copy)
+        savedPresets.insert(copy, at: 0)
+        logEvent(category: "preset", message: "Created preset: \(trimmed)")
+    }
+
+    public func renamePreset(id: UUID, newName: String) {
+        let trimmed = newName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        if activePreset.id == id {
+            activePreset.name = trimmed
+            activePreset.updatedAt = Date()
+        }
+        if let idx = savedPresets.firstIndex(where: { $0.id == id }) {
+            savedPresets[idx].name = trimmed
+            savedPresets[idx].updatedAt = Date()
+            try? store?.savePreset(savedPresets[idx])
+        } else if activePreset.id == id {
+            try? store?.savePreset(activePreset)
+        }
+        logEvent(category: "preset", message: "Renamed preset to: \(trimmed)")
+    }
+
+    public func deletePreset(id: UUID) {
+        try? store?.deletePreset(id: id)
+        savedPresets.removeAll(where: { $0.id == id })
+        if activePreset.id == id {
+            if let next = savedPresets.first {
+                selectPreset(next)
+            } else {
+                resetToDefaultNeutralPreset()
+            }
+        }
+        logEvent(category: "preset", message: "Deleted preset \(id.uuidString)")
+    }
+
+    public func resetTasteTrainer() {
+        trainerHistory = []
+        trainerListeningB = false
+        trainerPair = gpTrainer.proposeNextPair(history: [], seed: 42)
+        logEvent(category: "trainer", message: "Reset A/B comparison rounds")
     }
 
     public func submitAIPrompt() {
