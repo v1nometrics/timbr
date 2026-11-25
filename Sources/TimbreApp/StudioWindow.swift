@@ -2198,14 +2198,29 @@ private struct AboutPage: View {
         VStack(alignment: .leading, spacing: 28) {
             VStack(alignment: .leading, spacing: 14) {
                 TimbrBrandIcon(size: 72)
-                HStack(alignment: .firstTextBaseline, spacing: 0) {
-                    Text("timbr").font(.system(size: 56, weight: .semibold)).tracking(-2.6)
+                HStack(alignment: .firstTextBaseline, spacing: 14) {
+                    Text("timbr")
+                        .font(.system(size: 56, weight: .semibold))
+                        .tracking(-2.6)
+                        .foregroundStyle(c.ink_primary)
+                    Text("\(appState.t("ui.about.version")) \(appState.updater.currentVersion.displayLabel)")
+                        .type(TimbreTypography.monoSmall)
+                        .foregroundStyle(c.ink_secondary)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(Capsule().fill(c.bg_surface))
+                        .overlay(Capsule().strokeBorder(c.line_default, lineWidth: 0.5))
                 }
-                .foregroundStyle(c.ink_primary)
                 Text(appState.language.tagline).type(TimbreTypography.prose).foregroundStyle(c.ink_secondary)
                 Text(appState.t("support.body")).type(TimbreTypography.body).foregroundStyle(c.ink_muted).frame(maxWidth: 560, alignment: .leading).fixedSize(horizontal: false, vertical: true)
             }
             .padding(.top, 24)
+            HStack(spacing: 40) {
+                fact(appState.t("ui.about.version"), appState.updater.currentVersion.displayLabel)
+                fact(appState.t("ui.about.license"), "MPL-2.0")
+                fact(appState.t("ui.about.engine"), "Float64 · vDSP")
+                fact(appState.t("ui.about.privacy"), appState.t("ui.about.local"))
+            }
             HStack(spacing: 10) {
                 if let gh = URL(string: "https://github.com/v1nometrics/timbr") {
                     Button(appState.t("ui.about.source")) { NSWorkspace.shared.open(gh) }.buttonStyle(.t(.primary))
@@ -2230,13 +2245,6 @@ private struct AboutPage: View {
             }
             Hairline()
             FeedbackSection(appState: appState)
-            Hairline()
-            HStack(spacing: 40) {
-                fact(appState.t("ui.about.version"), appState.updater.currentVersion.displayLabel)
-                fact(appState.t("ui.about.license"), "MPL-2.0")
-                fact(appState.t("ui.about.engine"), "Float64 · vDSP")
-                fact(appState.t("ui.about.privacy"), appState.t("ui.about.local"))
-            }
         }
     }
 
