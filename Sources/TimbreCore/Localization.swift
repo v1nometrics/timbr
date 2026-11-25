@@ -90,9 +90,9 @@ public enum TimbreStrings {
         "eq.blind_ab": [.ptBR: "A/B Cego (X vs Y)", .es: "A/B Ciego (X vs Y)", .en: "Blind A/B (X vs Y)"],
         "eq.import_apo": [.ptBR: "Importar APO .txt", .es: "Importar APO .txt", .en: "Import APO .txt"],
         "eq.export_apo": [.ptBR: "Exportar APO .txt", .es: "Exportar APO .txt", .en: "Export APO .txt"],
-        "eq.ai_placeholder": [.ptBR: "Descreva o ajuste (ex.: menos sibilância)...", .es: "Describe el ajuste (ej.: menos sibilancia)...", .en: "Describe tuning (e.g., less sibilance)..."],
-        "eq.ai_apply": [.ptBR: "Propor ajuste", .es: "Proponer ajuste", .en: "Propose tweak"],
-        "eq.trainer_title": [.ptBR: "Treinador de Gosto (A/B)", .es: "Entrenador de Gusto (A/B)", .en: "Taste Trainer (A/B)"],
+        "eq.ai_placeholder": [.ptBR: "Ex.: menos sibilância em 6 kHz, mais sub-grave…", .es: "Ej.: menos sibilancia en 6 kHz, más sub-grave…", .en: "E.g., less sibilance at 6 kHz, more sub-bass…"],
+        "eq.ai_apply": [.ptBR: "Sugerir curva", .es: "Sugerir curva", .en: "Suggest curve"],
+        "eq.trainer_title": [.ptBR: "Refinamento A/B", .es: "Refinamiento A/B", .en: "A/B Refinement"],
 
         // Observatory & Trust Badges
         "obs.badge.measured": [.ptBR: "MEDIDO", .es: "MEDIDO", .en: "MEASURED"],
@@ -210,14 +210,14 @@ public enum TimbreStrings {
         "onboard.step.promise": [.ptBR: "Promessa", .es: "Promesa", .en: "Promise"],
         "onboard.step.permissions": [.ptBR: "Permissões", .es: "Permisos", .en: "Permissions"],
         "onboard.step.ready": [.ptBR: "Pronto", .es: "Listo", .en: "Ready"],
-        "onboard.welcome.title": [.ptBR: "Som, precisamente seu.", .es: "Sonido, precisamente tuyo.", .en: "Sound, precisely yours."],
+        "onboard.welcome.title": [.ptBR: "Controle de áudio e equalização no Mac.", .es: "Control de audio y ecualización en el Mac.", .en: "Audio routing and equalization for Mac."],
         "onboard.welcome.body": [
             .ptBR: "Volume por app, equalização em 64 bits e um observatório que mostra o caminho do som. No notch do seu Mac, 100% local.",
             .es: "Volumen por app, ecualización en 64 bits y un observatorio que muestra la ruta del sonido. En el notch de tu Mac, 100% local.",
             .en: "Per-app volume, 64-bit equalization and an observatory that shows the path of your sound. In your Mac notch, 100% local."
         ],
         "onboard.language": [.ptBR: "Idioma", .es: "Idioma", .en: "Language"],
-        "onboard.promise.title": [.ptBR: "Privacidade sem concessões", .es: "Privacidad sin concesiones", .en: "Privacy without compromise"],
+        "onboard.promise.title": [.ptBR: "Processamento 100% local", .es: "Procesamiento 100% local", .en: "100% local processing"],
         "onboard.promise.local": [
             .ptBR: "Todo o áudio fica neste Mac. Sem nuvem, sem telemetria, sem conta.",
             .es: "Todo el audio permanece en este Mac. Sin nube, sin telemetría, sin cuenta.",
@@ -233,7 +233,7 @@ public enum TimbreStrings {
             .es: "El sello BIT-PERFECT solo se enciende sin taps activos. Sin marketing de fidelidad falsa.",
             .en: "The BIT-PERFECT badge only lights when zero taps are active. No fake-fidelity marketing."
         ],
-        "onboard.permissions.title": [.ptBR: "Permissões no momento certo", .es: "Permisos en el momento justo", .en: "Permissions at the right moment"],
+        "onboard.permissions.title": [.ptBR: "Permissões do sistema", .es: "Permisos del sistema", .en: "System permissions"],
         "onboard.permissions.body": [
             .ptBR: "Explicamos antes de pedir. Você decide o que conceder — nada é solicitado automaticamente nesta tela.",
             .es: "Explicamos antes de pedir. Tú decides qué conceder — nada se solicita automáticamente en esta pantalla.",
@@ -244,7 +244,7 @@ public enum TimbreStrings {
             .es: "Puedes conceder después en Ajustes → Permisos, cuando uses EQ o teclas de medios.",
             .en: "You can grant later in Settings → Permissions when you use EQ or media keys."
         ],
-        "onboard.ready.title": [.ptBR: "Tudo pronto para escutar", .es: "Todo listo para escuchar", .en: "Ready to listen"],
+        "onboard.ready.title": [.ptBR: "Pronto para usar", .es: "Listo para usar", .en: "Ready to use"],
         "onboard.ready.body": [
             .ptBR: "O timbr vive na barra de menus e no notch. Abra o Estúdio para o mixer e o EQ, ou comece a tocar música e expanda o notch com ⌥⌘V.",
             .es: "timbr vive en la barra de menús y en el notch. Abre el Estudio para el mezclador y el EQ, o reproduce música y expande el notch con ⌥⌘V.",

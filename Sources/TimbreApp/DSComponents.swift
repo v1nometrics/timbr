@@ -71,9 +71,6 @@ struct SectionHeader<Trailing: View>: View {
 
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: TimbreSpacing.s3) {
-            Text(index)
-                .type(TimbreTypography.eyebrow)
-                .foregroundStyle(c.ink_faint)
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
                     .type(TimbreTypography.sectionTitle)

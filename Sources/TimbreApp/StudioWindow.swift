@@ -205,20 +205,22 @@ private struct PageHeader<Actions: View>: View {
 
     var body: some View {
         HStack(alignment: .bottom, spacing: TimbreSpacing.s4) {
-            VStack(alignment: .leading, spacing: 6) {
-                Eyebrow(text: index)
+            VStack(alignment: .leading, spacing: 4) {
+                if index.lowercased() != title.lowercased() {
+                    Eyebrow(text: index)
+                }
                 Text(title).type(TimbreTypography.pageTitle).foregroundStyle(c.ink_primary).fixedSize(horizontal: false, vertical: true)
                 Text(summary)
                     .type(TimbreTypography.body)
                     .foregroundStyle(c.ink_secondary)
                     .fixedSize(horizontal: false, vertical: true)
-                    .frame(maxWidth: 460, alignment: .leading)
+                    .frame(maxWidth: 540, alignment: .leading)
             }
             Spacer(minLength: 12)
             HStack(spacing: 8) { actions() }
                 .fixedSize(horizontal: true, vertical: false)
         }
-        .padding(.bottom, 22)
+        .padding(.bottom, 18)
     }
 }
 
@@ -988,6 +990,14 @@ private struct EqualizerPage: View {
     @ObservedObject var appState: AppState
     @Environment(\.palette) private var c
 
+    private enum PresetEditorMode: Equatable {
+        case createNew
+        case rename(UUID)
+    }
+
+    @State private var presetEditorMode: PresetEditorMode? = nil
+    @State private var presetNameDraft: String = ""
+
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             PageHeader(index: appState.t("nav.eq"), title: appState.t("ui.eq.title"), summary: eqSummary) {
@@ -996,14 +1006,24 @@ private struct EqualizerPage: View {
                     (.free, appState.t("eq.mode.advanced")),
                 ], selection: Binding(get: { appState.eqMode }, set: { appState.setEQMode($0) }))
 
-                Button(appState.t("ui.eq.save")) { appState.saveCurrentPreset() }
-                    .buttonStyle(.t(.primary, compact: true))
+                Button(appState.t("ui.eq.save")) {
+                    if appState.activePreset.name == "Neutral Studio" && !appState.isCurrentPresetSaved {
+                        beginSaveNewPreset(suggestedName: suggestedPresetName)
+                    } else {
+                        appState.saveCurrentPreset()
+                    }
+                }
+                .buttonStyle(.t(.primary, compact: true))
             }
             .padding(.bottom, -14)
 
             // Unified EQ Instrument Console: Correction & Preset Bar + Curve + Metrology + Fader Bank / Band Table
             VStack(spacing: 0) {
                 correctionAndLegendBar
+                if let mode = presetEditorMode {
+                    Hairline()
+                    presetInlineEditorBar(mode: mode)
+                }
                 Hairline()
                 EQCurveCanvas(appState: appState, height: 192)
                     .padding(.horizontal, 18)
@@ -1022,40 +1042,115 @@ private struct EqualizerPage: View {
             .overlay(RoundedRectangle(cornerRadius: TimbreRadius.card, style: .continuous).strokeBorder(c.line_default, lineWidth: 1))
             .clipShape(RoundedRectangle(cornerRadius: TimbreRadius.card, style: .continuous))
 
-            // Compact 2-Column Audition & Tone Assistant Utility Strip
+            // Symmetric 2-Column Audition & Tone Assistant Utility Strip (equal height)
             HStack(alignment: .top, spacing: 14) {
                 comparePanel
                 assistantPanel
             }
+            .fixedSize(horizontal: false, vertical: true)
         }
     }
 
-    private var presetMenu: some View {
-        MenuChip(title: appState.activePreset.name, symbol: "slider.horizontal.3") {
-            Button {
-                appState.resetToDefaultNeutralPreset()
-            } label: {
-                if appState.activePreset.name == "Neutral Studio" && appState.activePreset.allEffectiveBands.allSatisfy({ abs($0.gainDB) < 0.01 }) {
-                    Label(appState.t("ui.eq.preset_default"), systemImage: "checkmark")
-                } else {
-                    Text(appState.t("ui.eq.preset_default"))
-                }
+    private var suggestedPresetName: String {
+        if let dev = appState.activeOutputDevice?.name, !dev.isEmpty {
+            return "\(dev) · Custom"
+        }
+        return "Custom \(appState.savedPresets.count + 1)"
+    }
+
+    private func beginSaveNewPreset(suggestedName: String) {
+        presetNameDraft = suggestedName
+        presetEditorMode = .createNew
+    }
+
+    private func beginRenameCurrentPreset() {
+        presetNameDraft = appState.activePreset.name
+        presetEditorMode = .rename(appState.activePreset.id)
+    }
+
+    private func commitPresetEditor(_ mode: PresetEditorMode) {
+        let trimmed = presetNameDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        switch mode {
+        case .createNew:
+            appState.saveCurrentPresetAs(name: trimmed)
+        case .rename(let id):
+            appState.renamePreset(id: id, newName: trimmed)
+        }
+        presetEditorMode = nil
+    }
+
+    private func presetInlineEditorBar(mode: PresetEditorMode) -> some View {
+        HStack(spacing: 8) {
+            Eyebrow(text: appState.t("ui.eq.preset"))
+            TField(placeholder: appState.t("ui.eq.preset_name_placeholder"), text: $presetNameDraft) {
+                commitPresetEditor(mode)
             }
-            if !appState.savedPresets.isEmpty {
-                ForEach(appState.savedPresets) { preset in
-                    Button {
-                        appState.selectPreset(preset)
-                    } label: {
-                        if preset.id == appState.activePreset.id {
-                            Label(preset.name, systemImage: "checkmark")
-                        } else {
-                            Text(preset.name)
+            .frame(maxWidth: 260)
+            Button(appState.t("ui.apply")) {
+                commitPresetEditor(mode)
+            }
+            .buttonStyle(.t(.primary, compact: true))
+            .disabled(presetNameDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+
+            Button(appState.t("ui.updates.cancel")) {
+                presetEditorMode = nil
+            }
+            .buttonStyle(.t(.ghost, compact: true))
+            Spacer()
+        }
+        .padding(.horizontal, 20)
+        .frame(height: 40)
+        .background(c.bg_inset)
+    }
+
+    private var presetMenu: some View {
+        HStack(spacing: 4) {
+            MenuChip(title: appState.activePreset.name, symbol: "slider.horizontal.3") {
+                Button {
+                    appState.resetToDefaultNeutralPreset()
+                } label: {
+                    if appState.activePreset.name == "Neutral Studio" && appState.activePreset.allEffectiveBands.allSatisfy({ abs($0.gainDB) < 0.01 }) {
+                        Label(appState.t("ui.eq.preset_default"), systemImage: "checkmark")
+                    } else {
+                        Text(appState.t("ui.eq.preset_default"))
+                    }
+                }
+                if !appState.savedPresets.isEmpty {
+                    ForEach(appState.savedPresets) { preset in
+                        Button {
+                            appState.selectPreset(preset)
+                        } label: {
+                            if preset.id == appState.activePreset.id {
+                                Label(preset.name, systemImage: "checkmark")
+                            } else {
+                                Text(preset.name)
+                            }
                         }
                     }
                 }
+                Button(appState.t("ui.eq.save_new")) {
+                    beginSaveNewPreset(suggestedName: suggestedPresetName)
+                }
+                if appState.isCurrentPresetSaved || appState.activePreset.name != "Neutral Studio" {
+                    Button(appState.t("ui.eq.rename_preset")) {
+                        beginRenameCurrentPreset()
+                    }
+                }
+                if appState.isCurrentPresetSaved {
+                    Button(appState.t("ui.eq.delete_preset")) {
+                        appState.deletePreset(id: appState.activePreset.id)
+                    }
+                }
+                Button(appState.t("eq.import_apo")) { appState.importEqualizerAPOFromPanel() }
+                Button(appState.t("eq.export_apo")) { appState.exportEqualizerAPOToPanel() }
             }
-            Button(appState.t("eq.import_apo")) { appState.importEqualizerAPOFromPanel() }
-            Button(appState.t("eq.export_apo")) { appState.exportEqualizerAPOToPanel() }
+
+            if appState.isCurrentPresetSaved {
+                IconButton(symbol: "trash", size: 22, help: appState.t("ui.eq.delete_preset")) {
+                    appState.deletePreset(id: appState.activePreset.id)
+                }
+            }
         }
     }
 
@@ -1350,13 +1445,6 @@ private struct EqualizerPage: View {
                 .fill(selected ? c.bg_selected.opacity(0.55) : Color.clear)
         )
         .contentShape(Rectangle())
-        .onHover { isHov in
-            if isHov {
-                appState.selectedFixedSlotIndex = index
-            } else if appState.selectedFixedSlotIndex == index {
-                appState.selectedFixedSlotIndex = nil
-            }
-        }
     }
 
     // MARK: - Free Parametric EQ Band Console (Integrated inside main EQ instrument)
@@ -1475,9 +1563,10 @@ private struct EqualizerPage: View {
                 Text(sub).type(TimbreTypography.caption).foregroundStyle(c.ink_muted).fixedSize(horizontal: false, vertical: true)
             }
             content()
+            Spacer(minLength: 0)
         }
         .padding(16)
-        .frame(maxWidth: .infinity, alignment: .topLeading)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(RoundedRectangle(cornerRadius: TimbreRadius.card, style: .continuous).fill(c.bg_surface))
         .overlay(RoundedRectangle(cornerRadius: TimbreRadius.card, style: .continuous).strokeBorder(c.line_default, lineWidth: 1))
     }
@@ -1501,11 +1590,19 @@ private struct EqualizerPage: View {
                     Text(String(format: appState.t("ui.eq.reveal_result"), appState.blindXIsFull ? appState.t("ui.eq.with_eq") : appState.t("ui.eq.without_eq")))
                         .type(TimbreTypography.caption).foregroundStyle(c.ink_secondary)
                 }
+                Button(appState.t("ui.eq.save_from_ab")) {
+                    beginSaveNewPreset(suggestedName: "\(appState.activeOutputDevice?.name ?? "Custom") · A/B")
+                }
+                .buttonStyle(.t(.secondary, compact: true))
             }
             Hairline()
             HStack(spacing: 8) {
                 Text(appState.t("eq.trainer_title")).type(TimbreTypography.small).fontWeight(.medium).foregroundStyle(c.ink_primary)
                 Spacer()
+                if !appState.trainerHistory.isEmpty {
+                    Button(appState.t("ui.eq.reset_ab")) { appState.resetTasteTrainer() }
+                        .buttonStyle(.t(.ghost, compact: true))
+                }
                 Text(String(format: appState.t("ui.eq.rounds"), appState.trainerHistory.count))
                     .type(TimbreTypography.monoSmall).foregroundStyle(c.ink_muted)
             }
@@ -1534,6 +1631,14 @@ private struct EqualizerPage: View {
         .buttonStyle(PressScaleStyle())
     }
 
+    private func quickTuningChip(_ labelKey: String, promptKey: String) -> some View {
+        Button(appState.t(labelKey)) {
+            appState.aiPromptText = appState.t(promptKey)
+            appState.submitAIPrompt()
+        }
+        .buttonStyle(.t(.secondary, compact: true))
+    }
+
     private var assistantPanel: some View {
         panel(appState.t("ui.eq.assistant_title"), appState.t("ui.eq.assistant_sub")) {
             HStack(spacing: 8) {
@@ -1545,6 +1650,17 @@ private struct EqualizerPage: View {
                     Button(appState.t("ui.undo")) { appState.undoLastAITweak() }.buttonStyle(.t(.ghost, compact: true))
                 }
             }
+
+            Hairline()
+
+            HStack(spacing: 6) {
+                quickTuningChip("ui.eq.chip.less_sibilance", promptKey: "ui.eq.chip.prompt.less_sibilance")
+                quickTuningChip("ui.eq.chip.more_sub", promptKey: "ui.eq.chip.prompt.more_sub")
+                quickTuningChip("ui.eq.chip.vocal_clarity", promptKey: "ui.eq.chip.prompt.vocal_clarity")
+                quickTuningChip("ui.eq.chip.less_mud", promptKey: "ui.eq.chip.prompt.less_mud")
+                Spacer(minLength: 0)
+            }
+
             if !appState.aiStatusMessage.isEmpty {
                 Text(appState.aiStatusMessage).type(TimbreTypography.caption).foregroundStyle(c.ink_muted).fixedSize(horizontal: false, vertical: true)
             }
