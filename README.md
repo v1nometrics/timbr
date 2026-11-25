@@ -13,8 +13,9 @@ O timbr é um notch audiófilo para macOS que reúne mixer de áudio por aplicat
 ![License MPL-2.0](https://img.shields.io/badge/License-MPL--2.0-111111?style=flat-square)
 ![100% Local](https://img.shields.io/badge/Privacy-100%25%20Local%20%C2%B7%20Zero%20Telemetry-111111?style=flat-square)
 ![i18n PT ES EN](https://img.shields.io/badge/i18n-PT--BR%20%C2%B7%20ES%20%C2%B7%20EN-111111?style=flat-square)
+[![Beta release](https://img.shields.io/github/v/release/v1nometrics/timbr?include_prereleases&filter=v*&label=beta&color=111111&style=flat-square)](https://github.com/v1nometrics/timbr/releases)
 
-[Instalar e atualizar](docs/instalacao.md) · [Estado atual](#estado-atual-2026-11-23) · [Como compilar e testar](#build-testes-e-instala%C3%A7%C3%A3o-macos-15--apple-silicon) · [Arquitetura](#arquitetura-e-estrutura-do-c%C3%B3digo) · [Documentação](#mapa-da-documenta%C3%A7%C3%A3o) · [Contribuir](CONTRIBUTING.md)
+[Releases (beta)](https://github.com/v1nometrics/timbr/releases) · [Instalar e atualizar](docs/instalacao.md) · [Estado atual](#estado-atual-2026-11-23) · [Como compilar e testar](#build-testes-e-instala%C3%A7%C3%A3o-macos-15--apple-silicon) · [Arquitetura](#arquitetura-e-estrutura-do-c%C3%B3digo) · [Documentação](#mapa-da-documenta%C3%A7%C3%A3o) · [Contribuir](CONTRIBUTING.md)
 
 </div>
 
@@ -72,7 +73,7 @@ Compatibilidade documentada com apps de terceiros: [superwhisper e Google Chrome
 
 ## Instalação rápida
 
-O timbr roda em Macs com Apple Silicon e macOS 15 ou mais recente. O instalador público assinado e notarizado ainda está em preparação. As builds históricas no GitHub são betas de desenvolvimento.
+O timbr roda em Macs com Apple Silicon e macOS 15 ou mais recente. O instalador público assinado e notarizado ainda está em preparação; os DMGs publicados na página de [pré-releases beta](https://github.com/v1nometrics/timbr/releases) são builds automáticas de desenvolvimento a partir da `main`.
 
 Para instalar e entender quais recursos usam permissões do macOS, veja o [guia de instalação e atualização](docs/instalacao.md).
 
