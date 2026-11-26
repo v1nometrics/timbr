@@ -64,7 +64,15 @@
     },
     "notchExpanded": {
       "$type": "dimension",
+      "$value": "28px"
+    },
+    "notchPeek": {
+      "$type": "dimension",
       "$value": "24px"
+    },
+    "notchHud": {
+      "$type": "dimension",
+      "$value": "16px"
     },
     "notchShoulder": {
       "$type": "dimension",

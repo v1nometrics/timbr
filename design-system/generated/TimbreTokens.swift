@@ -35,6 +35,9 @@ public struct TimbreColors: Sendable {
     public let semantic_warning: Color
     public let semantic_negative: Color
     public let semantic_info: Color
+    public let glass_specular: Color
+    public let glass_rim: Color
+    public let glass_edgeLight: Color
 
     public static let light = TimbreColors(
         bg_canvas: Color(hex: 0xF5F5F2),
@@ -63,7 +66,10 @@ public struct TimbreColors: Sendable {
         semantic_positive: Color(hex: 0x1E8A5A),
         semantic_warning: Color(hex: 0xB06A00),
         semantic_negative: Color(hex: 0xC2334D),
-        semantic_info: Color(hex: 0x2D6CB0)
+        semantic_info: Color(hex: 0x2D6CB0),
+        glass_specular: Color(red: 17/255.0, green: 17/255.0, blue: 17/255.0).opacity(0.07),
+        glass_rim: Color(red: 17/255.0, green: 17/255.0, blue: 17/255.0).opacity(0.17),
+        glass_edgeLight: Color(red: 17/255.0, green: 17/255.0, blue: 17/255.0).opacity(0.0)
     )
     public static let dark = TimbreColors(
         bg_canvas: Color(hex: 0x0B0B0C),
@@ -92,7 +98,10 @@ public struct TimbreColors: Sendable {
         semantic_positive: Color(hex: 0x4CC38A),
         semantic_warning: Color(hex: 0xE9A23B),
         semantic_negative: Color(hex: 0xF2637E),
-        semantic_info: Color(hex: 0x6AB0E8)
+        semantic_info: Color(hex: 0x6AB0E8),
+        glass_specular: Color.white.opacity(0.11),
+        glass_rim: Color.white.opacity(0.035),
+        glass_edgeLight: Color.white.opacity(0.0)
     )
     public static let notch = TimbreColors(
         bg_canvas: Color(hex: 0x000000),
@@ -121,7 +130,10 @@ public struct TimbreColors: Sendable {
         semantic_positive: Color(hex: 0x4CC38A),
         semantic_warning: Color(hex: 0xF0AA45),
         semantic_negative: Color(hex: 0xF2637E),
-        semantic_info: Color(hex: 0x6AB0E8)
+        semantic_info: Color(hex: 0x6AB0E8),
+        glass_specular: Color.white.opacity(0.15),
+        glass_rim: Color.white.opacity(0.04),
+        glass_edgeLight: Color.white.opacity(0.15)
     )
 
     public static func forSurface(_ surface: TimbreSurface) -> TimbreColors {
@@ -181,7 +193,9 @@ public enum TimbreRadius {
     public static let field: CGFloat = 8
     public static let card: CGFloat = 12
     public static let panel: CGFloat = 16
-    public static let notchExpanded: CGFloat = 24
+    public static let notchExpanded: CGFloat = 28
+    public static let notchPeek: CGFloat = 24
+    public static let notchHud: CGFloat = 16
     public static let notchShoulder: CGFloat = 7
     public static let pill: CGFloat = 9999
     public static let notchShoulderOpen: CGFloat = 14

@@ -7,7 +7,7 @@
 | Frequência | Exemplo no timbr | Decisão |
 |---|---|---|
 | Centenas por dia | Atalhos ⌥⌘V/⌥⌘B, troca de aba do Estúdio por ⌘1–5 | **Sem animação** (aba do Estúdio: 140 ms de opacidade, só para não piscar) |
-| Dezenas por dia | Hover no notch, arrastar fader, hover em linha | Resposta imediata; polegar cresce 10→13 pt em `snappy` |
+| Dezenas por dia | Hover no notch, arrastar fader, hover em linha | Resposta imediata; polegar cresce 10→13 pt no hover e estica em cápsula 20×13 pt enquanto arrasta, em `snappy` |
 | Ocasional | Abrir notch, HUD de volume, trocar modo do EQ | Mola padrão |
 | Raro | Introdução, revelar resultado do A/B | Pode ter mais presença |
 
@@ -41,13 +41,14 @@ Modelo estudado no código dos apps de referência (DynamicNotchKit e NotchDrop,
 6. **Fechar segue o ponteiro** (`dismissProgress`): `interactiveSpring(response: 0.16, damping: 0.86)` a cada movimento, com curva elástica `1 − (1 − d)^1.8`. Ao passar o limite, `notchClose` assume a partir do valor atual. O limite é de 64 pt na espiada e 104 pt no expandido, mas cai para 30 pt quando o ponteiro está na faixa da barra de menus. Ir para um menu solta a barra quase na hora. A transição entre os dois limites é contínua em y, sem salto.
 7. **A origem é o hardware.** Toda abertura nasce do notch e volta para ele.
 8. Números com `contentTransition(.numericText)`; ícone de volume com `.symbolEffect(.replace)`.
+9. **A luz de borda acompanha a forma** (ADR-0027): o fim do degradê é animável e anda na mesma mola da silhueta; a intensidade segue a abertura (some ao fechar e ao seguir o ponteiro, sem clarão).
 
 **Verificação:** `Timbr --demo` executa a coreografia completa (pop, abrir, fechar seguindo o ponteiro, expandir, fechar, HUD). Grave com `screencapture -v -V 9` e inspecione quadro a quadro (folhas de contato com `ffmpeg … tile=3x5`).
 
 ## 4. Pressão, hover e arraste
 
 - Todo botão: escala 0,97 ao pressionar (`pressOut`); feedback no *pointer-down*.
-- Fader: rastreio 1:1; `⌥` = ajuste fino 1/10; duplo clique volta ao valor de referência; ímã de 1,2% do curso na unidade (100% / 0 dB).
+- Fader: polegar vira cápsula de 20×13 pt enquanto é arrastado (a lente sob o dedo, como no macOS 26); rastreio 1:1; `⌥` = ajuste fino 1/10; duplo clique volta ao valor de referência; ímã de 1,2% do curso na unidade (100% / 0 dB).
 - Valores arrastáveis (Pro-Q): cursor `resizeLeftRight`; arraste horizontal; frequência em escala logarítmica (dobra a cada 120 pt).
 - Alças da curva de EQ: crescem 17→20 pt em hover/arraste (`snappy`).
 

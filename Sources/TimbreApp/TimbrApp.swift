@@ -14,6 +14,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
     private var studioWindow: NSWindow?
     private var onboardingWindow: NSWindow?
     private var reviewWindow: NSWindow?
+    private var reviewPopover: NSPopover?
     private var cancellables: Set<AnyCancellable> = []
     private var selfTestMuteHolder: MuteKeeperClient?
     private var selfTestTone: NSSound?
@@ -193,13 +194,25 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
             reviewWindow = win
         }
         if args.contains("--panel-preview") {
-            let win = NSWindow(contentViewController: NSHostingController(rootView: MenuBarPanel(delegate: self, appState: appState)))
-            win.styleMask = [.titled, .fullSizeContentView]
-            win.titlebarAppearsTransparent = true
-            win.titleVisibility = .hidden
-            win.setFrameTopLeftPoint(NSPoint(x: 80, y: (NSScreen.main?.frame.maxY ?? 900) - 80))
-            win.orderFrontRegardless()
-            reviewWindow = win
+            // The real NSPopover, anchored to an invisible 1 pt window, so review captures show the
+            // panel exactly as the menu bar does. A titled window used to add a 28 pt title-bar safe
+            // area above the header that the popover never has.
+            let screen = NSScreen.main?.frame ?? CGRect(x: 0, y: 0, width: 1440, height: 900)
+            let anchor = NSWindow(contentRect: CGRect(x: screen.minX + 260, y: screen.maxY - 60, width: 1, height: 1),
+                                  styleMask: .borderless, backing: .buffered, defer: false)
+            anchor.isOpaque = false
+            anchor.backgroundColor = .clear
+            anchor.level = .statusBar
+            anchor.orderFrontRegardless()
+            let pop = NSPopover()
+            pop.behavior = .applicationDefined
+            pop.animates = false
+            pop.contentViewController = NSHostingController(rootView: MenuBarPanel(delegate: self, appState: appState))
+            if let view = anchor.contentView {
+                pop.show(relativeTo: view.bounds, of: view, preferredEdge: .minY)
+            }
+            reviewWindow = anchor
+            reviewPopover = pop
         }
 
         // Headless smoke mode for automated verification: exits cleanly after initialization + tap check

@@ -57,6 +57,9 @@ public struct StudioWindow: View {
             }
             .scrollIndicators(.automatic)
             .background(c.bg_canvas)
+            // A page wider than the window must never shove the sidebar off screen: the scroll view
+            // takes exactly the width left beside the sidebar.
+            .frame(minWidth: 0, maxWidth: .infinity)
         }
         .animation(TimbreMotion.tab, value: appState.selectedTab)
         .surface(kind)
@@ -611,75 +614,89 @@ private struct MixerPage: View {
 
             Hairline()
 
-            // Integrated Signal Chain Telemetry Bar (replaces the 4 separate KPI cards)
-            HStack(spacing: 14) {
-                HStack(spacing: 6) {
-                    Circle()
-                        .fill(appState.isProcessingBypassed ? c.ink_muted : (appState.pathIsNative ? c.semantic_positive : c.accent_signal))
-                        .frame(width: 6, height: 6)
-                    Text(appState.isProcessingBypassed ? appState.t("ui.path.bypassed") : (appState.pathIsNative ? appState.t("ui.path.native_short") : appState.t("ui.path.processing_short")))
-                        .type(TimbreTypography.monoSmall)
-                        .foregroundStyle(c.ink_primary)
+            // Integrated Signal Chain Telemetry Bar (replaces the 4 separate KPI cards).
+            // Full when it fits; otherwise the tap count (level 1), then the peak bar (level 2) step aside, so the card
+            // never forces the page wider than the window (it used to overflow by ~15 pt at 1180 pt).
+            ViewThatFits(in: .horizontal) {
+                telemetryBar(level: 0, t: t, live: live, peakDB: peakDB, holdDB: holdDB, activeBands: activeBands)
+                telemetryBar(level: 1, t: t, live: live, peakDB: peakDB, holdDB: holdDB, activeBands: activeBands)
+                telemetryBar(level: 2, t: t, live: live, peakDB: peakDB, holdDB: holdDB, activeBands: activeBands)
+            }
+            .background(c.bg_inset)
+        }
+    }
+
+    private func telemetryBar(level: Int, t: DSPTelemetrySnapshot, live: Bool, peakDB: Double, holdDB: Double?, activeBands: Int) -> some View {
+        HStack(spacing: 14) {
+            HStack(spacing: 6) {
+                Circle()
+                    .fill(appState.isProcessingBypassed ? c.ink_muted : (appState.pathIsNative ? c.semantic_positive : c.accent_signal))
+                    .frame(width: 6, height: 6)
+                Text(appState.isProcessingBypassed ? appState.t("ui.path.bypassed") : (appState.pathIsNative ? appState.t("ui.path.native_short") : appState.t("ui.path.processing_short")))
+                    .type(TimbreTypography.monoSmall)
+                    .foregroundStyle(c.ink_primary)
+                if level < 1 {
                     Text("· " + String(format: appState.t("ui.kpi.taps_n"), appState.activeTapsCount))
                         .type(TimbreTypography.monoSmall)
                         .foregroundStyle(c.ink_muted)
                 }
-                .fixedSize()
+            }
+            .fixedSize()
 
-                Hairline(vertical: true).frame(height: 14)
+            Hairline(vertical: true).frame(height: 14)
 
-                HStack(spacing: 5) {
-                    Eyebrow(text: appState.t("ui.kpi.playing"))
-                    Text("\(appState.playingCount)")
-                        .type(TimbreTypography.monoValue)
-                        .foregroundStyle(appState.playingCount > 0 ? c.ink_primary : c.ink_muted)
-                    Text("/ \(appState.mixerSources.count)")
-                        .type(TimbreTypography.monoSmall)
-                        .foregroundStyle(c.ink_faint)
-                }
-                .fixedSize()
+            HStack(spacing: 5) {
+                Eyebrow(text: appState.t("ui.kpi.playing"))
+                Text("\(appState.playingCount)")
+                    .type(TimbreTypography.monoValue)
+                    .foregroundStyle(appState.playingCount > 0 ? c.ink_primary : c.ink_muted)
+                Text("/ \(appState.mixerSources.count)")
+                    .type(TimbreTypography.monoSmall)
+                    .foregroundStyle(c.ink_faint)
+            }
+            .fixedSize()
 
-                Hairline(vertical: true).frame(height: 14)
+            Hairline(vertical: true).frame(height: 14)
 
-                HStack(spacing: 5) {
-                    Eyebrow(text: appState.t("eq.preamp"))
-                    Text(Fmt.db(t.preampDB) + " dB")
-                        .type(TimbreTypography.monoValue)
-                        .foregroundStyle(c.ink_primary)
-                }
-                .fixedSize()
+            HStack(spacing: 5) {
+                Eyebrow(text: appState.t("eq.preamp"))
+                Text(Fmt.db(t.preampDB) + " dB")
+                    .type(TimbreTypography.monoValue)
+                    .foregroundStyle(c.ink_primary)
+            }
+            .fixedSize()
 
-                Hairline(vertical: true).frame(height: 14)
+            Hairline(vertical: true).frame(height: 14)
 
-                HStack(spacing: 7) {
-                    Eyebrow(text: appState.t("ui.eq.true_peak"))
+            HStack(spacing: 7) {
+                Eyebrow(text: appState.t("ui.eq.true_peak"))
+                if level < 2 {
                     TLevelMeter(peakDB: peakDB, rmsDB: live ? t.lufsMomentary : nil, heldPeakDB: holdDB, height: 5)
                         .frame(width: 72)
-                    Text((live && max(t.truePeakL, t.truePeakR) > -70) ? Fmt.signed(max(t.truePeakL, t.truePeakR)) + " dBTP" : "—")
-                        .type(TimbreTypography.monoSmall)
-                        .foregroundStyle(c.ink_secondary)
                 }
-                .fixedSize()
-
-                Spacer(minLength: 8)
-
-                Button {
-                    appState.selectedTab = .equalizer
-                } label: {
-                    HStack(spacing: 5) {
-                        Image(systemName: "point.bottomleft.forward.to.point.topright.scurvepath")
-                            .font(.system(size: 10, weight: .medium))
-                        Text(appState.activePreset.name + (activeBands > 0 ? " (\(activeBands))" : ""))
-                            .lineLimit(1)
-                    }
-                }
-                .buttonStyle(.t(.ghost, compact: true))
-                .fixedSize()
+                Text((live && max(t.truePeakL, t.truePeakR) > -70) ? Fmt.signed(max(t.truePeakL, t.truePeakR)) + " dBTP" : "—")
+                    .type(TimbreTypography.monoSmall)
+                    .foregroundStyle(c.ink_secondary)
             }
-            .padding(.horizontal, 20)
-            .frame(height: 38)
-            .background(c.bg_inset)
+            .fixedSize()
+
+            Spacer(minLength: 8)
+
+            Button {
+                appState.selectedTab = .equalizer
+            } label: {
+                HStack(spacing: 5) {
+                    Image(systemName: "point.bottomleft.forward.to.point.topright.scurvepath")
+                        .font(.system(size: 10, weight: .medium))
+                    Text(appState.activePreset.name + (activeBands > 0 ? " (\(activeBands))" : ""))
+                        .lineLimit(1)
+                }
+            }
+            .buttonStyle(.t(.ghost, compact: true))
+            .fixedSize(horizontal: level < 2, vertical: false)
         }
+        .padding(.horizontal, 20)
+        .frame(height: 38)
     }
 
     @ViewBuilder private var sources: some View {
@@ -913,9 +930,18 @@ private struct OutputRow: View {
                         .help(appState.t("ui.output.sw_help"))
                 }
 
-                if isDefault {
-                    HStack {
-                        Spacer(minLength: 0)
+                // Trailing slot sized by the "make default" label in the current language, reserved in
+                // every row: the label is never truncated (it was cut to "Usar como p…" in a fixed
+                // 96 pt slot) and the faders of all outputs stay in one column.
+                ZStack(alignment: .trailing) {
+                    // Same metrics as a compact ghost TButtonStyle (caption medium, 10 pt sides).
+                    Text(appState.t("ui.output.make_default"))
+                        .type(TimbreTypography.caption).fontWeight(.medium)
+                        .padding(.horizontal, 10)
+                        .fixedSize()
+                        .hidden()
+                        .accessibilityHidden(true)
+                    if isDefault {
                         if dev.isHWMuteSettable {
                             TChannelButton(
                                 text: "M",
@@ -928,13 +954,13 @@ private struct OutputRow: View {
                                 appState.toggleOutputMute()
                             }
                         }
+                    } else {
+                        Button(appState.t("ui.output.make_default")) { appState.selectDefaultOutput(dev) }
+                            .buttonStyle(.t(.ghost, compact: true))
+                            .fixedSize()
                     }
-                    .frame(width: 96)
-                } else {
-                    Button(appState.t("ui.output.make_default")) { appState.selectDefaultOutput(dev) }
-                        .buttonStyle(.t(.ghost, compact: true))
-                        .frame(width: 96, alignment: .trailing)
                 }
+                .frame(minWidth: 96, alignment: .trailing)
             }
             .frame(height: 62)
 
@@ -1167,70 +1193,86 @@ private struct EqualizerPage: View {
             return m
         }()
 
-        return HStack(spacing: 10) {
-            HStack(spacing: 12) {
-                legend(appState.t("eq.layer.correction"), dashed: true, color: c.ink_secondary)
-                legend(appState.t("eq.layer.taste"), dashed: false, color: c.ink_muted)
-                legend(appState.t("eq.layer.result"), dashed: false, color: c.accent_signal, thick: true)
+        let legendRow = HStack(spacing: 12) {
+            legend(appState.t("eq.layer.correction"), dashed: true, color: c.ink_secondary)
+            legend(appState.t("eq.layer.taste"), dashed: false, color: c.ink_muted)
+            legend(appState.t("eq.layer.result"), dashed: false, color: c.accent_signal, thick: true)
+        }
+        .fixedSize()
+        let tools = correctionTools(matches: matches)
+        // The strip used to be one fixed-size row wider than the page at the default window size,
+        // which pushed the whole Studio (sidebar included) off the left edge. It now wraps to two
+        // rows when it does not fit, instead of overflowing.
+        return ViewThatFits(in: .horizontal) {
+            HStack(spacing: 10) {
+                legendRow
+                Spacer(minLength: 8)
+                tools
             }
-            .fixedSize()
+            .padding(.horizontal, 20)
+            .frame(height: 40)
+            VStack(alignment: .leading, spacing: 8) {
+                legendRow
+                tools
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 10)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .background(c.bg_inset.opacity(0.5))
+    }
 
-            Spacer(minLength: 8)
+    private func correctionTools(matches: [AutoEqEntry]) -> some View {
+        // Inline AutoEq Headphone Correction + Preset & A/B Strip
+        HStack(spacing: 8) {
+            presetMenu
 
-            // Inline AutoEq Headphone Correction + Preset & A/B Strip
-            HStack(spacing: 8) {
-                presetMenu
-
-                TSegmented(options: [
-                    (ABCompareMode.full, "EQ"),
-                    (.bypassEqualLatency, "Flat")
-                ], selection: Binding(
-                    get: { appState.abMode },
-                    set: { mode in
-                        if mode != appState.abMode { appState.toggleABNeutral() }
-                    }
-                ))
-
-                Hairline(vertical: true).frame(height: 16)
-
-                Image(systemName: "headphones")
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(appState.activePreset.correctionMetadata != nil ? c.ink_primary : c.ink_muted)
-                Text("AutoEq")
-                    .type(TimbreTypography.eyebrow)
-                    .foregroundStyle(c.ink_muted)
-
-                if let meta = appState.activePreset.correctionMetadata {
-                    Badge(text: "\(meta.headphoneModel) · \(meta.sourceCredit)", tone: .accent, dot: true)
-                    Button(appState.t("ui.eq.remove")) { appState.clearCorrection() }
-                        .buttonStyle(.t(.ghost, compact: true))
-                } else if let topMatch = matches.first {
-                    Button("\(topMatch.headphoneName) · \(appState.t("ui.apply"))") {
-                        appState.applyAutoEqEntry(topMatch)
-                    }
-                    .buttonStyle(.t(.secondary, compact: true))
+            TSegmented(options: [
+                (ABCompareMode.full, "EQ"),
+                (.bypassEqualLatency, "Flat")
+            ], selection: Binding(
+                get: { appState.abMode },
+                set: { mode in
+                    if mode != appState.abMode { appState.toggleABNeutral() }
                 }
+            ))
 
-                MenuChip(title: appState.t("ui.eq.browse_autoeq")) {
-                    if !matches.isEmpty {
-                        ForEach(matches) { entry in
-                            Button("\(entry.headphoneName) (\(entry.source))") {
-                                appState.applyAutoEqEntry(entry)
-                            }
-                        }
-                    }
-                    ForEach(AutoEqService.starterCatalog) { entry in
-                        Button("\(entry.headphoneName) · \(entry.source)") {
+            Hairline(vertical: true).frame(height: 16)
+
+            Image(systemName: "headphones")
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(appState.activePreset.correctionMetadata != nil ? c.ink_primary : c.ink_muted)
+            Text("AutoEq")
+                .type(TimbreTypography.eyebrow)
+                .foregroundStyle(c.ink_muted)
+
+            if let meta = appState.activePreset.correctionMetadata {
+                Badge(text: "\(meta.headphoneModel) · \(meta.sourceCredit)", tone: .accent, dot: true)
+                Button(appState.t("ui.eq.remove")) { appState.clearCorrection() }
+                    .buttonStyle(.t(.ghost, compact: true))
+            } else if let topMatch = matches.first {
+                Button("\(topMatch.headphoneName) · \(appState.t("ui.apply"))") {
+                    appState.applyAutoEqEntry(topMatch)
+                }
+                .buttonStyle(.t(.secondary, compact: true))
+            }
+
+            MenuChip(title: appState.t("ui.eq.browse_autoeq")) {
+                if !matches.isEmpty {
+                    ForEach(matches) { entry in
+                        Button("\(entry.headphoneName) (\(entry.source))") {
                             appState.applyAutoEqEntry(entry)
                         }
                     }
                 }
+                ForEach(AutoEqService.starterCatalog) { entry in
+                    Button("\(entry.headphoneName) · \(entry.source)") {
+                        appState.applyAutoEqEntry(entry)
+                    }
+                }
             }
-            .fixedSize()
         }
-        .padding(.horizontal, 20)
-        .frame(height: 40)
-        .background(c.bg_inset.opacity(0.5))
+        .fixedSize()
     }
 
     private var eqSummary: String {
@@ -1852,8 +1894,9 @@ private struct ObservatoryPage: View {
                     Rectangle().fill(s.active ? c.accent_signal.opacity(0.6) : c.line_strong).frame(width: 14, height: 1)
                 }
                 VStack(alignment: .leading, spacing: 7) {
-                    HStack {
-                        Eyebrow(text: s.title)
+                    HStack(spacing: 6) {
+                        // Long labels ("DISPOSITIVO") shrink a little instead of touching the mark.
+                        Eyebrow(text: s.title).minimumScaleFactor(0.8)
                         Spacer(minLength: 0)
                         OriginMark(origin: s.origin)
                     }

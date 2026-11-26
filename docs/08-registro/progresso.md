@@ -39,6 +39,14 @@
 
 ## Histórico Consolidado
 
+### 2026-11-26 · Vidro sem translucidez, concentricidade e quatro defeitos de layout
+
+- **Pedido:** o notch sobre um app totalmente preto precisa de algo diferente? Deixar o app mais "glass", arredondado e atual (fim de 2026) sem desrespeitar o design system.
+- **Decisão ([ADR-0027](../07-decisoes/ADR-0027-luz-de-borda-e-concentricidade.md)):** a casca do notch continua preto absoluto (glassmorphism no preenchimento revelaria a costura com o notch físico). Só enquanto aberto, ganha luz de borda inferior (`glass.edgeLight`, zero na barra de menus, 15% na base) e sombra em duas camadas. Controles elevados ganham a "lente" (`glass.specular` → `glass.rim`). Raios concêntricos: expandido 28, espiada 24, HUD 16; rodapé com chips de 28 pt a 14 pt do canto. Botões e segmentado em cápsula, `IconButton` circular, polegar do fader esticando em cápsula ao arrastar, margem única de 18 pt no notch. Design system v2.6.
+- **Defeitos encontrados nas capturas e corrigidos:** (1) a faixa de ferramentas do Equalizador era mais larga que a página e empurrava o Estúdio inteiro, inclusive a barra lateral, ~19 pt para fora da janela (agora quebra em duas linhas e a área de rolagem nunca passa da largura disponível); (2) "Usar como padrão" aparecia cortado ("Usar como p…") numa vaga fixa de 96 pt (agora a vaga é medida pelo texto do idioma e reservada em todas as linhas, mantendo os faders das saídas na mesma coluna); (3) a faixa de telemetria do Mixer vazava ~15 pt (agora recolhe a contagem de capturas e, se preciso, o medidor de pico); (4) o rótulo "Saídas" do painel da barra de menus ficava 8 pt fora da margem. (5) A revisão do painel (`--panel-preview`) abria numa janela com barra de título, que deixava 28 pt vazios acima do cabeçalho (o popover real não tem esse espaço); agora a revisão abre o próprio `NSPopover`. Também: rótulo "DISPOSITIVO" encostando na marca de origem no Observatório.
+- **Verificado:** capturas `--notch expanded|peek` (`--review-multi`/`--review-empty`) sobre fundos preto, branco e dividido; `--demo` gravado sobre preto (folha de contato a 12 fps: a luz acompanha abrir, seguir o ponteiro e fechar, sem clarão); Estúdio claro e escuro (Mixer, Equalizador, Observatório, Ajustes, Sobre), painel da barra de menus e Introdução; `./scripts/ci_check.sh`.
+- **Não verificado:** HUD em captura (some antes do disparo da captura; mudou só raio e margem, mantida a de 14 pt para "Muted" caber); aparência em OLED; sala escura com fotômetro.
+
 ### 2026-11-24 · Apresentação e instalação simplificada
 
 - **Feito:** README começa pelo notch audiófilo e mantém mixer por app, EQ Float64, Observatório, execução local e MPL-2.0 em texto corrido. Instalação rápida com um único comando e atalho no topo.
