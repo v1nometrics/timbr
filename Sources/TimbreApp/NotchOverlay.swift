@@ -570,6 +570,7 @@ public final class NotchPanelController {
         p.ignoresMouseEvents = true
         if let appState {
             let host = FirstMouseHostingView(rootView: NotchOverlayView(appState: appState, interaction: interaction))
+            host.sizingOptions = []
             host.wantsLayer = true
             host.layer?.backgroundColor = .clear
             host.contextMenu = { [weak self] in self?.makeContextMenu() ?? NSMenu() }
@@ -992,7 +993,6 @@ public struct NotchOverlayView: View {
         appState.compactPair?.lead ?? appState.expandedTarget.singleSource
     }
     private var closedState: NotchState { appState.shouldShowCompact ? .compact : .resting }
-    private var level: Double? { appState.hasLiveSignal ? min(1, max(0, (appState.telemetry.lufsMomentary + 48) / 40)) : nil }
     private var H: CGFloat { g.notchHeight }
 
     private func spec(_ s: NotchState) -> NotchSpec {
@@ -1182,8 +1182,10 @@ public struct NotchOverlayView: View {
             if let alert = appState.guardianAlerts.first {
                 Circle().fill(alert.severity == .info ? c.semantic_info : c.semantic_warning).frame(width: 6, height: 6)
             } else {
-                MiniMeter(level: level, active: !appState.playingSources.isEmpty && !appState.isProcessingBypassed,
-                          color: appState.listeningAdvice ? c.semantic_warning : (appState.isProcessingBypassed ? c.ink_muted : c.accent_base))
+                LiveMiniMeter(liveMeters: appState.liveMeters,
+                              hasLiveSignal: appState.hasLiveSignal,
+                              active: !appState.playingSources.isEmpty && !appState.isProcessingBypassed,
+                              color: appState.listeningAdvice ? c.semantic_warning : (appState.isProcessingBypassed ? c.ink_muted : c.accent_base))
             }
         }
         let pair = appState.compactPair

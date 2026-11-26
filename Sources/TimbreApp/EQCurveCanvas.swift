@@ -31,21 +31,16 @@ public struct EQCurveCanvas: View {
         UUID(uuid: (0xE0, 0xE0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, UInt8(index)))
     }
 
-    private var freqs: [Double] {
-        (0..<240).map { i in pow(10, log10(EQAxis.fMin) + Double(i) / 239 * (log10(EQAxis.fMax) - log10(EQAxis.fMin))) }
-    }
-
     private func freqText(_ f: Double) -> String {
         f < 100 && f != f.rounded() ? String(format: "%.1f", f) : Fmt.hz(f)
     }
 
     public var body: some View {
-        let fs = freqs
+        let fs = EQAxis.curveFrequencies
         let corr = appState.tapEngine.evaluateCurve(bands: appState.activePreset.correctionBands, freqsHz: fs, layer: .correction).magDB
         let taste = appState.tapEngine.evaluateCurve(bands: appState.activePreset.effectiveTasteBands, freqsHz: fs, layer: .taste).magDB
         let result = zip(corr, taste).map { $0 + $1 }
         let hasCorrection = appState.activePreset.correctionBands.contains { $0.enabled }
-        let spectrum = appState.telemetry.spectrumBinsDB
         let rate = appState.activeOutputDevice?.sampleRate ?? 48000
 
         // Active / selected single band response highlight
@@ -77,6 +72,16 @@ public struct EQCurveCanvas: View {
             let w = geo.size.width - 34   // right gutter for dB labels
             let h = geo.size.height - 20  // bottom gutter for Hz labels
             ZStack(alignment: .topLeading) {
+                // Live FFT spectrum in an isolated leaf so 24 Hz redraws never re-evaluate
+                // C++ biquad curves, drag handles, or the surrounding EqualizerPage layout.
+                EQSpectrumOverlay(
+                    liveMeters: appState.liveMeters,
+                    hasLiveSignal: appState.hasLiveSignal,
+                    sampleRate: rate
+                )
+                .frame(width: w, height: h)
+                .allowsHitTesting(false)
+
                 Canvas { ctx, _ in
                     // Grid
                     for gf in gridF {
@@ -88,20 +93,6 @@ public struct EQCurveCanvas: View {
                         var p = Path(); let gy = EQAxis.y(d, h)
                         p.move(to: CGPoint(x: 0, y: gy)); p.addLine(to: CGPoint(x: w, y: gy))
                         ctx.stroke(p, with: .color(d == 0 ? c.line_strong : c.line_grid), lineWidth: d == 0 ? 0.75 : 0.5)
-                    }
-                    // Live spectrum (real data only; empty when no tap is active)
-                    if spectrum.count > 8 {
-                        var sp = Path()
-                        sp.move(to: CGPoint(x: 0, y: h))
-                        let n = spectrum.count
-                        for (i, v) in spectrum.enumerated() where i > 0 {
-                            let fr = Double(i) / Double(n) * rate / 2
-                            guard fr >= EQAxis.fMin, fr <= EQAxis.fMax else { continue }
-                            let norm = CGFloat(min(max((Double(v) + 90) / 90, 0), 1))
-                            sp.addLine(to: CGPoint(x: EQAxis.x(fr, w), y: h - norm * h * 0.9))
-                        }
-                        sp.addLine(to: CGPoint(x: w, y: h)); sp.closeSubpath()
-                        ctx.fill(sp, with: .color(c.ink_primary.opacity(0.05)))
                     }
                     let zeroY = EQAxis.y(0, h)
 
@@ -333,6 +324,35 @@ public struct EQCurveCanvas: View {
     }
 }
 
+/// Isolated 24 Hz FFT spectrum overlay inside `EQCurveCanvas`.
+private struct EQSpectrumOverlay: View {
+    @ObservedObject var liveMeters: LiveMeterModel
+    let hasLiveSignal: Bool
+    let sampleRate: Double
+    @Environment(\.palette) private var c
+
+    var body: some View {
+        let spectrum = hasLiveSignal ? liveMeters.telemetry.spectrumBinsDB : []
+        Canvas { ctx, size in
+            let w = size.width
+            let h = size.height
+            guard w > 1, h > 1, spectrum.count > 8 else { return }
+            var sp = Path()
+            sp.move(to: CGPoint(x: 0, y: h))
+            let n = spectrum.count
+            for (i, v) in spectrum.enumerated() where i > 0 {
+                let fr = Double(i) / Double(n) * sampleRate / 2
+                guard fr >= EQAxis.fMin, fr <= EQAxis.fMax else { continue }
+                let norm = CGFloat(min(max((Double(v) + 90) / 90, 0), 1))
+                sp.addLine(to: CGPoint(x: EQAxis.x(fr, w), y: h - norm * h * 0.9))
+            }
+            sp.addLine(to: CGPoint(x: w, y: h))
+            sp.closeSubpath()
+            ctx.fill(sp, with: .color(c.ink_primary.opacity(0.05)))
+        }
+    }
+}
+
 /// Axis math for the EQ curve: log frequency (20 Hz–20 kHz) × ±15 dB. A plain enum outside the View,
 /// so it is not MainActor-isolated: Canvas closures are nonisolated under Swift 6.1 (Xcode 16.4,
 /// the CI runner) and must be able to call it.
@@ -340,6 +360,9 @@ enum EQAxis {
     static let fMin = 20.0
     static let fMax = 20000.0
     static let dbRange = 15.0
+    static let curveFrequencies: [Double] = (0..<240).map { i in
+        pow(10, log10(fMin) + Double(i) / 239.0 * (log10(fMax) - log10(fMin)))
+    }
 
     static func x(_ f: Double, _ w: CGFloat) -> CGFloat {
         CGFloat((log10(min(max(f, fMin), fMax)) - log10(fMin)) / (log10(fMax) - log10(fMin))) * w

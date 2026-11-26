@@ -39,6 +39,13 @@
 
 ## Histórico Consolidado
 
+### 2026-11-26 · Redução de CPU no Equalizador/Mixer (99 % → 15 %) e layout responsivo em 980 pt
+
+- **Problema:** ao abrir a aba Equalizador, o `timbr` consumia >80 % de CPU (reproduzido em **99,2 %** no Equalizador e **44,0 %** no Mixer com áudio ativo, medido com `ps` + `sample`) e travava a interface; em largura mínima (`980 pt`), `CLIP`, `Crossfeed` e chips rápidos do Assistente truncavam.
+- **Causa raiz comprovada (`sample`):** (1) `AppState.pollTelemetry()` disparava `@Published` (`telemetry`, `meterBallisticsL`, `meterBallisticsR`) 30×/s no `AppState` raiz, reconstruindo `StudioWindow`, `EqualizerPage`, `EQCurveCanvas` (`240 × pow()` + chamadas C++ `evaluateCurve`), `MixerPage`, `NotchOverlayView` e `MenuBarPanel`; (2) `ViewThatFits` (`SizeFittingLayoutComputer`) aninhado em `EqualizerPage` e `MixerPage` gerava recálculos exponenciais de layout (~82 % de um núcleo); (3) `TLevelMeter` e `MiniMeter` animavam `.frame` a 60–120 fps (`CA::Layer::insert_sublayer`) e `NSHostingController`/`NSHostingView` disparavam `invalidateSizeConstraintsIfNecessary()` → `ViewGraph.sizeThatFits(_:)` na janela inteira a cada tick.
+- **Correção:** telemetria de alta frequência isolada em `LiveMeterModel` (24 Hz, um único `objectWillChange` por tick, 0 notificações em repouso) consumido só por folhas (`EQSpectrumOverlay`, `EQMetrologyStrip`, `MixerTelemetryStrip`, `LiveMasterFader`, `LiveSourceFader`, `ObservatoryMetersCard`, `ObservatorySpectrumCard`, `LiveMiniMeter`, `LiveMenuBarSourceFader`); `EQAxis.curveFrequencies` pré-calculado; `ViewThatFits` trocado por breakpoints O(1) via `.onGeometryChange` + `TWrapLayout` em chips/controles estreitos; `TLevelMeter` e `MiniMeter` renderizados em `Canvas` puro com larguras tabulares fixas; `sizingOptions = []` nos hosts do Estúdio e do notch; escritas idênticas ignoradas em `refreshSystemState()`.
+- **Verificado:** CPU medida em regime estável caiu de **99,2 % → 15,5 %** no Equalizador (com áudio ao vivo, FFT e DSP ativos) e de **44,0 % → 12,5 %** no Mixer; capturas do Equalizador verificadas em `1180 pt` e `980 pt` sem cortes nem truncamento; `./scripts/ci_check.sh` verde (sem novos avisos Swift 6 em `TimbreApp`).
+
 ### 2026-11-26 · Vidro sem translucidez, concentricidade e quatro defeitos de layout
 
 - **Pedido:** o notch sobre um app totalmente preto precisa de algo diferente? Deixar o app mais "glass", arredondado e atual (fim de 2026) sem desrespeitar o design system.

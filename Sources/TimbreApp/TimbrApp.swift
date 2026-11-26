@@ -266,6 +266,10 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
         if studioWindow == nil {
             let view = StudioWindow(appState: appState)
             let hosting = NSHostingController(rootView: view)
+            // NSWindow owns minSize (980×640) and frame resizing; disabling automatic hosting
+            // constraint invalidation prevents 24 Hz live meter ticks from triggering full-window
+            // `invalidateSizeConstraintsIfNecessary` / `ViewGraph.sizeThatFits` layout passes.
+            hosting.sizingOptions = []
             let win = NSWindow(contentViewController: hosting)
             win.title = "timbr"
             // Full-size content: the sidebar runs under the traffic lights (no stock title bar).

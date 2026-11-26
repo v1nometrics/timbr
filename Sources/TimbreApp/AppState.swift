@@ -113,6 +113,54 @@ public enum StudioTab: String, CaseIterable, Identifiable {
     public var id: String { rawValue }
 }
 
+/// Isolated high-frequency live audio telemetry (peak meters, LUFS, limiter GR, FFT spectrum).
+/// Kept off `AppState` so 24 Hz meter updates only redraw the small leaf meter/spectrum views
+/// instead of invalidating the entire Studio window, Equalizer layout, or Notch chrome.
+@MainActor
+public final class LiveMeterModel: ObservableObject {
+    public private(set) var telemetry: DSPTelemetrySnapshot = .idle
+    public private(set) var ballisticsL = AudioMeterBallistics()
+    public private(set) var ballisticsR = AudioMeterBallistics()
+    private var wasLive: Bool = false
+
+    public init() {}
+
+    public func update(snapshot: DSPTelemetrySnapshot, hasLiveSignal: Bool, dt: Double) {
+        var nextL = ballisticsL
+        var nextR = ballisticsR
+        if hasLiveSignal {
+            nextL.step(sampleDB: snapshot.truePeakL, dtSeconds: dt)
+            nextR.step(sampleDB: snapshot.truePeakR, dtSeconds: dt)
+        } else if nextL.smoothedDB > nextL.floorDB || nextR.smoothedDB > nextR.floorDB {
+            nextL.clearImmediately()
+            nextR.clearImmediately()
+        }
+
+        // Idle steady-state: skip SwiftUI invalidation completely when no audio is live
+        // and no displayed readout changed.
+        if !hasLiveSignal && !wasLive
+            && nextL == ballisticsL
+            && nextR == ballisticsR
+            && abs(snapshot.preampDB - telemetry.preampDB) < 0.01
+            && snapshot.clipPreventedCount == telemetry.clipPreventedCount
+            && snapshot.limiterActive == telemetry.limiterActive {
+            return
+        }
+
+        objectWillChange.send()
+        self.telemetry = snapshot
+        self.ballisticsL = nextL
+        self.ballisticsR = nextR
+        self.wasLive = hasLiveSignal
+    }
+
+    public func resetClip() {
+        objectWillChange.send()
+        ballisticsL.resetClip()
+        ballisticsR.resetClip()
+    }
+}
+
 @MainActor
 public final class AppState: ObservableObject {
     // Subsystems
@@ -195,9 +243,13 @@ public final class AppState: ObservableObject {
     @Published public var trainerListeningB: Bool = false
 
     // Telemetry, Observatory & Guardian
-    @Published public var telemetry: DSPTelemetrySnapshot = .idle
-    @Published public var meterBallisticsL = AudioMeterBallistics()
-    @Published public var meterBallisticsR = AudioMeterBallistics()
+    /// High-frequency meters & spectrum live in their own ObservableObject (never blast AppState 24x/sec).
+    public let liveMeters = LiveMeterModel()
+    /// Low-frequency auto-preamp readout for static headers (changes only when EQ/preset changes).
+    @Published public private(set) var preampDB: Double = 0
+    public var telemetry: DSPTelemetrySnapshot { liveMeters.telemetry }
+    public var meterBallisticsL: AudioMeterBallistics { liveMeters.ballisticsL }
+    public var meterBallisticsR: AudioMeterBallistics { liveMeters.ballisticsR }
     /// Hardware volume of the active output (0…1), nil when the device has no settable volume.
     @Published public private(set) var activeOutputVolume: Double?
     /// The active output is muted at the device (the master mute macOS shows in Control Center).
@@ -422,7 +474,7 @@ public final class AppState: ObservableObject {
         refreshTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.refreshSystemState() }
         }
-        telemetryTimer = Timer.scheduledTimer(withTimeInterval: 1.0 / 30.0, repeats: true) { [weak self] _ in
+        telemetryTimer = Timer.scheduledTimer(withTimeInterval: 1.0 / 24.0, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.pollTelemetry() }
         }
 
@@ -630,7 +682,9 @@ public final class AppState: ObservableObject {
                 newDevices[idx].analogImpedanceMode = prevImpedance
             }
         }
-        self.devices = newDevices
+        if newDevices != self.devices {
+            self.devices = newDevices
+        }
         refreshActiveOutputVolume()
         if expectedOutputUID == nil {
             expectedOutputUID = activeOutputDevice?.uid
@@ -639,7 +693,7 @@ public final class AppState: ObservableObject {
         // `--review-empty` / `--review-multi`: visual review states without touching live audio taps.
         let launchArgs = ProcessInfo.processInfo.arguments
         if launchArgs.contains("--review-empty") {
-            self.sources = []
+            if !self.sources.isEmpty { self.sources = [] }
         } else if launchArgs.contains("--review-multi") {
             if self.sources.isEmpty {
                 let now = Date()
@@ -650,29 +704,39 @@ public final class AppState: ObservableObject {
                 self.sources = [chrome, spotify]
             }
         } else {
-            self.sources = tapEngine.enumerateRunningAudioSources(existing: self.sources, recentlyStarted: processMonitor.drainRecentlyStarted()).map { src in
+            let newSources = tapEngine.enumerateRunningAudioSources(existing: self.sources, recentlyStarted: processMonitor.drainRecentlyStarted()).map { src in
                 guard let client = SystemAudioClient(bundleID: src.bundleID) else { return src }
                 var s = src
                 s.name = t(client.nameKey)
                 return s
             }
+            if newSources != self.sources {
+                self.sources = newSources
+            }
         }
-        self.competingNotchApps = CompetingNotchDetector.detectRunningCompetitors()
+        let competitors = CompetingNotchDetector.detectRunningCompetitors()
+        if competitors != self.competingNotchApps {
+            self.competingNotchApps = competitors
+        }
         // Permission granted (or regained) while running → take the keys over without a restart.
         if MediaKeyTap.isAccessibilityGranted != accessibilityGranted || (accessibilityGranted && !mediaKeyTap.isRunning) {
             setupMediaKeysIfGranted()
         }
 
+        let newDriverTelemetry: HardwareDriverTelemetry?
         if let out = activeOutputDevice {
             if m4Driver.matches(device: out) {
-                self.driverTelemetry = m4Driver.readTelemetry(for: out)
+                newDriverTelemetry = m4Driver.readTelemetry(for: out)
             } else if airPodsAdapter.matches(device: out) {
-                self.driverTelemetry = airPodsAdapter.readTelemetry(for: out)
+                newDriverTelemetry = airPodsAdapter.readTelemetry(for: out)
             } else {
-                self.driverTelemetry = nil
+                newDriverTelemetry = nil
             }
         } else {
-            self.driverTelemetry = nil
+            newDriverTelemetry = nil
+        }
+        if newDriverTelemetry != self.driverTelemetry {
+            self.driverTelemetry = newDriverTelemetry
         }
 
         syncDSPAndTap()
@@ -881,27 +945,22 @@ public final class AppState: ObservableObject {
 
     private func pollTelemetry() {
         let snap = tapEngine.readTelemetry()
-        self.telemetry = snap
-        if hasLiveSignal {
-            meterBallisticsL.step(sampleDB: snap.truePeakL, dtSeconds: 1.0 / 30.0)
-            meterBallisticsR.step(sampleDB: snap.truePeakR, dtSeconds: 1.0 / 30.0)
-        } else if meterBallisticsL.smoothedDB > meterBallisticsL.floorDB || meterBallisticsR.smoothedDB > meterBallisticsR.floorDB {
-            meterBallisticsL.clearImmediately()
-            meterBallisticsR.clearImmediately()
+        if abs(snap.preampDB - preampDB) > 0.01 {
+            preampDB = snap.preampDB
         }
+        liveMeters.update(snapshot: snap, hasLiveSignal: hasLiveSignal, dt: 1.0 / 24.0)
         telemetryTick &+= 1
-        if telemetryTick % 8 == 0 {   // ~4 Hz is plenty for a status line
+        if telemetryTick % 6 == 0 {   // ~4 Hz is plenty for a status line
             let held = tapEngine.limiterReductionByApp()
                 .filter { $0.value < -1.0 }
                 .mapValues { ($0 * 2).rounded() / 2 }
             if held != sourceLimiterDB { sourceLimiterDB = held }
         }
-        if telemetryTick % 4 == 0 { updateTapSilence() }
+        if telemetryTick % 3 == 0 { updateTapSilence() }
     }
 
     public func resetClipLatch() {
-        meterBallisticsL.resetClip()
-        meterBallisticsR.resetClip()
+        liveMeters.resetClip()
     }
 
     public func syncDSPAndTap() {
