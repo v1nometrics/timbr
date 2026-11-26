@@ -129,6 +129,20 @@
           "$type": "color",
           "$value": "#2D6CB0"
         }
+      },
+      "glass": {
+        "specular": {
+          "$type": "color",
+          "$value": "rgba(17, 17, 17, 0.07)"
+        },
+        "rim": {
+          "$type": "color",
+          "$value": "rgba(17, 17, 17, 0.17)"
+        },
+        "edgeLight": {
+          "$type": "color",
+          "$value": "rgba(17, 17, 17, 0)"
+        }
       }
     },
     "dark": {
@@ -249,6 +263,20 @@
           "$type": "color",
           "$value": "#6AB0E8"
         }
+      },
+      "glass": {
+        "specular": {
+          "$type": "color",
+          "$value": "rgba(255, 255, 255, 0.11)"
+        },
+        "rim": {
+          "$type": "color",
+          "$value": "rgba(255, 255, 255, 0.035)"
+        },
+        "edgeLight": {
+          "$type": "color",
+          "$value": "rgba(255, 255, 255, 0)"
+        }
       }
     },
     "notch": {
@@ -368,6 +396,20 @@
         "info": {
           "$type": "color",
           "$value": "#6AB0E8"
+        }
+      },
+      "glass": {
+        "specular": {
+          "$type": "color",
+          "$value": "rgba(255, 255, 255, 0.15)"
+        },
+        "rim": {
+          "$type": "color",
+          "$value": "rgba(255, 255, 255, 0.04)"
+        },
+        "edgeLight": {
+          "$type": "color",
+          "$value": "rgba(255, 255, 255, 0.15)"
         }
       }
     }

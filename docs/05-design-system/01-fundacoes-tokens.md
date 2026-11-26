@@ -38,7 +38,7 @@ O sistema é **acromático** (nenhum cinza azulado, nenhum gradiente decorativo)
 | `line.strong` | `rgba(17,17,17,.18)` | `rgba(255,255,255,.15)` | `rgba(255,255,255,.18)` |
 | `line.grid` | `rgba(17,17,17,.06)` | `rgba(255,255,255,.05)` | `rgba(255,255,255,.05)` |
 
-Linhas internas são **hairlines de 0,5 pt** (um pixel em Retina). Bordas de cartão: 1 pt em `line.default`. **O notch não tem linha alguma.**
+Linhas internas são **hairlines de 0,5 pt** (um pixel em Retina). Bordas de cartão: 1 pt em `line.default`. **O notch não tem contorno**; a única luz na casca é `glass.edgeLight` (§1.6).
 
 ### 1.4 Ênfase (tinta) e semântica
 
@@ -59,6 +59,16 @@ Linhas internas são **hairlines de 0,5 pt** (um pixel em Retina). Bordas de car
 ### 1.5 Contraste (texto sobre fundo, WCAG 2.2)
 
 `ink.primary` e `ink.secondary` passam 4,5:1 em todas as superfícies. `ink.muted` é reservado a texto ≥ 11 pt em mono maiúsculo (eyebrows) e notas não essenciais. `ink.faint` nunca carrega informação sozinho.
+
+### 1.6 Vidro sem translucidez (ADR-0027)
+
+| Token | Claro | Escuro | Notch | Uso |
+|---|---|---|---|---|
+| `glass.specular` | `rgba(17,17,17,.07)` | `rgba(255,255,255,.11)` | `rgba(255,255,255,.15)` | Topo da lente: borda de 0,75 pt iluminada por cima em chips, botões secundários, polegar do segmentado, `MenuChip` |
+| `glass.rim` | `rgba(17,17,17,.17)` | `rgba(255,255,255,.035)` | `rgba(255,255,255,.04)` | Base da lente (degradê de cima para baixo) |
+| `glass.edgeLight` | `0` | `0` | `rgba(255,255,255,.15)` | Luz da silhueta inferior do notch aberto: zero na altura da barra de menus, máxima na base |
+
+O preenchimento continua opaco em todas as superfícies. O "vidro" é só a luz descrevendo a borda do material, para não revelar a costura com o notch físico nem depender do que está atrás.
 
 ## 2. Tipografia (ADR-0015)
 
@@ -109,16 +119,18 @@ Escala de 4 pt: `4 · 8 · 12 · 16 · 20 · 24 · 32 · 40 · 48 · 64`.
 | Token | Valor | Uso |
 |---|---|---|
 | `badge` | 5 | Valores arrastáveis, badges retangulares |
-| `control` | 7 | Botões, itens de navegação, chips quadrados |
+| `control` | 7 | Itens de navegação, chips quadrados, botões de console (`M`) |
 | `field` | 8 | Campos de texto |
 | `card` | 12 | Cartões e listas |
 | `panel` | 16 | Painéis flutuantes |
 | `notchShoulder` | 9 | Ombro côncavo do notch |
-| `notchExpanded` | 26 | Cantos inferiores do notch expandido |
+| `notchExpanded` | 28 | Cantos inferiores do notch expandido (rodapé concêntrico: chip 28 pt a 14 pt da borda) |
+| `notchPeek` | 24 | Cantos inferiores da espiada |
+| `notchHud` | 16 | Cantos inferiores do HUD |
 | `pill` | ∞ | Cápsulas |
 
-Todos os cantos usam `style: .continuous` (squircle da Apple).
+Todos os cantos usam `style: .continuous` (squircle da Apple). Botões (`TButtonStyle`), chips (`TChip`, `MenuChip`) e o segmentado são **cápsulas**, como os controles do macOS 26. **Concentricidade:** um elemento dentro de outro usa raio interno = raio externo − margem.
 
 ## 5. Elevação
 
-Sem sombras em cartões: profundidade vem do **tom** (canvas → surface → raised). Exceções: polegar do fader e do switch (sombra 1,5 pt, 22%), segmento selecionado (1 pt, 6%). O notch nunca tem sombra.
+Sem sombras em cartões: profundidade vem do **tom** (canvas → surface → raised) e da **lente** nos controles elevados (§1.6). Exceções: polegar do fader e do switch (sombra 1,5 pt, 22%; 2,5 pt, 28% ao arrastar o fader), segmento selecionado (1 pt, 6%). O notch, só enquanto aberto, tem sombra preta em duas camadas: contato (30%, raio 2, y 1) e ambiente (42%, raio 22, y 12).

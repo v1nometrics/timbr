@@ -69,7 +69,8 @@ struct MenuBarPanel: View {
 
             // Outputs
             VStack(alignment: .leading, spacing: 2) {
-                Eyebrow(text: appState.t("ui.mixer.outputs")).padding(.top, 12).padding(.bottom, 4)
+                // The rows bleed 8 pt for their selection plate; the eyebrow keeps the panel's 16 pt edge.
+                Eyebrow(text: appState.t("ui.mixer.outputs")).padding(.top, 12).padding(.bottom, 4).padding(.leading, 8)
                 ForEach(appState.outputDevices) { dev in
                     Button {
                         appState.selectDefaultOutput(dev)
@@ -84,7 +85,7 @@ struct MenuBarPanel: View {
                         }
                         .padding(.horizontal, 8)
                         .frame(height: 28)
-                        .background(RoundedRectangle(cornerRadius: TimbreRadius.control, style: .continuous).fill(dev.isDefaultOutput ? c.bg_selected : .clear))
+                        .background(RoundedRectangle(cornerRadius: TimbreRadius.field, style: .continuous).fill(dev.isDefaultOutput ? c.bg_selected : .clear))
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)

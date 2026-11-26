@@ -224,10 +224,80 @@ struct OriginMark: View {
     }
 }
 
+// MARK: - Lens (glass without translucency, ADR-0027)
+
+/// The "lens" edge of a raised control: a 0.75 pt rim lit from above (`glass.specular`) that settles
+/// into `glass.rim` at the bottom. It reads as glass catching light on any backdrop, including the
+/// absolute black of the notch, without blur or alpha on the surface itself.
+struct LensEdge<S: InsettableShape>: View {
+    let shape: S
+    var strength: Double = 1
+    @Environment(\.palette) private var c
+
+    var body: some View {
+        shape
+            .strokeBorder(
+                LinearGradient(colors: [c.glass_specular, c.glass_rim], startPoint: .top, endPoint: .bottom),
+                lineWidth: 0.75
+            )
+            .opacity(strength)
+            .allowsHitTesting(false)
+    }
+}
+
+extension View {
+    /// Fill + lens edge in one shape: the standard raised-control plate.
+    func lensPlate<S: InsettableShape>(_ shape: S, fill: Color, edge: Double = 1) -> some View {
+        background(shape.fill(fill))
+            .overlay(LensEdge(shape: shape, strength: edge))
+    }
+}
+
+/// Light catching the lower silhouette of the open notch (ADR-0027). The fill stays absolute black
+/// (L1); this is a 0.75 pt inner rim that is zero at the bezel and above menu-bar height, so the
+/// shoulders still melt into the hardware. Over light content it disappears under the shadow; over a
+/// black app it is the only thing that says where the island ends.
+struct NotchEdgeLight<S: Shape>: View, @preconcurrency Animatable {
+    let shape: S
+    /// Canvas y where the light may start (menu-bar height) and where the silhouette ends.
+    let from: CGFloat
+    var to: CGFloat
+    let canvasHeight: CGFloat
+    let amount: Double
+
+    /// The light's end rides the same spring as the shape (open, close, follow-the-pointer);
+    /// otherwise the gradient would jump to the target while the silhouette is still moving.
+    var animatableData: CGFloat {
+        get { to }
+        set { to = newValue }
+    }
+
+    var body: some View {
+        let h = max(canvasHeight, 1)
+        let start = min(max(from / h, 0), 1)
+        let end = min(max(to / h, start + 0.001), 1)
+        let light = TimbreColors.notch.glass_edgeLight
+        shape
+            .stroke(
+                LinearGradient(stops: [
+                    .init(color: light.opacity(0), location: start),
+                    .init(color: light.opacity(0.32), location: start + (end - start) * 0.62),
+                    .init(color: light, location: end),
+                ], startPoint: .top, endPoint: .bottom),
+                lineWidth: 1.5
+            )
+            .clipShape(shape)            // inner half only: the edge never grows past the black
+            .opacity(amount)
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
+    }
+}
+
 // MARK: - Buttons
 
 enum TButtonKind { case primary, secondary, ghost, accent, destructive }
 
+/// Capsule buttons (macOS 26 control shape). Raised kinds carry the lens edge; ghost stays flat.
 struct TButtonStyle: ButtonStyle {
     var kind: TButtonKind = .secondary
     var compact = false
@@ -237,26 +307,66 @@ struct TButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         let fg: Color
         let bg: Color
-        let stroke: Color
+        let lens: Double
         switch kind {
-        case .primary: fg = c.ink_inverse; bg = c.ink_primary; stroke = .clear
-        case .accent: fg = c.ink_inverse; bg = c.accent_base; stroke = .clear
-        case .secondary: fg = c.ink_primary; bg = c.bg_surface; stroke = c.line_strong
-        case .ghost: fg = c.ink_secondary; bg = configuration.isPressed ? c.bg_selected : .clear; stroke = .clear
-        case .destructive: fg = c.semantic_negative; bg = c.bg_surface; stroke = c.line_strong
+        case .primary: fg = c.ink_inverse; bg = c.ink_primary; lens = 0
+        case .accent: fg = c.ink_inverse; bg = c.accent_base; lens = 0
+        case .secondary: fg = c.ink_primary; bg = c.bg_surface; lens = 1
+        case .ghost: fg = c.ink_secondary; bg = configuration.isPressed ? c.bg_selected : .clear; lens = 0
+        case .destructive: fg = c.semantic_negative; bg = c.bg_surface; lens = 1
         }
         return configuration.label
             .type(compact ? TimbreTypography.caption : TimbreTypography.small)
             .fontWeight(.medium)
             .foregroundStyle(fg)
-            .padding(.horizontal, compact ? 9 : 12)
+            .padding(.horizontal, compact ? 10 : 14)
             .frame(height: compact ? 24 : 28)
-            .background(RoundedRectangle(cornerRadius: TimbreRadius.control, style: .continuous).fill(bg))
-            .overlay(RoundedRectangle(cornerRadius: TimbreRadius.control, style: .continuous).strokeBorder(stroke, lineWidth: 0.5))
+            .background(Capsule(style: .continuous).fill(bg))
+            .overlay(Capsule(style: .continuous).strokeBorder(c.line_default, lineWidth: 0.5).opacity(lens))
+            .overlay(LensEdge(shape: Capsule(style: .continuous), strength: lens))
             .opacity(enabled ? 1 : 0.38)
             .scaleEffect(configuration.isPressed ? 0.97 : 1)
             .animation(TimbreMotion.pressOut, value: configuration.isPressed)
-            .contentShape(Rectangle())
+            .contentShape(Capsule(style: .continuous))
+    }
+}
+
+/// Notch and panel action chip: a capsule lens plate (or a quiet link that only shows its plate on
+/// hover). 28 pt tall so that, inset 14 pt from the notch corner, it is concentric with it.
+struct TChip: View {
+    let title: String
+    var symbol: String?
+    var trailingSymbol: String?
+    var on = false
+    var quiet = false
+    var help: String = ""
+    let action: () -> Void
+    @Environment(\.palette) private var c
+    @State private var hover = false
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 5) {
+                if let symbol {
+                    Image(systemName: symbol).font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(on ? c.ink_primary : c.ink_muted)
+                }
+                Text(title).type(TimbreTypography.caption).fontWeight(.medium).lineLimit(1)
+                if let trailingSymbol {
+                    Image(systemName: trailingSymbol).font(.system(size: 9, weight: .semibold))
+                }
+            }
+            .foregroundStyle(on || hover ? c.ink_primary : c.ink_secondary)
+            .padding(.horizontal, 11)
+            .frame(height: 28)
+            .background(Capsule(style: .continuous).fill(quiet ? (hover ? c.bg_hover : .clear) : (on ? c.bg_selected : c.bg_inset)))
+            .overlay(LensEdge(shape: Capsule(style: .continuous), strength: quiet ? 0 : (on ? 1 : 0.55)))
+            .contentShape(Capsule(style: .continuous))
+        }
+        .buttonStyle(PressScaleStyle())
+        .onHover { h in withAnimation(TimbreMotion.snappy) { hover = h } }
+        .help(help)
+        .accessibilityLabel(help.isEmpty ? title : help)
     }
 }
 
@@ -317,10 +427,10 @@ struct IconButton: View {
                 .foregroundStyle(active ? (activeColor ?? c.ink_primary) : (hover ? c.ink_primary : c.ink_secondary))
                 .frame(width: size, height: size)
                 .background(
-                    RoundedRectangle(cornerRadius: TimbreRadius.control, style: .continuous)
+                    Circle()
                         .fill(active ? (activeColor ?? c.ink_primary).opacity(0.12) : (hover ? c.bg_hover : .clear))
                 )
-                .contentShape(Rectangle())
+                .contentShape(Circle())
         }
         .buttonStyle(PressScaleStyle())
         .onHover { hover = $0 }
@@ -385,24 +495,26 @@ struct TSegmented<Value: Hashable>: View {
                         .type(TimbreTypography.caption)
                         .fontWeight(selected ? .semibold : .regular)
                         .foregroundStyle(selected ? c.ink_primary : c.ink_secondary)
-                        .padding(.horizontal, 10)
+                        .padding(.horizontal, 11)
                         .frame(height: 22)
                         .background {
                             if selected {
-                                RoundedRectangle(cornerRadius: 5.5, style: .continuous)
+                                // Capsule thumb inside a capsule track: concentric by construction.
+                                Capsule(style: .continuous)
                                     .fill(c.bg_raised)
-                                    .overlay(RoundedRectangle(cornerRadius: 5.5, style: .continuous).strokeBorder(c.line_default, lineWidth: 0.5))
+                                    .overlay(Capsule(style: .continuous).strokeBorder(c.line_default, lineWidth: 0.5))
+                                    .overlay(LensEdge(shape: Capsule(style: .continuous)))
                                     .shadow(color: .black.opacity(0.06), radius: 1, y: 0.5)
                                     .matchedGeometryEffect(id: "seg", in: ns)
                             }
                         }
-                        .contentShape(Rectangle())
+                        .contentShape(Capsule(style: .continuous))
                 }
                 .buttonStyle(.plain)
             }
         }
         .padding(2)
-        .background(RoundedRectangle(cornerRadius: TimbreRadius.control, style: .continuous).fill(c.bg_selected))
+        .background(Capsule(style: .continuous).fill(c.bg_selected))
         .animation(TimbreMotion.snappy, value: selection)
     }
 }
@@ -487,13 +599,18 @@ struct TFader: View {
                 if bipolar {
                     Rectangle().fill(c.ink_muted).frame(width: 1, height: trackHeight + 6).offset(x: anchorX - 0.5)
                 }
-                Circle()
+                // Thumb: 10 pt at rest, 13 pt under the pointer, and a 20 × 13 pt capsule while held,
+                // like the macOS 26 slider knob stretching into a lens under the finger.
+                let thumbW: CGFloat = dragging ? 20 : (hover ? 13 : 10)
+                let thumbH: CGFloat = (hover || dragging) ? 13 : 10
+                Capsule(style: .continuous)
                     .fill(Color.white)
-                    .overlay(Circle().strokeBorder(Color.black.opacity(0.12), lineWidth: 0.5))
-                    .shadow(color: .black.opacity(0.22), radius: 1.5, y: 0.5)
-                    .frame(width: (hover || dragging) ? 13 : 10, height: (hover || dragging) ? 13 : 10)
-                    .offset(x: x - ((hover || dragging) ? 6.5 : 5))
-                    .animation(TimbreMotion.snappy, value: hover || dragging)
+                    .overlay(Capsule(style: .continuous).strokeBorder(Color.black.opacity(0.12), lineWidth: 0.5))
+                    .shadow(color: .black.opacity(dragging ? 0.28 : 0.22), radius: dragging ? 2.5 : 1.5, y: 0.5)
+                    .frame(width: thumbW, height: thumbH)
+                    .offset(x: x - thumbW / 2)
+                    .animation(TimbreMotion.snappy, value: hover)
+                    .animation(TimbreMotion.snappy, value: dragging)
             }
             .frame(height: height)
             .contentShape(Rectangle())
@@ -1440,9 +1557,9 @@ struct MenuChip<Content: View>: View {
                 Image(systemName: "chevron.up.chevron.down").font(.system(size: 7.5, weight: .semibold)).opacity(0.6)
             }
             .foregroundStyle(c.ink_secondary)
-            .padding(.horizontal, 8)
-            .frame(height: 22)
-            .background(Capsule().fill(c.bg_selected))
+            .padding(.horizontal, 9)
+            .frame(height: 24)
+            .lensPlate(Capsule(style: .continuous), fill: c.bg_selected)
             .contentShape(Capsule())
         }
         .menuStyle(.button)

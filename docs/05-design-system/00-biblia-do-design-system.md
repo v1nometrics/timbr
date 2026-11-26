@@ -1,6 +1,6 @@
 # Bíblia do design system · timbr
 
-> **Status:** v2.5 · 2026-11-22 · **Lei, não sugestão.** Substitui a v1, que descrevia uma tipografia (Geist) que nunca chegou a renderizar no app nativo e permitia controles padrão do macOS nas superfícies do produto.
+> **Status:** v2.6 · 2026-11-26 · **Lei, não sugestão.** Substitui a v1, que descrevia uma tipografia (Geist) que nunca chegou a renderizar no app nativo e permitia controles padrão do macOS nas superfícies do produto.
 > **Direção de arte:** princípios nativos da Apple (fluidez, molas interrompíveis, materiais, tipografia de sistema) + engenharia de micro-interações (detalhes invisíveis, curvas rápidas sem `ease-in`, zero animação em atalhos de teclado) sobre um DNA editorial acromático (papel quente, eyebrows em mono, números tabulares grandes; **sem cor de marca**, ADR-0016).
 > **Fonte executável:** `design-system/tokens/*.tokens.json` → `design-system/generated/TimbreTokens.swift` e `tokens.css` (ADR-0012). Componentes: `Sources/TimbreApp/DSComponents.swift`.
 
@@ -17,7 +17,7 @@ Três frases-teste. Se uma tela falha em uma delas, ela está errada:
 
 | # | Lei | Como verificar |
 |---|---|---|
-| L1 | **O notch é preto absoluto.** `sRGB 0,0,0`, sem contorno, sem blur, sem alpha. Topo reto, colado na moldura; ombros côncavos como o hardware. Única sombra permitida: preta e suave, só enquanto aberto (profundidade, como nos apps de referência). | CI reprova `stroke`/`strokeBorder` em `NotchOverlay.swift`. Foto em sala escura. |
+| L1 | **O notch é preto absoluto.** `sRGB 0,0,0`, sem contorno, sem blur, sem alpha. Topo reto, colado na moldura; ombros côncavos como o hardware. Só enquanto aberto: sombra preta em duas camadas e a **luz de borda** (`glass.edgeLight`), que vai de zero na altura da barra de menus até a base, para a ilha existir sobre um app preto (ADR-0027). | CI reprova `stroke`/`strokeBorder` em `NotchOverlay.swift`; a luz só existe em `NotchEdgeLight`. Foto sobre fundo preto e branco. |
 | L2 | **Nenhum controle padrão nas superfícies do produto.** Sem `Slider`, `Toggle`, `Picker`, `.bordered`, `Divider` do sistema. Use `TFader`, `TSwitch`, `TSegmented`, `TButtonStyle`, `Hairline`. | CI (etapa 3b) reprova. |
 | L3 | **Sem matiz de marca: ênfase por tinta, peso e espessura.** O sistema é só preto, branco e cinzas quentes (ADR-0016). O sinal processado se distingue por linha sólida de 2 pt em tinta primária, contra tracejado e linhas finas. A cor aparece só com significado semântico (verde nativo, âmbar aviso, vermelho destrutivo, azul info), nunca em repouso nem como marca. | Revisão: nenhuma matiz fora de `semantic.*`; `grep` sem valores violeta nos tokens. |
 | L4 | **Tipografia de sistema com tracking por tamanho.** SF Pro (texto e números), SF Mono (eyebrows, valores técnicos), New York (letras de música). Tracking negativo no grande, positivo no eyebrow. Sempre via `.type(token)`. | Nenhum `.font(.system(...))` solto fora de ícones e da marca. |
@@ -55,6 +55,7 @@ Três frases-teste. Se uma tela falha em uma delas, ela está errada:
 | Controles | Algum controle do sistema escapou (L2)? |
 | Tipografia | Todo texto usa `.type(...)`? Números tabulares? Unidade separada? |
 | Cor | Alguma matiz aparece sem significado semântico (L3)? A ênfase está em tinta, peso e espessura? |
+| Forma | Raio interno = raio externo − margem? Controle elevado usa a lente (`LensEdge`/`lensPlate`), não um contorno novo? |
 | Honestidade | Algum número aparece sem origem ou sem sinal real (L6)? |
 | Motion | A animação tem propósito? Abre com mola, fecha mais rápido? Teclado sem animação? |
 | Estados | Vazio, carregando, erro, desabilitado, foco, hover e pressionado desenhados? |
@@ -85,6 +86,7 @@ Fotografe com `screencapture -x` e revise com o checklist acima. As capturas da 
 
 | Versão | Data | Mudança |
 |---|---|---|
+| v2.6 | 2026-11-26 | Vidro sem translucidez (ADR-0027): luz de borda no notch aberto, sombra em duas camadas, lente (`glass.specular` → `glass.rim`) nos controles elevados, raios concêntricos (expandido 28, espiada 24, HUD 16), botões e segmentado em cápsula, polegar do fader que estica ao arrastar, margem única de 18 pt no notch. Correções: barra lateral do Estúdio empurrada para fora pela página do Equalizador, "Usar como padrão" cortado, faixa de telemetria do Mixer vazando, rótulo de Saídas desalinhado no painel, 28 pt vazios no topo da revisão do painel (`--panel-preview` agora abre o `NSPopover` real). |
 | v2.5 | 2026-11-23 | Marca definitiva: Ilha refinada original e nome sem ponto (ADR-0025). |
 | v2.4 | 2026-11-23 | Auditoria de movimento ([registro](../08-registro/auditoria-animacoes-2026-11-23.md)): `exit` deixa de ser ease-in (e o gerador passa a recusar qualquer ease-in); tokens novos (`fade`, `fadeOut`, `tab`, `meter`, `dismissFollow`) no lugar de valores soltos; todos os tokens respeitam "Reduzir movimento" (testado no CI); faixa de aviso e linhas do mixer entram e saem com transição. |
 | v2.3 | 2026-11-22 | Identidade acromática (ADR-0016): o violeta saiu dos tokens, do ícone e da marca; `accent.*` passa a ser tinta; ênfase por peso e espessura; cor só semântica. |

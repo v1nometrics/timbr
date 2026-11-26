@@ -6,7 +6,7 @@
 
 ### 1.1 O preto (e o limite físico dele)
 
-O preenchimento é `Color(.sRGB, 0, 0, 0, 1)`: zero absoluto, sem contorno, sem sombra, sem blur, sem transparência (lei L1).
+O preenchimento é `Color(.sRGB, 0, 0, 0, 1)`: zero absoluto, sem contorno, sem blur, sem transparência (lei L1). Só enquanto aberto: sombra preta em duas camadas e a luz de borda inferior (§1.2, ADR-0027).
 
 **Limite do hardware, dito com honestidade.** O notch físico é um vazio sem pixels. A área que o timbr desenha ao redor dele são pixels de tela exibindo preto:
 
@@ -32,7 +32,9 @@ Estudamos o código dos apps de notch abertos mais usados: DynamicNotchKit (base
 - **Uma forma só**, colada na borda da tela. Ela cresce para os lados e para baixo a partir do notch físico, nos dois eixos ao mesmo tempo.
 - **Asas:** na altura da barra de menus, à esquerda e à direita da câmera, fica o conteúdo mais importante: quem toca (ícone e nome) e quanto (volume) ou para onde (saída). Abaixo fica o controle. É o mesmo arranjo do boring.notch aberto e das atividades compactas do DynamicNotchKit.
 - **Ombros** côncavos no topo continuam a curva do hardware: 7 pt fechado, 14 pt aberto (os apps de referência usam 6 → 15/19 pt).
-- **Sombra preta suave só enquanto aberto** (raio 14, y 6, 50%). Ela dá a profundidade de "ilha" sobre conteúdo claro; sobre conteúdo escuro some.
+- **Sombra preta só enquanto aberto, em duas camadas:** contato (30%, raio 2, y 1), que desenha a borda sobre conteúdo claro, e ambiente (42%, raio 22, y 12), que levanta a ilha. Sobre conteúdo escuro a sombra some.
+- **Luz de borda só enquanto aberto** (`glass.edgeLight`, ADR-0027): borda interna de 0,75 pt com intensidade zero na altura da barra de menus e máxima na base. Sobre um app totalmente preto é o que mostra onde a ilha termina; o topo e os ombros continuam fundidos ao hardware.
+- **Concentricidade:** o rodapé do expandido usa chips de 28 pt (raio 14) a 14 pt da lateral e da base, dentro do canto de 28 pt. Asas, faders, linhas e hairlines compartilham a margem de 18 pt (o HUD, de asa estreita, usa 14 pt).
 
 **Por que abandonamos o "pescoço" da v2.1.** Na v2.1 os estados abertos desciam apenas para baixo, sem tocar a barra, o que parecia um cartão pendurado em vez de o notch expandir naturalmente. O que resolve a disputa com os menus é separar os estados persistentes dos transitórios (§1.3 e §1.5), não deformar a geometria de abertura.
 
@@ -68,9 +70,9 @@ Estudamos o código dos apps de notch abertos mais usados: DynamicNotchKit (base
 |---|---|---|---|---|
 | Repouso | W | H | 10 / 7 | nada desenhado (só o hardware); no hover aparece +5 pt de cada lado e +3 pt para baixo |
 | Compacto | W + orelhas medidas (teto W + 2×44) | H (com notch físico) ou H + 20 (pílula sem notch) | 10 / 7 | Com ambas as orelhas livres: 1 app (ícone + marca 5-bar) ou 2+ apps (**2 logos** lado a lado + marca 5-bar). Se algum lado estiver ocupado (ex.: Chrome), **recolhe dentro do hardware (`H`)** sem descer queixo sobre as abas |
-| HUD | W + 2 × 58 | H + 18 | 14 / 11 | asas: ícone e valor; queixo: barra de nível |
-| Espiada | W + 2 × 128 | H + 44 (+ 34 por app listado abaixo) | 20 / 14 | **0 tocando:** controla a saída (ícone do dispositivo e "Saída" na asa esquerda; volume/mudo na direita; nome completo + fader de hardware abaixo). **1 tocando:** controla esse app nas asas (ícone, nome, volume, mudo) e fader abaixo (se VoIP protegido, mostra o controle da saída). **2+ tocando:** **Geral** (master) lidera nas asas e na faixa de hardware, seguido de hairline e de cada app tocando (até 4) em igualdade abaixo |
-| Expandido | máx(W + 2 × 140, 464) | H + 8 + bloco principal (46 vazio / 102 com 1 app / 70 com Geral) + 34 por fonte + alerta 44 + rodapé 46 | 24 / 14 | **Regra unificada com a Espiada:** **0 tocando (sem recentes):** "Nada tocando · <dispositivo>" + fader de saída. **1 tocando:** esse app nas asas e foco (66 pt), outras recentes abaixo (até 3) e faixa **Geral** (36 pt). **2+ tocando (ou só pausados):** **Geral** lidera nas asas e no foco (volume/mudo de hardware), seguido por todas as fontes (até 4) em igualdade abaixo, sem duplicar a faixa Geral |
+| HUD | W + 2 × 58 | H + 18 | 16 / 11 | asas: ícone e valor; queixo: barra de nível |
+| Espiada | W + 2 × 128 | H + 44 (+ 34 por app listado abaixo) | 24 / 14 | **0 tocando:** controla a saída (ícone do dispositivo e "Saída" na asa esquerda; volume/mudo na direita; nome completo + fader de hardware abaixo). **1 tocando:** controla esse app nas asas (ícone, nome, volume, mudo) e fader abaixo (se VoIP protegido, mostra o controle da saída). **2+ tocando:** **Geral** (master) lidera nas asas e na faixa de hardware, seguido de hairline e de cada app tocando (até 4) em igualdade abaixo |
+| Expandido | máx(W + 2 × 140, 464) | H + 8 + bloco principal (46 vazio / 102 com 1 app / 70 com Geral) + 34 por fonte + alerta 44 + rodapé 50 | 28 / 14 | **Regra unificada com a Espiada:** **0 tocando (sem recentes):** "Nada tocando · <dispositivo>" + fader de saída. **1 tocando:** esse app nas asas e foco (66 pt), outras recentes abaixo (até 3) e faixa **Geral** (36 pt). **2+ tocando (ou só pausados):** **Geral** lidera nas asas e no foco (volume/mudo de hardware), seguido por todas as fontes (até 4) em igualdade abaixo, sem duplicar a faixa Geral |
 
 A janela tem **tamanho fixo** (cabe o maior estado) e nunca é redimensionada. Só a forma se move. Os cliques atravessam a janela fora da forma (`ignoresMouseEvents` atualizado a cada movimento do ponteiro enquanto aberta).
 

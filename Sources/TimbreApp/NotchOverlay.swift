@@ -3,7 +3,8 @@
 //
 // Model studied from the reference open-source notch apps (DynamicNotchKit and NotchDrop, MIT;
 // boring.notch, GPL — parameters only, no code copied):
-//   1. Fill is exactly sRGB 0,0,0 with no stroke; a soft black shadow only while open.
+//   1. Fill is exactly sRGB 0,0,0 with no stroke; while open, a two-layer black shadow and a
+//      lower-edge light (ADR-0027) that never reaches the bezel.
 //   2. One shape, flush with the screen edge, grows SIDEWAYS AND DOWN from the hardware notch;
 //      content flanks the camera in "wings" at menu-bar height.
 //   3. The persistent state (compact) only uses menu-bar space measured as free; open states are
@@ -282,7 +283,11 @@ struct NotchLayout {
     static let hudWing: CGFloat = 58
     static let peekDepth: CGFloat = 44
     static let hudDepth: CGFloat = 18
-    static let shadowPad: CGFloat = 28
+    static let shadowPad: CGFloat = 36
+    /// Footer: 28 pt chips inset 14 pt from the side and the bottom, concentric with the 28 pt corner.
+    static let footerHeight: CGFloat = 50
+    /// Content inset from the notch sides: wings, faders, rows and hairlines share one edge.
+    static let inset: CGFloat = 18
 
     /// Peek: output (0 playing), single app + fader (1 playing), or Master/Geral + playing apps (2+ playing).
     static func peekDepth(rows: Int) -> CGFloat {
@@ -298,7 +303,7 @@ struct NotchLayout {
             case .masterLed: return 66 + (rows > 0 ? 4 : 0)
             }
         }()
-        return 8 + heroHeight + CGFloat(rows) * 34 + (hasAlert ? 44 : 0) + 46 + 2
+        return 8 + heroHeight + CGFloat(rows) * 34 + (hasAlert ? 44 : 0) + footerHeight + 2
     }
 
     var peekHalf: CGFloat { half + Self.peekWing }
@@ -321,9 +326,9 @@ struct NotchLayout {
                 return NotchSpec(l: half, r: half, h: H, bottom: restRadius, shoulder: closedS)
             }
         case .hud:
-            return NotchSpec(l: hudHalf, r: hudHalf, h: H + Self.hudDepth, bottom: 14, shoulder: 11)
+            return NotchSpec(l: hudHalf, r: hudHalf, h: H + Self.hudDepth, bottom: TimbreRadius.notchHud, shoulder: 11)
         case .peek:
-            return NotchSpec(l: peekHalf, r: peekHalf, h: H + Self.peekDepth(rows: rows), bottom: 20, shoulder: openS)
+            return NotchSpec(l: peekHalf, r: peekHalf, h: H + Self.peekDepth(rows: rows), bottom: TimbreRadius.notchPeek, shoulder: openS)
         case .expanded:
             return NotchSpec(l: expandedHalf, r: expandedHalf,
                              h: H + Self.expandedDepth(rows: rows, hasAlert: hasAlert, layoutKind: expandedLayout),
@@ -1008,9 +1013,16 @@ public struct NotchOverlayView: View {
             || (state == .compact && g.hasPhysicalNotch && !layout.showsCompactChrome && !interaction.hovering)
 
         ZStack(alignment: .topLeading) {
+            // L1: absolute black. Depth while open comes from two black shadows, a tight contact
+            // shadow that draws the edge over light content and a wide ambient one that lifts it.
             shape
                 .fill(Color(.sRGB, red: 0, green: 0, blue: 0, opacity: 1))
-                .shadow(color: .black.opacity(0.5 * openAmount), radius: 14, x: 0, y: 6)
+                .shadow(color: .black.opacity(0.30 * openAmount), radius: 2, x: 0, y: 1)
+                .shadow(color: .black.opacity(0.42 * openAmount), radius: 22, x: 0, y: 12)
+                .opacity(hidden ? 0 : 1)
+
+            // ADR-0027: over a black app the shadow vanishes, so the lower silhouette catches light.
+            NotchEdgeLight(shape: shape, from: H, to: rendered.h, canvasHeight: canvas.height, amount: openAmount)
                 .opacity(hidden ? 0 : 1)
 
             ZStack(alignment: .topLeading) {
@@ -1080,10 +1092,10 @@ public struct NotchOverlayView: View {
                 if case .single = appState.peekTarget { return true }
                 return false
             }()
-            return (CGPoint(x: cx - spec(.peek).l + 16 + 9, y: H / 2), 18, showsSingleApp)
+            return (CGPoint(x: cx - spec(.peek).l + NotchLayout.inset + 9, y: H / 2), 18, showsSingleApp)
         case .expanded:
             let showsSingleApp = appState.expandedTarget.singleSource != nil
-            return (CGPoint(x: cx - spec(.expanded).l + 16 + 10, y: H / 2), 20, showsSingleApp)
+            return (CGPoint(x: cx - spec(.expanded).l + NotchLayout.inset + 10, y: H / 2), 20, showsSingleApp)
         }
     }
 
@@ -1149,14 +1161,15 @@ public struct NotchOverlayView: View {
     }
 
     /// One row at menu-bar height split by the camera: left wing, notch gap, right wing.
-    private func wingRow<L: View, R: View>(wing: CGFloat, @ViewBuilder left: () -> L, @ViewBuilder right: () -> R) -> some View {
+    private func wingRow<L: View, R: View>(wing: CGFloat, inset: CGFloat = NotchLayout.inset, @ViewBuilder left: () -> L, @ViewBuilder right: () -> R) -> some View {
         HStack(spacing: 0) {
+            // Wings share the body's content edge (18 pt), so the title lines up with the row below.
             HStack(spacing: 8) { left() }
-                .padding(.leading, 16).padding(.trailing, 10)
+                .padding(.leading, inset).padding(.trailing, 10)
                 .frame(width: wing, alignment: .leading)
             Color.clear.frame(width: layout.half * 2)
             HStack(spacing: 8) { right() }
-                .padding(.leading, 10).padding(.trailing, 14)
+                .padding(.leading, 10).padding(.trailing, inset)
                 .frame(width: wing, alignment: .trailing)
         }
         .frame(height: H)
@@ -1203,7 +1216,7 @@ public struct NotchOverlayView: View {
         let v = min(max(appState.hudValue, 0), 1)
         let tint = appState.hudMuted ? c.semantic_warning : c.ink_primary
         return VStack(spacing: 0) {
-            wingRow(wing: wing) {
+            wingRow(wing: wing, inset: 14) {
                 Image(systemName: appState.hudKind == .brightness
                       ? (v < 0.5 ? "sun.min.fill" : "sun.max.fill")
                       : (appState.hudMuted ? "speaker.slash.fill" : (v < 0.01 ? "speaker.fill" : (v < 0.34 ? "speaker.wave.1.fill" : (v < 0.67 ? "speaker.wave.2.fill" : "speaker.wave.3.fill")))))
@@ -1225,7 +1238,7 @@ public struct NotchOverlayView: View {
                 }
             }
             .frame(height: 4)
-            .padding(.horizontal, 18)
+            .padding(.horizontal, 14)
             .padding(.top, 3)
             .animation(TimbreMotion.meter, value: v)
             Spacer(minLength: 0)
@@ -1699,50 +1712,37 @@ public struct NotchOverlayView: View {
         }
         .padding(.horizontal, 10)
         .frame(height: 36)
-        .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(c.semantic_warning.opacity(0.1)))
+        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(c.semantic_warning.opacity(0.1)))
     }
 
+    /// Concentric footer: 28 pt capsules inset 14 pt from the side and the bottom of a 28 pt corner
+    /// (inner radius 14 + inset 14 = outer radius 28), so the chips sit in the corner like a lens.
     private var footer: some View {
         HStack(spacing: 6) {
-            footerChip(title: appState.isProcessingBypassed ? appState.t("ui.notch.eq_off") : appState.t("ui.notch.eq_on"), symbol: "power", on: !appState.isProcessingBypassed) {
+            TChip(title: appState.isProcessingBypassed ? appState.t("ui.notch.eq_off") : appState.t("ui.notch.eq_on"),
+                  symbol: "power", on: !appState.isProcessingBypassed) {
                 appState.toggleBypass()
             }
-            footerChip(title: appState.t("notch.ab_neutral"), symbol: "square.split.2x1", on: appState.abMode != .full) { appState.toggleABNeutral() }
+            TChip(title: appState.t("notch.ab_neutral"), symbol: "square.split.2x1", on: appState.abMode != .full) {
+                appState.toggleABNeutral()
+            }
             Spacer(minLength: 0)
             if appState.updater.hasActionableUpdate {
-                footerChip(title: appState.t("ui.updates.notch_pill"), symbol: "arrow.down.circle.fill", on: true) {
+                TChip(title: appState.t("ui.updates.notch_pill"), symbol: "arrow.down.circle.fill", on: true) {
                     appState.notchState = appState.shouldShowCompact ? .compact : .resting
                     appState.openUpdatesSettings()
                 }
             }
-            Button {
+            TChip(title: appState.t("ui.studio"), trailingSymbol: "arrow.up.right", quiet: true) {
                 appState.notchState = appState.shouldShowCompact ? .compact : .resting
                 appState.openStudioHandler?()
-            } label: {
-                HStack(spacing: 4) {
-                    Text(appState.t("ui.studio"))
-                    Image(systemName: "arrow.up.right").font(.system(size: 9, weight: .semibold))
-                }
             }
-            .buttonStyle(.t(.ghost, compact: true))
         }
         .padding(.horizontal, 14)
-        .frame(height: 46)
-        .overlay(alignment: .top) { Hairline().padding(.horizontal, 14) }
-    }
-
-    private func footerChip(title: String, symbol: String, on: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            HStack(spacing: 5) {
-                Image(systemName: symbol).font(.system(size: 9, weight: .semibold)).foregroundStyle(on ? c.accent_base : c.ink_muted)
-                Text(title).type(TimbreTypography.caption).fontWeight(.medium)
-            }
-            .foregroundStyle(on ? c.ink_primary : c.ink_secondary)
-            .padding(.horizontal, 9)
-            .frame(height: 24)
-            .background(Capsule().fill(on ? c.bg_selected : c.bg_inset))
-        }
-        .buttonStyle(PressScaleStyle())
+        .padding(.top, 8)
+        .padding(.bottom, 14)
+        .frame(height: NotchLayout.footerHeight, alignment: .bottom)
+        .overlay(alignment: .top) { Hairline().padding(.horizontal, NotchLayout.inset) }
     }
 
     private func volumeBinding(_ src: AudioSourceDescriptor) -> Binding<Double> {
@@ -1762,9 +1762,9 @@ private struct HoverLink<Label: View>: View {
         Button(action: action) {
             label()
                 .background(
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    Capsule(style: .continuous)
                         .fill(TimbreColors.notch.bg_hover.opacity(hover ? 1 : 0))
-                        .padding(.horizontal, -6).padding(.vertical, -4)
+                        .padding(.horizontal, -8).padding(.vertical, -4)
                 )
                 .contentShape(Rectangle())
         }

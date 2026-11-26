@@ -6,14 +6,17 @@
 
 | Componente | Substitui | Anatomia | Estados | Inspiração |
 |---|---|---|---|---|
-| **TFader** | `Slider` | Trilha 3 pt (2 pt em linhas densas), preenchimento em tinta, polegar branco 10→13 pt, marca de unidade 1 pt | normal, hover, arrastando, acima da unidade (preenchimento âmbar), bipolar (preenche a partir do zero) | Bencho `wake-slider`, faders de console |
+| **TFader** | `Slider` | Trilha 3 pt (2 pt em linhas densas), preenchimento em tinta, polegar branco 10 pt (13 no hover, cápsula 20×13 ao arrastar), marca de unidade 1 pt | normal, hover, arrastando, acima da unidade (preenchimento âmbar), bipolar (preenche a partir do zero) | Bencho `wake-slider`, faders de console |
 | — taper de console | — | `unityPosition: 0.75` põe 100% a ¾ do curso e o boost no último ¼ | — | Mesas de som |
 | **TSwitch** | `Toggle` | Cápsula 30×18, polegar 14 pt; ligado = tinta (`controlOn`) | on/off, desabilitado | iOS, Bencho `liq-toggle` (sem o líquido) |
-| **TSegmented** | `Picker(.segmented)` | Fundo `bg.selected`, segmento ativo `bg.raised` + hairline + sombra 1 pt, desliza com `matchedGeometryEffect` | — | shadcn `toggle-group`, macOS |
-| **TButtonStyle** | `.bordered`, `.borderedProminent` | `primary` (tinta cheia), `secondary` (superfície + hairline forte), `ghost`, `accent`, `destructive`; 28 pt (24 compacto); escala 0,97 | normal, pressionado, desabilitado 38% | shadcn `button` |
-| **IconButton** | botões de ícone soltos | Quadrado 26 pt, raio 7, lavagem no hover; `active` pinta o ícone e o fundo a 12% | — | macOS toolbar |
+| **TSegmented** | `Picker(.segmented)` | Trilha em cápsula `bg.selected`; segmento ativo em cápsula `bg.raised` + hairline + lente + sombra 1 pt (concêntrico por construção), desliza com `matchedGeometryEffect` | — | shadcn `toggle-group`, macOS |
+| **TButtonStyle** | `.bordered`, `.borderedProminent` | Cápsula. `primary` (tinta cheia), `secondary` (superfície + hairline + lente), `ghost`, `accent`, `destructive`; 28 pt (24 compacto); escala 0,97 | normal, pressionado, desabilitado 38% | shadcn `button` |
+| **IconButton** | botões de ícone soltos | 26 pt, placa circular no hover; `active` pinta o ícone e o círculo a 12% | — | macOS toolbar |
 | **ScrubValue** | campos numéricos | Valor mono em pastilha; arraste horizontal; frequência logarítmica | hover (cursor ↔), arrastando | FabFilter Pro-Q |
-| **MenuChip** | `Menu` com cara de sistema | Cápsula `bg.selected`, rótulo `caption`, ⌃⌄; menu nativo ao abrir | — | macOS |
+| **MenuChip** | `Menu` com cara de sistema | Cápsula 24 pt `bg.selected` com lente, rótulo `caption`, ⌃⌄; menu nativo ao abrir |
+| **TChip** | chips soltos do notch | Cápsula 28 pt com lente (`on` = `bg.selected`, desligado = `bg.inset` com lente a 55%); `quiet` = sem placa até o hover; escala 0,96 | on, off, quiet, hover, pressionado | Dynamic Island, controles do macOS 26 |
+| **LensEdge / lensPlate** | contornos sólidos em controles | Borda de 0,75 pt em degradê `glass.specular` → `glass.rim` (luz de cima) | — | Liquid Glass, sem translucidez (ADR-0027) |
+| **NotchEdgeLight** | contorno do notch (proibido) | Borda interna de 0,75 pt na silhueta inferior do notch aberto, de zero na barra de menus até `glass.edgeLight` na base; anima com a forma | aberto, seguindo o ponteiro, fechado (zero) | ADR-0027 | — | macOS |
 | **TField** | `.roundedBorder` | 30 pt, `bg.inset`, hairline; foco = borda em tinta 50% | — | shadcn `input` |
 | **Hairline** | `Divider` | 0,5 pt em `line.default` (ou `strong`) | — | editorial |
 | **Card / ListCard** | cartões empilhados | Raio 12, `bg.surface`, borda 1 pt; ListCard agrupa linhas com hairlines recuadas | — | editorial, Ajustes do macOS |
