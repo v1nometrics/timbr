@@ -1636,3 +1636,73 @@ struct TimbrBrandIcon: View {
         .accessibilityLabel("timbr")
     }
 }
+
+/// Horizontal wrapping layout that keeps controls inline when space permits and moves
+/// trailing items onto a second row cleanly instead of truncating labels on narrower windows.
+struct TWrapLayout: Layout {
+    var spacing: CGFloat = 6
+    var lineSpacing: CGFloat = 6
+
+    private struct Row {
+        var indices: [Int] = []
+        var sizes: [CGSize] = []
+        var width: CGFloat = 0
+        var height: CGFloat = 0
+    }
+
+    private func computeRows(proposalWidth: CGFloat?, subviews: Subviews) -> ([Row], CGFloat, CGFloat) {
+        let limit = (proposalWidth.flatMap { $0.isFinite ? max(1, $0) : nil })
+        var rows: [Row] = []
+        var current = Row()
+
+        for index in subviews.indices {
+            let natural = subviews[index].sizeThatFits(.unspecified)
+            let size: CGSize = if let limit, natural.width > limit {
+                subviews[index].sizeThatFits(ProposedViewSize(width: limit, height: nil))
+            } else {
+                natural
+            }
+
+            let nextW = current.indices.isEmpty ? size.width : current.width + spacing + size.width
+            if let limit, !current.indices.isEmpty, nextW > limit {
+                rows.append(current)
+                current = Row(indices: [index], sizes: [size], width: size.width, height: size.height)
+            } else {
+                current.indices.append(index)
+                current.sizes.append(size)
+                current.width = nextW
+                current.height = max(current.height, size.height)
+            }
+        }
+        if !current.indices.isEmpty { rows.append(current) }
+
+        let maxW = rows.map(\.width).max() ?? 0
+        let totalH = rows.reduce(CGFloat(0)) { $0 + $1.height }
+            + CGFloat(max(0, rows.count - 1)) * lineSpacing
+        return (rows, maxW, totalH)
+    }
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let (_, maxW, totalH) = computeRows(proposalWidth: proposal.width, subviews: subviews)
+        return CGSize(width: maxW, height: totalH)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        let (rows, _, _) = computeRows(proposalWidth: bounds.width, subviews: subviews)
+        var y = bounds.minY
+        for row in rows {
+            var x = bounds.minX
+            for (itemIndex, subviewIndex) in row.indices.enumerated() {
+                let sz = row.sizes[itemIndex]
+                let itemY = y + (row.height - sz.height) / 2
+                subviews[subviewIndex].place(
+                    at: CGPoint(x: x, y: itemY),
+                    anchor: .topLeading,
+                    proposal: ProposedViewSize(sz)
+                )
+                x += sz.width + spacing
+            }
+            y += row.height + lineSpacing
+        }
+    }
+}

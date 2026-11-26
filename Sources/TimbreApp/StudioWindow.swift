@@ -30,6 +30,7 @@ public struct StudioWindow: View {
         HStack(spacing: 0) {
             StudioSidebar(appState: appState)
                 .frame(width: 224)
+                .layoutPriority(1)
                 .background(c.bg_sidebar)
             Hairline(vertical: true)
             ScrollView {
@@ -1199,21 +1200,34 @@ private struct EqualizerPage: View {
             legend(appState.t("eq.layer.result"), dashed: false, color: c.accent_signal, thick: true)
         }
         .fixedSize()
-        let tools = correctionTools(matches: matches)
-        // The strip used to be one fixed-size row wider than the page at the default window size,
-        // which pushed the whole Studio (sidebar included) off the left edge. It now wraps to two
-        // rows when it does not fit, instead of overflowing.
+        // Fit on one row when wide enough; step down to two rows or a wrapped tool row before
+        // clipping AutoEq / preset controls or widening the window on narrow layouts (e.g. 980 pt).
         return ViewThatFits(in: .horizontal) {
             HStack(spacing: 10) {
                 legendRow
                 Spacer(minLength: 8)
-                tools
+                HStack(spacing: 8) {
+                    correctionToolItems(matches: matches, includeDivider: true)
+                }
+                .fixedSize()
             }
             .padding(.horizontal, 20)
             .frame(height: 40)
             VStack(alignment: .leading, spacing: 8) {
                 legendRow
-                tools
+                HStack(spacing: 8) {
+                    correctionToolItems(matches: matches, includeDivider: true)
+                }
+                .fixedSize()
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 10)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            VStack(alignment: .leading, spacing: 8) {
+                legendRow
+                TWrapLayout(spacing: 8, lineSpacing: 8) {
+                    correctionToolItems(matches: matches, includeDivider: false)
+                }
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 10)
@@ -1222,53 +1236,60 @@ private struct EqualizerPage: View {
         .background(c.bg_inset.opacity(0.5))
     }
 
-    private func correctionTools(matches: [AutoEqEntry]) -> some View {
+    @ViewBuilder
+    private func correctionToolItems(matches: [AutoEqEntry], includeDivider: Bool) -> some View {
         // Inline AutoEq Headphone Correction + Preset & A/B Strip
-        HStack(spacing: 8) {
-            presetMenu
+        presetMenu
 
-            TSegmented(options: [
-                (ABCompareMode.full, "EQ"),
-                (.bypassEqualLatency, "Flat")
-            ], selection: Binding(
-                get: { appState.abMode },
-                set: { mode in
-                    if mode != appState.abMode { appState.toggleABNeutral() }
-                }
-            ))
+        TSegmented(options: [
+            (ABCompareMode.full, "EQ"),
+            (.bypassEqualLatency, "Flat")
+        ], selection: Binding(
+            get: { appState.abMode },
+            set: { mode in
+                if mode != appState.abMode { appState.toggleABNeutral() }
+            }
+        ))
+        .fixedSize()
 
+        if includeDivider {
             Hairline(vertical: true).frame(height: 16)
+        }
 
+        HStack(spacing: 6) {
             Image(systemName: "headphones")
                 .font(.system(size: 11, weight: .medium))
                 .foregroundStyle(appState.activePreset.correctionMetadata != nil ? c.ink_primary : c.ink_muted)
             Text("AutoEq")
                 .type(TimbreTypography.eyebrow)
                 .foregroundStyle(c.ink_muted)
+        }
+        .fixedSize()
 
-            if let meta = appState.activePreset.correctionMetadata {
-                Badge(text: "\(meta.headphoneModel) · \(meta.sourceCredit)", tone: .accent, dot: true)
-                Button(appState.t("ui.eq.remove")) { appState.clearCorrection() }
-                    .buttonStyle(.t(.ghost, compact: true))
-            } else if let topMatch = matches.first {
-                Button("\(topMatch.headphoneName) · \(appState.t("ui.apply"))") {
-                    appState.applyAutoEqEntry(topMatch)
-                }
-                .buttonStyle(.t(.secondary, compact: true))
+        if let meta = appState.activePreset.correctionMetadata {
+            Badge(text: "\(meta.headphoneModel) · \(meta.sourceCredit)", tone: .accent, dot: true)
+            Button(appState.t("ui.eq.remove")) { appState.clearCorrection() }
+                .buttonStyle(.t(.ghost, compact: true))
+                .fixedSize()
+        } else if let topMatch = matches.first {
+            Button("\(topMatch.headphoneName) · \(appState.t("ui.apply"))") {
+                appState.applyAutoEqEntry(topMatch)
             }
+            .buttonStyle(.t(.secondary, compact: true))
+            .fixedSize()
+        }
 
-            MenuChip(title: appState.t("ui.eq.browse_autoeq")) {
-                if !matches.isEmpty {
-                    ForEach(matches) { entry in
-                        Button("\(entry.headphoneName) (\(entry.source))") {
-                            appState.applyAutoEqEntry(entry)
-                        }
-                    }
-                }
-                ForEach(AutoEqService.starterCatalog) { entry in
-                    Button("\(entry.headphoneName) · \(entry.source)") {
+        MenuChip(title: appState.t("ui.eq.browse_autoeq")) {
+            if !matches.isEmpty {
+                ForEach(matches) { entry in
+                    Button("\(entry.headphoneName) (\(entry.source))") {
                         appState.applyAutoEqEntry(entry)
                     }
+                }
+            }
+            ForEach(AutoEqService.starterCatalog) { entry in
+                Button("\(entry.headphoneName) · \(entry.source)") {
+                    appState.applyAutoEqEntry(entry)
                 }
             }
         }
@@ -1293,13 +1314,22 @@ private struct EqualizerPage: View {
     }
 
     private var metrology: some View {
+        ViewThatFits(in: .horizontal) {
+            metrologyRow(compact: false)
+            metrologyRow(compact: true)
+        }
+        .background(c.bg_inset.opacity(0.35))
+    }
+
+    private func metrologyRow(compact: Bool) -> some View {
         let t = appState.telemetry
         let live = appState.hasLiveSignal
         let peakDB = live ? max(appState.meterBallisticsL.smoothedDB, appState.meterBallisticsR.smoothedDB) : -60.0
         let holdDB = live ? max(appState.meterBallisticsL.heldPeakDB, appState.meterBallisticsR.heldPeakDB) : nil
         let clipped = appState.meterBallisticsL.isClipLatched || appState.meterBallisticsR.isClipLatched || t.limiterActive
-        return HStack(spacing: 0) {
-            stat(appState.t("eq.preamp"), Fmt.db(t.preampDB) + " dB")
+        let statW: CGFloat? = compact ? nil : 138
+        return HStack(spacing: compact ? 16 : 0) {
+            stat(appState.t("eq.preamp"), Fmt.db(t.preampDB) + " dB", width: statW)
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 6) {
                     Eyebrow(text: appState.t("ui.eq.true_peak"))
@@ -1313,11 +1343,12 @@ private struct EqualizerPage: View {
                     heldPeakDB: holdDB,
                     height: 5
                 )
-                .frame(width: 124)
+                .frame(width: compact ? 88 : 124)
             }
-            .frame(width: 156, alignment: .leading)
-            stat(appState.t("ui.eq.limiter"), !live ? "—" : (t.limiterActive ? Fmt.db(-abs(t.limiterGR)) + " dB" : appState.t("ui.eq.idle")))
-            stat(appState.t("ui.eq.latency"), String(format: "%.1f ms", appState.activeOutputDevice?.totalReportedLatencyMs ?? 0))
+            .fixedSize()
+            .frame(width: compact ? nil : 156, alignment: .leading)
+            stat(appState.t("ui.eq.limiter"), !live ? "—" : (t.limiterActive ? Fmt.db(-abs(t.limiterGR)) + " dB" : appState.t("ui.eq.idle")), width: statW)
+            stat(appState.t("ui.eq.latency"), String(format: "%.1f ms", appState.activeOutputDevice?.totalReportedLatencyMs ?? 0), width: statW)
             TClipIndicator(
                 clipping: clipped,
                 count: Int(t.clipPreventedCount) + max(appState.meterBallisticsL.clipEventCount, appState.meterBallisticsR.clipEventCount),
@@ -1325,23 +1356,28 @@ private struct EqualizerPage: View {
             ) {
                 appState.resetClipLatch()
             }
-            Spacer()
+            .fixedSize()
+            Spacer(minLength: 8)
             HStack(spacing: 8) {
-                Text(appState.t("eq.crossfeed")).type(TimbreTypography.caption).foregroundStyle(c.ink_secondary)
+                Text(appState.t("eq.crossfeed"))
+                    .type(TimbreTypography.caption)
+                    .foregroundStyle(c.ink_secondary)
+                    .fixedSize()
                 TSwitch(isOn: Binding(get: { appState.activePreset.crossfeedEnabled }, set: { appState.activePreset.crossfeedEnabled = $0; appState.syncDSPAndTap() }), label: appState.t("eq.crossfeed"))
             }
+            .fixedSize()
         }
         .padding(.horizontal, 20)
         .frame(height: 52)
-        .background(c.bg_inset.opacity(0.35))
     }
 
-    private func stat(_ label: String, _ value: String) -> some View {
+    private func stat(_ label: String, _ value: String, width: CGFloat?) -> some View {
         VStack(alignment: .leading, spacing: 3) {
             Eyebrow(text: label)
             Text(value).type(TimbreTypography.monoValue).foregroundStyle(c.ink_primary)
         }
-        .frame(width: 138, alignment: .leading)
+        .fixedSize()
+        .frame(width: width, alignment: .leading)
     }
 
     /// 31.5 Hz must not read "32 Hz" (Fmt.hz rounds).
@@ -1613,29 +1649,54 @@ private struct EqualizerPage: View {
         .overlay(RoundedRectangle(cornerRadius: TimbreRadius.card, style: .continuous).strokeBorder(c.line_default, lineWidth: 1))
     }
 
+    @ViewBuilder
+    private var compareBlindActions: some View {
+        if !appState.blindABActive {
+            Button(appState.t("ui.eq.start_blind")) { appState.startBlindAB() }
+                .buttonStyle(.t(.secondary, compact: true))
+                .fixedSize()
+        } else {
+            sampleButton("X", selected: appState.blindCurrentIsX) { appState.selectBlindSample(isX: true) }
+            sampleButton("Y", selected: !appState.blindCurrentIsX) { appState.selectBlindSample(isX: false) }
+            if !appState.blindRevealed {
+                Button(appState.t("ui.eq.reveal")) { appState.revealBlindAB() }
+                    .buttonStyle(.t(.secondary, compact: true))
+                    .fixedSize()
+            }
+            IconButton(symbol: "xmark", size: 24, help: appState.t("ui.eq.stop")) { appState.stopBlindAB() }
+        }
+    }
+
+    private var compareSavePresetButton: some View {
+        Button(appState.t("ui.eq.save_from_ab")) {
+            beginSaveNewPreset(suggestedName: "\(appState.activeOutputDevice?.name ?? "Custom") · A/B")
+        }
+        .buttonStyle(.t(.secondary, compact: true))
+        .fixedSize()
+    }
+
     private var comparePanel: some View {
         panel(appState.t("ui.eq.compare_title"), appState.t("ui.eq.compare_sub")) {
-            HStack(spacing: 8) {
-                if !appState.blindABActive {
-                    Button(appState.t("ui.eq.start_blind")) { appState.startBlindAB() }
-                        .buttonStyle(.t(.secondary, compact: true))
-                } else {
-                    sampleButton("X", selected: appState.blindCurrentIsX) { appState.selectBlindSample(isX: true) }
-                    sampleButton("Y", selected: !appState.blindCurrentIsX) { appState.selectBlindSample(isX: false) }
-                    if !appState.blindRevealed {
-                        Button(appState.t("ui.eq.reveal")) { appState.revealBlindAB() }.buttonStyle(.t(.secondary, compact: true))
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 8) {
+                    compareBlindActions
+                    Spacer(minLength: 4)
+                    if appState.blindRevealed {
+                        Text(String(format: appState.t("ui.eq.reveal_result"), appState.blindXIsFull ? appState.t("ui.eq.with_eq") : appState.t("ui.eq.without_eq")))
+                            .type(TimbreTypography.caption).foregroundStyle(c.ink_secondary)
+                            .fixedSize()
                     }
-                    IconButton(symbol: "xmark", size: 24, help: appState.t("ui.eq.stop")) { appState.stopBlindAB() }
+                    compareSavePresetButton
                 }
-                Spacer()
-                if appState.blindRevealed {
-                    Text(String(format: appState.t("ui.eq.reveal_result"), appState.blindXIsFull ? appState.t("ui.eq.with_eq") : appState.t("ui.eq.without_eq")))
-                        .type(TimbreTypography.caption).foregroundStyle(c.ink_secondary)
+                TWrapLayout(spacing: 8, lineSpacing: 8) {
+                    compareBlindActions
+                    if appState.blindRevealed {
+                        Text(String(format: appState.t("ui.eq.reveal_result"), appState.blindXIsFull ? appState.t("ui.eq.with_eq") : appState.t("ui.eq.without_eq")))
+                            .type(TimbreTypography.caption).foregroundStyle(c.ink_secondary)
+                    }
+                    compareSavePresetButton
                 }
-                Button(appState.t("ui.eq.save_from_ab")) {
-                    beginSaveNewPreset(suggestedName: "\(appState.activeOutputDevice?.name ?? "Custom") · A/B")
-                }
-                .buttonStyle(.t(.secondary, compact: true))
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
             Hairline()
             HStack(spacing: 8) {
@@ -1679,6 +1740,7 @@ private struct EqualizerPage: View {
             appState.submitAIPrompt()
         }
         .buttonStyle(.t(.secondary, compact: true))
+        .fixedSize()
     }
 
     private var assistantPanel: some View {
@@ -1695,13 +1757,13 @@ private struct EqualizerPage: View {
 
             Hairline()
 
-            HStack(spacing: 6) {
+            TWrapLayout(spacing: 6, lineSpacing: 6) {
                 quickTuningChip("ui.eq.chip.less_sibilance", promptKey: "ui.eq.chip.prompt.less_sibilance")
                 quickTuningChip("ui.eq.chip.more_sub", promptKey: "ui.eq.chip.prompt.more_sub")
                 quickTuningChip("ui.eq.chip.vocal_clarity", promptKey: "ui.eq.chip.prompt.vocal_clarity")
                 quickTuningChip("ui.eq.chip.less_mud", promptKey: "ui.eq.chip.prompt.less_mud")
-                Spacer(minLength: 0)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
 
             if !appState.aiStatusMessage.isEmpty {
                 Text(appState.aiStatusMessage).type(TimbreTypography.caption).foregroundStyle(c.ink_muted).fixedSize(horizontal: false, vertical: true)
