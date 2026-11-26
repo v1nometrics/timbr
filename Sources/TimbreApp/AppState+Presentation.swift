@@ -62,7 +62,7 @@ extension AppState {
         if isProcessingBypassed { return String(format: t("ui.summary.bypassed"), device) }
         let taps = activeTapsCount
         if taps == 0 { return String(format: t("ui.summary.native"), device) }
-        return String(format: t("ui.summary.processing"), device, Fmt.db(telemetry.preampDB))
+        return String(format: t("ui.summary.processing"), device, Fmt.db(preampDB))
     }
 
     /// RF-0404 / RF-0607: when the output changes, load the preset saved for that device UID.

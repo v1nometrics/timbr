@@ -573,11 +573,12 @@ struct TFader: View {
             let fill = isOver ? (overTint ?? c.semantic_warning) : (tint ?? c.ink_primary)
             ZStack(alignment: .leading) {
                 Capsule().fill(c.bg_track).frame(height: trackHeight)
-                if let live = liveMeterNorm, live > 0.005 {
-                    Capsule()
-                        .fill(c.semantic_positive.opacity(0.28))
-                        .frame(width: min(w, max(trackHeight, CGFloat(min(max(live, 0), 1)) * w)), height: trackHeight)
-                }
+                let liveNorm = CGFloat(min(max(liveMeterNorm ?? 0, 0), 1))
+                Capsule()
+                    .fill(c.semantic_positive.opacity(liveNorm > 0.005 ? 0.28 : 0))
+                    .frame(width: w, height: trackHeight)
+                    .scaleEffect(x: max(0.001, liveNorm), y: 1, anchor: .leading)
+                    .allowsHitTesting(false)
                 ForEach(scaleMarks, id: \.self) { mark in
                     Rectangle()
                         .fill(c.ink_faint)
@@ -966,17 +967,37 @@ struct MiniMeter: View {
                 time: ctx.date.timeIntervalSinceReferenceDate,
                 reduceMotion: reduceMotion
             )
-            HStack(alignment: .center, spacing: 1.5) {
-                ForEach(0..<bars.count, id: \.self) { i in
-                    Capsule()
-                        .fill(color.opacity(bars[i].opacity))
-                        .frame(width: 1.5, height: bars[i].height)
+            Canvas { context, size in
+                let barW: CGFloat = 1.5
+                let gap: CGFloat = 1.5
+                for (idx, bar) in bars.enumerated() {
+                    let h = min(size.height, max(1.5, bar.height))
+                    let x = CGFloat(idx) * (barW + gap)
+                    let y = (size.height - h) / 2
+                    let rect = CGRect(x: x, y: y, width: barW, height: h)
+                    context.fill(Path(roundedRect: rect, cornerRadius: barW / 2), with: .color(color.opacity(bar.opacity)))
                 }
             }
+            .frame(width: CGFloat(max(0, bars.count)) * 3.0 - (bars.isEmpty ? 0 : 1.5), height: 14)
         }
         .frame(height: 14)
-        .animation(TimbreMotion.meter, value: level)
         .accessibilityHidden(true)
+    }
+}
+
+/// Self-contained MiniMeter leaf observing only `LiveMeterModel` so 24 Hz level changes
+/// never re-render the surrounding Notch or MenuBarPanel chrome.
+struct LiveMiniMeter: View {
+    @ObservedObject var liveMeters: LiveMeterModel
+    var hasLiveSignal: Bool
+    var active: Bool
+    var color: Color
+
+    var body: some View {
+        let level: Double? = hasLiveSignal
+            ? min(1, max(0, (liveMeters.telemetry.lufsMomentary + 48) / 40))
+            : nil
+        MiniMeter(level: level, active: active, color: color)
     }
 }
 
@@ -1209,38 +1230,48 @@ struct TLevelMeter: View {
     }
 
     var body: some View {
-        GeometryReader { geo in
-            let w = geo.size.width
-            let peakNorm = CGFloat(AudioDecibelMath.dbToNormalized(peakDB, minDB: minDB, maxDB: maxDB, audioTaper: audioTaper))
-            let rmsNorm = rmsDB.map { CGFloat(AudioDecibelMath.dbToNormalized($0, minDB: minDB, maxDB: maxDB, audioTaper: audioTaper)) }
-            let holdNorm = heldPeakDB.map { CGFloat(AudioDecibelMath.dbToNormalized($0, minDB: minDB, maxDB: maxDB, audioTaper: audioTaper)) }
-            let color = barColor(for: peakDB)
+        let peakNorm = CGFloat(AudioDecibelMath.dbToNormalized(peakDB, minDB: minDB, maxDB: maxDB, audioTaper: audioTaper))
+        let rmsNorm = rmsDB.map { CGFloat(AudioDecibelMath.dbToNormalized($0, minDB: minDB, maxDB: maxDB, audioTaper: audioTaper)) }
+        let holdNorm = heldPeakDB.map { CGFloat(AudioDecibelMath.dbToNormalized($0, minDB: minDB, maxDB: maxDB, audioTaper: audioTaper)) }
+        let color = barColor(for: peakDB)
+        let holdColor = heldPeakDB.map { $0 >= clipDB } == true ? c.semantic_negative : c.ink_primary
+        let trackColor = c.bg_track
+        let barH = height
 
-            ZStack(alignment: .leading) {
-                Capsule().fill(c.bg_track)
-                if let rmsNorm {
-                    // Dual mode: translucent peak bar behind solid RMS bar
-                    Capsule()
-                        .fill(color.opacity(0.35))
-                        .frame(width: max(0, w * peakNorm))
-                    Capsule()
-                        .fill(color)
-                        .frame(width: max(0, w * min(rmsNorm, peakNorm)))
-                } else {
-                    Capsule()
-                        .fill(color)
-                        .frame(width: max(0, w * peakNorm))
+        // Pure Canvas meter: AudioMeterBallistics already provides IEC 60268-18 smoothing,
+        // so rendering directly avoids 60-120 fps SwiftUI layout/CALayer churn during playback.
+        Canvas { ctx, size in
+            let w = size.width
+            let y = (size.height - barH) / 2
+            let radius = barH / 2
+            guard w > 1 else { return }
+
+            let trackRect = CGRect(x: 0, y: y, width: w, height: barH)
+            ctx.fill(Path(roundedRect: trackRect, cornerRadius: radius), with: .color(trackColor))
+
+            let peakW = max(0, w * peakNorm)
+            if let rmsNorm {
+                if peakW > 0.5 {
+                    let peakRect = CGRect(x: 0, y: y, width: peakW, height: barH)
+                    ctx.fill(Path(roundedRect: peakRect, cornerRadius: radius), with: .color(color.opacity(0.35)))
                 }
-                if let holdNorm, holdNorm > 0.01 {
-                    Rectangle()
-                        .fill(heldPeakDB.map { $0 >= clipDB } == true ? c.semantic_negative : c.ink_primary)
-                        .frame(width: 1.5, height: height + 2)
-                        .offset(x: min(w - 1.5, max(0, w * holdNorm - 0.75)))
+                let rmsW = max(0, w * min(rmsNorm, peakNorm))
+                if rmsW > 0.5 {
+                    let rmsRect = CGRect(x: 0, y: y, width: rmsW, height: barH)
+                    ctx.fill(Path(roundedRect: rmsRect, cornerRadius: radius), with: .color(color))
                 }
+            } else if peakW > 0.5 {
+                let peakRect = CGRect(x: 0, y: y, width: peakW, height: barH)
+                ctx.fill(Path(roundedRect: peakRect, cornerRadius: radius), with: .color(color))
+            }
+
+            if let holdNorm, holdNorm > 0.01 {
+                let tickX = min(w - 1.5, max(0, w * holdNorm - 0.75))
+                let tickRect = CGRect(x: tickX, y: 0, width: 1.5, height: size.height)
+                ctx.fill(Path(tickRect), with: .color(holdColor))
             }
         }
-        .frame(height: height)
-        .animation(TimbreMotion.meter, value: peakDB)
+        .frame(height: height + 2)
     }
 }
 

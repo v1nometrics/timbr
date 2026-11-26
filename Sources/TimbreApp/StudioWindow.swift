@@ -494,6 +494,7 @@ private struct TimelineSection: View {
 private struct MixerPage: View {
     @ObservedObject var appState: AppState
     @Environment(\.palette) private var c
+    @State private var telemetryTier: Int = 0
 
     var body: some View {
         VStack(alignment: .leading, spacing: 32) {
@@ -524,10 +525,7 @@ private struct MixerPage: View {
 
     private var masterConsoleStrip: some View {
         let dev = appState.activeOutputDevice
-        let t = appState.telemetry
         let live = appState.hasLiveSignal
-        let peakDB = live ? max(appState.meterBallisticsL.smoothedDB, appState.meterBallisticsR.smoothedDB) : -60.0
-        let holdDB = live ? max(appState.meterBallisticsL.heldPeakDB, appState.meterBallisticsR.heldPeakDB) : nil
         let isMuted = appState.outputSilenced
         let rawVol = appState.activeOutputVolume ?? Double(dev.flatMap { appState.halManager.readOutputVolumeScalar(deviceID: $0.audioObjectID) } ?? 0.5)
         let vol = isMuted ? 0 : rawVol
@@ -572,17 +570,16 @@ private struct MixerPage: View {
                 Spacer(minLength: 8)
 
                 if let dev, dev.isHWVolumeMasterSettable || dev.isHWVolumeChannelSettable {
-                    let liveNorm: Double? = (!isMuted && appState.playingCount > 0)
-                        ? (live ? AudioDecibelMath.dbToNormalized(peakDB, minDB: -60, maxDB: 0) : min(1.0, rawVol * 0.52))
-                        : nil
-                    TFader(
-                        value: Binding(get: { vol }, set: { appState.setOutputVolume(dev, value: $0, showHUD: false) }),
-                        range: 0...1,
+                    LiveMasterFader(
+                        liveMeters: appState.liveMeters,
+                        hasLiveSignal: live,
+                        playing: !isMuted && appState.playingCount > 0,
+                        rawVol: rawVol,
+                        vol: vol,
                         tint: c.ink_primary,
                         label: dev.name,
                         valueText: isMuted ? appState.t("ui.notch.muted") : Fmt.percent(rawVol),
-                        liveMeterNorm: liveNorm,
-                        scaleMarks: [0.25, 0.5, 0.75]
+                        onChange: { appState.setOutputVolume(dev, value: $0, showHUD: false) }
                     )
                     .frame(maxWidth: 320)
 
@@ -615,89 +612,31 @@ private struct MixerPage: View {
 
             Hairline()
 
-            // Integrated Signal Chain Telemetry Bar (replaces the 4 separate KPI cards).
-            // Full when it fits; otherwise the tap count (level 1), then the peak bar (level 2) step aside, so the card
-            // never forces the page wider than the window (it used to overflow by ~15 pt at 1180 pt).
-            ViewThatFits(in: .horizontal) {
-                telemetryBar(level: 0, t: t, live: live, peakDB: peakDB, holdDB: holdDB, activeBands: activeBands)
-                telemetryBar(level: 1, t: t, live: live, peakDB: peakDB, holdDB: holdDB, activeBands: activeBands)
-                telemetryBar(level: 2, t: t, live: live, peakDB: peakDB, holdDB: holdDB, activeBands: activeBands)
-            }
+            // Isolated live telemetry leaf: avoids ViewThatFits re-measurement and MixerPage redraws at 24 Hz.
+            MixerTelemetryStrip(
+                liveMeters: appState.liveMeters,
+                tier: telemetryTier,
+                isProcessingBypassed: appState.isProcessingBypassed,
+                pathIsNative: appState.pathIsNative,
+                hasLiveSignal: live,
+                activeTapsCount: appState.activeTapsCount,
+                playingCount: appState.playingCount,
+                totalSourcesCount: appState.mixerSources.count,
+                presetName: appState.activePreset.name,
+                activeBands: activeBands,
+                t: appState.t,
+                onOpenEqualizer: { appState.selectedTab = .equalizer }
+            )
             .background(c.bg_inset)
         }
-    }
-
-    private func telemetryBar(level: Int, t: DSPTelemetrySnapshot, live: Bool, peakDB: Double, holdDB: Double?, activeBands: Int) -> some View {
-        HStack(spacing: 14) {
-            HStack(spacing: 6) {
-                Circle()
-                    .fill(appState.isProcessingBypassed ? c.ink_muted : (appState.pathIsNative ? c.semantic_positive : c.accent_signal))
-                    .frame(width: 6, height: 6)
-                Text(appState.isProcessingBypassed ? appState.t("ui.path.bypassed") : (appState.pathIsNative ? appState.t("ui.path.native_short") : appState.t("ui.path.processing_short")))
-                    .type(TimbreTypography.monoSmall)
-                    .foregroundStyle(c.ink_primary)
-                if level < 1 {
-                    Text("· " + String(format: appState.t("ui.kpi.taps_n"), appState.activeTapsCount))
-                        .type(TimbreTypography.monoSmall)
-                        .foregroundStyle(c.ink_muted)
-                }
-            }
-            .fixedSize()
-
-            Hairline(vertical: true).frame(height: 14)
-
-            HStack(spacing: 5) {
-                Eyebrow(text: appState.t("ui.kpi.playing"))
-                Text("\(appState.playingCount)")
-                    .type(TimbreTypography.monoValue)
-                    .foregroundStyle(appState.playingCount > 0 ? c.ink_primary : c.ink_muted)
-                Text("/ \(appState.mixerSources.count)")
-                    .type(TimbreTypography.monoSmall)
-                    .foregroundStyle(c.ink_faint)
-            }
-            .fixedSize()
-
-            Hairline(vertical: true).frame(height: 14)
-
-            HStack(spacing: 5) {
-                Eyebrow(text: appState.t("eq.preamp"))
-                Text(Fmt.db(t.preampDB) + " dB")
-                    .type(TimbreTypography.monoValue)
-                    .foregroundStyle(c.ink_primary)
-            }
-            .fixedSize()
-
-            Hairline(vertical: true).frame(height: 14)
-
-            HStack(spacing: 7) {
-                Eyebrow(text: appState.t("ui.eq.true_peak"))
-                if level < 2 {
-                    TLevelMeter(peakDB: peakDB, rmsDB: live ? t.lufsMomentary : nil, heldPeakDB: holdDB, height: 5)
-                        .frame(width: 72)
-                }
-                Text((live && max(t.truePeakL, t.truePeakR) > -70) ? Fmt.signed(max(t.truePeakL, t.truePeakR)) + " dBTP" : "—")
-                    .type(TimbreTypography.monoSmall)
-                    .foregroundStyle(c.ink_secondary)
-            }
-            .fixedSize()
-
-            Spacer(minLength: 8)
-
-            Button {
-                appState.selectedTab = .equalizer
-            } label: {
-                HStack(spacing: 5) {
-                    Image(systemName: "point.bottomleft.forward.to.point.topright.scurvepath")
-                        .font(.system(size: 10, weight: .medium))
-                    Text(appState.activePreset.name + (activeBands > 0 ? " (\(activeBands))" : ""))
-                        .lineLimit(1)
-                }
-            }
-            .buttonStyle(.t(.ghost, compact: true))
-            .fixedSize(horizontal: level < 2, vertical: false)
+        .onGeometryChange(for: Int.self) { proxy in
+            let w = proxy.size.width
+            if w >= 820 { return 0 }
+            if w >= 710 { return 1 }
+            return 2
+        } action: { tier in
+            telemetryTier = tier
         }
-        .padding(.horizontal, 20)
-        .frame(height: 38)
     }
 
     @ViewBuilder private var sources: some View {
@@ -815,15 +754,15 @@ private struct SourceRow: View {
                 Text(appState.t("ui.mixer.voip_detail")).type(TimbreTypography.caption).foregroundStyle(c.ink_muted)
                 Spacer()
             } else {
-                let liveNorm: Double? = (src.isPlaying && !src.isMuted && !appState.outputSilenced)
-                    ? (appState.hasLiveSignal
-                       ? AudioDecibelMath.dbToNormalized(max(appState.meterBallisticsL.smoothedDB, appState.meterBallisticsR.smoothedDB) + (src.volume > 0.0001 ? 20 * log10(src.volume) : -60), minDB: -60, maxDB: 6)
-                       : min(1.0, src.volume * 0.52))
-                    : nil
-                TFader(value: Binding(get: { src.isMuted ? 0 : src.volume }, set: { appState.setSourceVolume(bundleID: src.bundleID, volume: $0) }),
-                       range: 0...2, unity: 1, tint: c.ink_primary, label: src.name, valueText: Fmt.percent(src.volume), unityPosition: 0.75,
-                       liveMeterNorm: liveNorm, scaleMarks: [0.25, 0.5, 0.75, 1.5])
-                    .frame(maxWidth: 420)
+                LiveSourceFader(
+                    liveMeters: appState.liveMeters,
+                    hasLiveSignal: appState.hasLiveSignal,
+                    playing: src.isPlaying && !src.isMuted && !appState.outputSilenced,
+                    src: src,
+                    tint: c.ink_primary,
+                    onChange: { appState.setSourceVolume(bundleID: src.bundleID, volume: $0) }
+                )
+                .frame(maxWidth: 420)
                 HStack(alignment: .firstTextBaseline, spacing: 1) {
                     Text(src.isMuted ? "—" : Fmt.percent(src.volume)).type(TimbreTypography.monoValue)
                     Text("%").type(TimbreTypography.monoSmall).foregroundStyle(c.ink_muted)
@@ -1024,6 +963,9 @@ private struct EqualizerPage: View {
 
     @State private var presetEditorMode: PresetEditorMode? = nil
     @State private var presetNameDraft: String = ""
+    /// Discrete width tier measured once via `.onGeometryChange` (0: wide >= 960, 1: medium >= 790, 2: compact < 790).
+    /// Replaces nested `ViewThatFits` containers that triggered exponential SwiftUI re-layout passes.
+    @State private var widthTier: Int = 1
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -1057,7 +999,19 @@ private struct EqualizerPage: View {
                     .padding(.top, 6)
                     .padding(.bottom, 8)
                 Hairline()
-                metrology
+                EQMetrologyStrip(
+                    liveMeters: appState.liveMeters,
+                    hasLiveSignal: appState.hasLiveSignal,
+                    latencyMs: appState.activeOutputDevice?.totalReportedLatencyMs ?? 0,
+                    isCompact: widthTier >= 2,
+                    crossfeedEnabled: appState.activePreset.crossfeedEnabled,
+                    t: appState.t,
+                    onResetClip: { appState.resetClipLatch() },
+                    onToggleCrossfeed: {
+                        appState.activePreset.crossfeedEnabled = $0
+                        appState.syncDSPAndTap()
+                    }
+                )
                 Hairline()
                 if appState.activePreset.useAdvancedPEQ {
                     advancedBandsConsole
@@ -1075,6 +1029,14 @@ private struct EqualizerPage: View {
                 assistantPanel
             }
             .fixedSize(horizontal: false, vertical: true)
+        }
+        .onGeometryChange(for: Int.self) { proxy in
+            let w = proxy.size.width
+            if w >= 960 { return 0 }
+            if w >= 790 { return 1 }
+            return 2
+        } action: { tier in
+            widthTier = tier
         }
     }
 
@@ -1200,38 +1162,33 @@ private struct EqualizerPage: View {
             legend(appState.t("eq.layer.result"), dashed: false, color: c.accent_signal, thick: true)
         }
         .fixedSize()
-        // Fit on one row when wide enough; step down to two rows or a wrapped tool row before
-        // clipping AutoEq / preset controls or widening the window on narrow layouts (e.g. 980 pt).
-        return ViewThatFits(in: .horizontal) {
-            HStack(spacing: 10) {
-                legendRow
-                Spacer(minLength: 8)
-                HStack(spacing: 8) {
-                    correctionToolItems(matches: matches, includeDivider: true)
+        // Single-pass responsive bar driven by `widthTier`: avoids duplicating MenuChip subtrees
+        // inside ViewThatFits while wrapping gracefully when AutoEq badges or presets are wide.
+        return Group {
+            if widthTier == 0 {
+                HStack(spacing: 10) {
+                    legendRow
+                    Spacer(minLength: 8)
+                    HStack(spacing: 8) {
+                        correctionToolItems(matches: matches, includeDivider: true)
+                    }
+                    .fixedSize()
                 }
-                .fixedSize()
-            }
-            .padding(.horizontal, 20)
-            .frame(height: 40)
-            VStack(alignment: .leading, spacing: 8) {
-                legendRow
-                HStack(spacing: 8) {
-                    correctionToolItems(matches: matches, includeDivider: true)
+                .padding(.horizontal, 20)
+                .frame(height: 40)
+            } else {
+                let showDivider = widthTier == 1 || appState.activePreset.correctionMetadata == nil
+                VStack(alignment: .leading, spacing: 8) {
+                    legendRow
+                    TWrapLayout(spacing: 8, lineSpacing: 8) {
+                        correctionToolItems(matches: matches, includeDivider: showDivider)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .fixedSize()
+                .padding(.horizontal, 20)
+                .padding(.vertical, 10)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 10)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            VStack(alignment: .leading, spacing: 8) {
-                legendRow
-                TWrapLayout(spacing: 8, lineSpacing: 8) {
-                    correctionToolItems(matches: matches, includeDivider: false)
-                }
-            }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 10)
-            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .background(c.bg_inset.opacity(0.5))
     }
@@ -1299,7 +1256,7 @@ private struct EqualizerPage: View {
     private var eqSummary: String {
         let n = appState.activePreset.allEffectiveBands.filter { $0.enabled && abs($0.gainDB) > 0.01 }.count
         if appState.isProcessingBypassed { return appState.t("ui.eq.summary_bypassed") }
-        return String(format: appState.t("ui.eq.summary"), n, Fmt.db(appState.telemetry.preampDB))
+        return String(format: appState.t("ui.eq.summary"), n, Fmt.db(appState.preampDB))
     }
 
     private func legend(_ title: String, dashed: Bool, color: Color, thick: Bool = false) -> some View {
@@ -1311,73 +1268,6 @@ private struct EqualizerPage: View {
             .frame(width: 16, height: 6)
             Text(title).type(TimbreTypography.caption).foregroundStyle(c.ink_secondary)
         }
-    }
-
-    private var metrology: some View {
-        ViewThatFits(in: .horizontal) {
-            metrologyRow(compact: false)
-            metrologyRow(compact: true)
-        }
-        .background(c.bg_inset.opacity(0.35))
-    }
-
-    private func metrologyRow(compact: Bool) -> some View {
-        let t = appState.telemetry
-        let live = appState.hasLiveSignal
-        let peakDB = live ? max(appState.meterBallisticsL.smoothedDB, appState.meterBallisticsR.smoothedDB) : -60.0
-        let holdDB = live ? max(appState.meterBallisticsL.heldPeakDB, appState.meterBallisticsR.heldPeakDB) : nil
-        let clipped = appState.meterBallisticsL.isClipLatched || appState.meterBallisticsR.isClipLatched || t.limiterActive
-        let statW: CGFloat? = compact ? nil : 138
-        return HStack(spacing: compact ? 16 : 0) {
-            stat(appState.t("eq.preamp"), Fmt.db(t.preampDB) + " dB", width: statW)
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 6) {
-                    Eyebrow(text: appState.t("ui.eq.true_peak"))
-                    Text((live && max(t.truePeakL, t.truePeakR) > -70) ? Fmt.signed(max(t.truePeakL, t.truePeakR)) + " dBTP" : "—")
-                        .type(TimbreTypography.monoValue)
-                        .foregroundStyle(c.ink_primary)
-                }
-                TLevelMeter(
-                    peakDB: peakDB,
-                    rmsDB: live ? t.lufsMomentary : nil,
-                    heldPeakDB: holdDB,
-                    height: 5
-                )
-                .frame(width: compact ? 88 : 124)
-            }
-            .fixedSize()
-            .frame(width: compact ? nil : 156, alignment: .leading)
-            stat(appState.t("ui.eq.limiter"), !live ? "—" : (t.limiterActive ? Fmt.db(-abs(t.limiterGR)) + " dB" : appState.t("ui.eq.idle")), width: statW)
-            stat(appState.t("ui.eq.latency"), String(format: "%.1f ms", appState.activeOutputDevice?.totalReportedLatencyMs ?? 0), width: statW)
-            TClipIndicator(
-                clipping: clipped,
-                count: Int(t.clipPreventedCount) + max(appState.meterBallisticsL.clipEventCount, appState.meterBallisticsR.clipEventCount),
-                label: "CLIP"
-            ) {
-                appState.resetClipLatch()
-            }
-            .fixedSize()
-            Spacer(minLength: 8)
-            HStack(spacing: 8) {
-                Text(appState.t("eq.crossfeed"))
-                    .type(TimbreTypography.caption)
-                    .foregroundStyle(c.ink_secondary)
-                    .fixedSize()
-                TSwitch(isOn: Binding(get: { appState.activePreset.crossfeedEnabled }, set: { appState.activePreset.crossfeedEnabled = $0; appState.syncDSPAndTap() }), label: appState.t("eq.crossfeed"))
-            }
-            .fixedSize()
-        }
-        .padding(.horizontal, 20)
-        .frame(height: 52)
-    }
-
-    private func stat(_ label: String, _ value: String, width: CGFloat?) -> some View {
-        VStack(alignment: .leading, spacing: 3) {
-            Eyebrow(text: label)
-            Text(value).type(TimbreTypography.monoValue).foregroundStyle(c.ink_primary)
-        }
-        .fixedSize()
-        .frame(width: width, alignment: .leading)
     }
 
     /// 31.5 Hz must not read "32 Hz" (Fmt.hz rounds).
@@ -1677,7 +1567,17 @@ private struct EqualizerPage: View {
 
     private var comparePanel: some View {
         panel(appState.t("ui.eq.compare_title"), appState.t("ui.eq.compare_sub")) {
-            ViewThatFits(in: .horizontal) {
+            if appState.blindABActive && widthTier >= 2 {
+                TWrapLayout(spacing: 8, lineSpacing: 8) {
+                    compareBlindActions
+                    if appState.blindRevealed {
+                        Text(String(format: appState.t("ui.eq.reveal_result"), appState.blindXIsFull ? appState.t("ui.eq.with_eq") : appState.t("ui.eq.without_eq")))
+                            .type(TimbreTypography.caption).foregroundStyle(c.ink_secondary)
+                    }
+                    compareSavePresetButton
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            } else {
                 HStack(spacing: 8) {
                     compareBlindActions
                     Spacer(minLength: 4)
@@ -1688,15 +1588,6 @@ private struct EqualizerPage: View {
                     }
                     compareSavePresetButton
                 }
-                TWrapLayout(spacing: 8, lineSpacing: 8) {
-                    compareBlindActions
-                    if appState.blindRevealed {
-                        Text(String(format: appState.t("ui.eq.reveal_result"), appState.blindXIsFull ? appState.t("ui.eq.with_eq") : appState.t("ui.eq.without_eq")))
-                            .type(TimbreTypography.caption).foregroundStyle(c.ink_secondary)
-                    }
-                    compareSavePresetButton
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
             }
             Hairline()
             HStack(spacing: 8) {
@@ -1811,64 +1702,22 @@ private struct ObservatoryPage: View {
                 signalPath
             }
 
-            let t = appState.telemetry
-            let live = appState.hasLiveSignal
-            let hasPeak = live && max(t.truePeakL, t.truePeakR) > -70
-
-            TLCDDisplay(
-                title: "TRUE PEAK & LUFS RECORDER MONITOR",
-                statusText: live ? "LIVE · 4× OVERSAMPLED" : (appState.pathIsNative ? "BIT-PERFECT · 0 TAPS" : "IDLE"),
-                isLive: live
-            ) {
-                VStack(spacing: 10) {
-                    TLCDMeterRow(
-                        channelLabel: "L",
-                        dbfs: live ? appState.meterBallisticsL.smoothedDB : -90,
-                        heldPeakDB: live ? appState.meterBallisticsL.heldPeakDB : nil,
-                        segmentCount: 32,
-                        unit: "dBTP"
-                    )
-                    TLCDMeterRow(
-                        channelLabel: "R",
-                        dbfs: live ? appState.meterBallisticsR.smoothedDB : -90,
-                        heldPeakDB: live ? appState.meterBallisticsR.heldPeakDB : nil,
-                        segmentCount: 32,
-                        unit: "dBTP"
-                    )
-                    HStack(spacing: 8) {
-                        Color.clear.frame(width: 24, height: 1)
-                        TdBScale(minDB: -60, maxDB: 0, ticks: [-48, -36, -24, -18, -12, -6, -3, 0], audioTaper: true, showLabels: true)
-                        TClipIndicator(
-                            clipping: appState.meterBallisticsL.isClipLatched || appState.meterBallisticsR.isClipLatched || t.limiterActive,
-                            count: Int(t.clipPreventedCount) + max(appState.meterBallisticsL.clipEventCount, appState.meterBallisticsR.clipEventCount),
-                            label: "CLIP"
-                        ) {
-                            appState.resetClipLatch()
-                        }
-                        .frame(width: 68, alignment: .trailing)
-                    }
-
-                    Hairline()
-
-                    HStack(spacing: 24) {
-                        lcdMetric("LUFS · M", live && t.lufsMomentary > -70 ? Fmt.signed(t.lufsMomentary) + " LUFS" : "—")
-                        lcdMetric(appState.t("ui.eq.true_peak"), hasPeak ? Fmt.signed(max(t.truePeakL, t.truePeakR)) + " dBTP" : "—")
-                        lcdMetric(appState.t("ui.eq.limiter"), live ? (t.limiterActive ? Fmt.db(-abs(t.limiterGR)) + " dB" : "0.0 dB") : "—")
-                        lcdMetric(appState.t("ui.obs.clips"), "\(t.clipPreventedCount)")
-                        lcdMetric("DSP", live ? String(format: "%.0f µs", t.cpuMicroseconds) : "—")
-                        Spacer()
-                    }
-                    .padding(.top, 2)
-                }
-            }
+            ObservatoryMetersCard(
+                liveMeters: appState.liveMeters,
+                hasLiveSignal: appState.hasLiveSignal,
+                pathIsNative: appState.pathIsNative,
+                t: appState.t,
+                onResetClip: { appState.resetClipLatch() }
+            )
 
             VStack(alignment: .leading, spacing: 14) {
                 SectionHeader(index: "02", title: appState.t("ui.obs.spectrum_title"), subtitle: appState.t("ui.obs.spectrum_sub"))
-                SpectrumView(bins: appState.hasLiveSignal ? t.spectrumBinsDB : [], sampleRate: appState.activeOutputDevice?.sampleRate ?? 48000, emptyText: appState.t("ui.obs.spectrum_empty"))
-                    .frame(height: 160)
-                    .padding(18)
-                    .background(RoundedRectangle(cornerRadius: TimbreRadius.card, style: .continuous).fill(c.bg_surface))
-                    .overlay(RoundedRectangle(cornerRadius: TimbreRadius.card, style: .continuous).strokeBorder(c.line_default, lineWidth: 1))
+                ObservatorySpectrumCard(
+                    liveMeters: appState.liveMeters,
+                    hasLiveSignal: appState.hasLiveSignal,
+                    sampleRate: appState.activeOutputDevice?.sampleRate ?? 48000,
+                    emptyText: appState.t("ui.obs.spectrum_empty")
+                )
             }
 
             if let drv = appState.driverTelemetry {
@@ -1911,16 +1760,6 @@ private struct ObservatoryPage: View {
         }
     }
 
-    private func lcdMetric(_ label: String, _ value: String) -> some View {
-        HStack(spacing: 6) {
-            OriginMark(origin: .measured)
-            Eyebrow(text: label)
-            Text(value)
-                .type(TimbreTypography.monoValue)
-                .foregroundStyle(c.ink_primary)
-        }
-    }
-
     private var obsSummary: String {
         appState.guardianAlerts.isEmpty ? appState.t("ui.obs.summary_clean") : String(format: appState.t("ui.obs.summary_alerts"), appState.guardianAlerts.count)
     }
@@ -1942,7 +1781,7 @@ private struct ObservatoryPage: View {
             Stage(id: "src", title: appState.t("obs.stage.sources"), value: "\(appState.playingCount)", detail: String(format: appState.t("ui.obs.n_listed"), appState.mixerSources.count), origin: .measured, active: appState.playingCount > 0),
             Stage(id: "mix", title: appState.t("obs.stage.mixer"), value: taps == 0 ? appState.t("ui.path.native_short") : "\(taps) tap\(taps == 1 ? "" : "s")", detail: taps == 0 ? appState.t("ui.obs.untouched") : "Float32 · +1 buffer", origin: taps == 0 ? .bitPerfect : .measured, active: taps > 0),
             Stage(id: "cor", title: appState.t("obs.stage.correction"), value: "\(p.correctionBands.filter(\.enabled).count) " + appState.t("ui.obs.filters"), detail: p.correctionMetadata?.headphoneModel ?? appState.t("ui.obs.none"), origin: .measured, active: p.correctionBands.contains(where: \.enabled)),
-            Stage(id: "tas", title: appState.t("obs.stage.taste"), value: "\(p.effectiveTasteBands.filter { $0.enabled && abs($0.gainDB) > 0.01 }.count) " + appState.t("ui.obs.filters"), detail: Fmt.db(appState.telemetry.preampDB) + " dB preamp", origin: .measured, active: p.effectiveTasteBands.contains { $0.enabled && abs($0.gainDB) > 0.01 }),
+            Stage(id: "tas", title: appState.t("obs.stage.taste"), value: "\(p.effectiveTasteBands.filter { $0.enabled && abs($0.gainDB) > 0.01 }.count) " + appState.t("ui.obs.filters"), detail: Fmt.db(appState.preampDB) + " dB preamp", origin: .measured, active: p.effectiveTasteBands.contains { $0.enabled && abs($0.gainDB) > 0.01 }),
             Stage(id: "pro", title: appState.t("obs.stage.protection"), value: Fmt.db(p.limiterCeilingDBTP), detail: "dBTP · lookahead", origin: .measured, active: taps > 0),
             Stage(id: "dev", title: appState.t("obs.stage.device"), value: dev?.rateLabel ?? "—", detail: dev?.name ?? "—", origin: .reported, active: true),
             Stage(id: "ear", title: appState.t("obs.stage.headphone"), value: appState.driverTelemetry?.reportedCodec ?? (dev?.transport.isBluetooth == true ? "AAC?" : "—"), detail: dev?.transportLabel(appState.t) ?? "—", origin: .inferred, active: true)
@@ -2601,5 +2440,315 @@ private struct UpdateStatusRow: View {
             .buttonStyle(.t(.secondary, compact: true))
             .disabled(appState.updater.isBusy)
         }
+    }
+}
+
+// MARK: - Isolated Live Telemetry Leaves (24 Hz meters without parent re-layout)
+
+private struct LiveMasterFader: View {
+    @ObservedObject var liveMeters: LiveMeterModel
+    let hasLiveSignal: Bool
+    let playing: Bool
+    let rawVol: Double
+    let vol: Double
+    let tint: Color
+    let label: String
+    let valueText: String
+    let onChange: @MainActor @Sendable (Double) -> Void
+
+    var body: some View {
+        let peakDB = hasLiveSignal ? max(liveMeters.ballisticsL.smoothedDB, liveMeters.ballisticsR.smoothedDB) : -60.0
+        let liveNorm: Double? = playing
+            ? (hasLiveSignal ? AudioDecibelMath.dbToNormalized(peakDB, minDB: -60, maxDB: 0) : min(1.0, rawVol * 0.52))
+            : nil
+        TFader(
+            value: Binding(get: { vol }, set: { onChange($0) }),
+            range: 0...1,
+            tint: tint,
+            label: label,
+            valueText: valueText,
+            liveMeterNorm: liveNorm,
+            scaleMarks: [0.25, 0.5, 0.75]
+        )
+    }
+}
+
+private struct LiveSourceFader: View {
+    @ObservedObject var liveMeters: LiveMeterModel
+    let hasLiveSignal: Bool
+    let playing: Bool
+    let src: AudioSourceDescriptor
+    let tint: Color
+    let onChange: @MainActor @Sendable (Double) -> Void
+
+    var body: some View {
+        let liveNorm: Double? = playing
+            ? (hasLiveSignal
+               ? AudioDecibelMath.dbToNormalized(max(liveMeters.ballisticsL.smoothedDB, liveMeters.ballisticsR.smoothedDB) + (src.volume > 0.0001 ? 20 * log10(src.volume) : -60), minDB: -60, maxDB: 6)
+               : min(1.0, src.volume * 0.52))
+            : nil
+        TFader(
+            value: Binding(get: { src.isMuted ? 0 : src.volume }, set: { onChange($0) }),
+            range: 0...2,
+            unity: 1,
+            tint: tint,
+            label: src.name,
+            valueText: Fmt.percent(src.volume),
+            unityPosition: 0.75,
+            liveMeterNorm: liveNorm,
+            scaleMarks: [0.25, 0.5, 0.75, 1.5]
+        )
+    }
+}
+
+private struct MixerTelemetryStrip: View {
+    @ObservedObject var liveMeters: LiveMeterModel
+    let tier: Int
+    let isProcessingBypassed: Bool
+    let pathIsNative: Bool
+    let hasLiveSignal: Bool
+    let activeTapsCount: Int
+    let playingCount: Int
+    let totalSourcesCount: Int
+    let presetName: String
+    let activeBands: Int
+    let t: (String) -> String
+    let onOpenEqualizer: () -> Void
+    @Environment(\.palette) private var c
+
+    var body: some View {
+        let snap = liveMeters.telemetry
+        let peakDB = hasLiveSignal ? max(liveMeters.ballisticsL.smoothedDB, liveMeters.ballisticsR.smoothedDB) : -60.0
+        let holdDB = hasLiveSignal ? max(liveMeters.ballisticsL.heldPeakDB, liveMeters.ballisticsR.heldPeakDB) : nil
+        return HStack(spacing: 14) {
+            HStack(spacing: 6) {
+                Circle()
+                    .fill(isProcessingBypassed ? c.ink_muted : (pathIsNative ? c.semantic_positive : c.accent_signal))
+                    .frame(width: 6, height: 6)
+                Text(isProcessingBypassed ? t("ui.path.bypassed") : (pathIsNative ? t("ui.path.native_short") : t("ui.path.processing_short")))
+                    .type(TimbreTypography.monoSmall)
+                    .foregroundStyle(c.ink_primary)
+                if tier < 1 {
+                    Text("· " + String(format: t("ui.kpi.taps_n"), activeTapsCount))
+                        .type(TimbreTypography.monoSmall)
+                        .foregroundStyle(c.ink_muted)
+                }
+            }
+            .fixedSize()
+
+            Hairline(vertical: true).frame(height: 14)
+
+            HStack(spacing: 5) {
+                Eyebrow(text: t("ui.kpi.playing"))
+                Text("\(playingCount)")
+                    .type(TimbreTypography.monoValue)
+                    .foregroundStyle(playingCount > 0 ? c.ink_primary : c.ink_muted)
+                Text("/ \(totalSourcesCount)")
+                    .type(TimbreTypography.monoSmall)
+                    .foregroundStyle(c.ink_faint)
+            }
+            .fixedSize()
+
+            Hairline(vertical: true).frame(height: 14)
+
+            HStack(spacing: 5) {
+                Eyebrow(text: t("eq.preamp"))
+                Text(Fmt.db(snap.preampDB) + " dB")
+                    .type(TimbreTypography.monoValue)
+                    .foregroundStyle(c.ink_primary)
+            }
+            .fixedSize()
+
+            Hairline(vertical: true).frame(height: 14)
+
+            HStack(spacing: 7) {
+                Eyebrow(text: t("ui.eq.true_peak"))
+                if tier < 2 {
+                    TLevelMeter(peakDB: peakDB, rmsDB: hasLiveSignal ? snap.lufsMomentary : nil, heldPeakDB: holdDB, height: 5)
+                        .frame(width: 72)
+                }
+                Text((hasLiveSignal && max(snap.truePeakL, snap.truePeakR) > -70) ? Fmt.signed(max(snap.truePeakL, snap.truePeakR)) + " dBTP" : "—")
+                    .type(TimbreTypography.monoSmall)
+                    .foregroundStyle(c.ink_secondary)
+                    .frame(width: 72, alignment: .leading)
+            }
+            .fixedSize()
+
+            Spacer(minLength: 8)
+
+            Button(action: onOpenEqualizer) {
+                HStack(spacing: 5) {
+                    Image(systemName: "point.bottomleft.forward.to.point.topright.scurvepath")
+                        .font(.system(size: 10, weight: .medium))
+                    Text(presetName + (activeBands > 0 ? " (\(activeBands))" : ""))
+                        .lineLimit(1)
+                }
+            }
+            .buttonStyle(.t(.ghost, compact: true))
+            .fixedSize(horizontal: tier < 2, vertical: false)
+        }
+        .padding(.horizontal, 20)
+        .frame(height: 38)
+    }
+}
+
+private struct EQMetrologyStrip: View {
+    @ObservedObject var liveMeters: LiveMeterModel
+    let hasLiveSignal: Bool
+    let latencyMs: Double
+    let isCompact: Bool
+    let crossfeedEnabled: Bool
+    let t: (String) -> String
+    let onResetClip: @MainActor @Sendable () -> Void
+    let onToggleCrossfeed: @MainActor @Sendable (Bool) -> Void
+    @Environment(\.palette) private var c
+
+    var body: some View {
+        let snap = liveMeters.telemetry
+        let peakDB = hasLiveSignal ? max(liveMeters.ballisticsL.smoothedDB, liveMeters.ballisticsR.smoothedDB) : -60.0
+        let holdDB = hasLiveSignal ? max(liveMeters.ballisticsL.heldPeakDB, liveMeters.ballisticsR.heldPeakDB) : nil
+        let clipped = liveMeters.ballisticsL.isClipLatched || liveMeters.ballisticsR.isClipLatched || snap.limiterActive
+        let preampW: CGFloat = isCompact ? 62 : 138
+        let limiterW: CGFloat = isCompact ? 80 : 138
+        let latencyW: CGFloat = isCompact ? 62 : 138
+        return HStack(spacing: isCompact ? 14 : 0) {
+            stat(t("eq.preamp"), Fmt.db(snap.preampDB) + " dB", width: preampW)
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 6) {
+                    Eyebrow(text: t("ui.eq.true_peak"))
+                    Text((hasLiveSignal && max(snap.truePeakL, snap.truePeakR) > -70) ? Fmt.signed(max(snap.truePeakL, snap.truePeakR)) + " dBTP" : "—")
+                        .type(TimbreTypography.monoValue)
+                        .foregroundStyle(c.ink_primary)
+                        .frame(width: 76, alignment: .leading)
+                }
+                TLevelMeter(
+                    peakDB: peakDB,
+                    rmsDB: hasLiveSignal ? snap.lufsMomentary : nil,
+                    heldPeakDB: holdDB,
+                    height: 5
+                )
+                .frame(width: isCompact ? 88 : 124)
+            }
+            .frame(width: isCompact ? 150 : 156, alignment: .leading)
+            stat(t("ui.eq.limiter"), !hasLiveSignal ? "—" : (snap.limiterActive ? Fmt.db(-abs(snap.limiterGR)) + " dB" : t("ui.eq.idle")), width: limiterW)
+            stat(t("ui.eq.latency"), String(format: "%.1f ms", latencyMs), width: latencyW)
+            TClipIndicator(
+                clipping: clipped,
+                count: Int(snap.clipPreventedCount) + max(liveMeters.ballisticsL.clipEventCount, liveMeters.ballisticsR.clipEventCount),
+                label: "CLIP",
+                onReset: onResetClip
+            )
+            .fixedSize()
+            Spacer(minLength: 8)
+            HStack(spacing: 8) {
+                Text(t("eq.crossfeed"))
+                    .type(TimbreTypography.caption)
+                    .foregroundStyle(c.ink_secondary)
+                    .fixedSize()
+                TSwitch(isOn: Binding(get: { crossfeedEnabled }, set: { onToggleCrossfeed($0) }), label: t("eq.crossfeed"))
+            }
+            .fixedSize()
+        }
+        .padding(.horizontal, 20)
+        .frame(height: 52)
+        .background(c.bg_inset.opacity(0.35))
+    }
+
+    private func stat(_ label: String, _ value: String, width: CGFloat?) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Eyebrow(text: label)
+            Text(value).type(TimbreTypography.monoValue).foregroundStyle(c.ink_primary)
+        }
+        .fixedSize()
+        .frame(width: width, alignment: .leading)
+    }
+}
+
+private struct ObservatoryMetersCard: View {
+    @ObservedObject var liveMeters: LiveMeterModel
+    let hasLiveSignal: Bool
+    let pathIsNative: Bool
+    let t: (String) -> String
+    let onResetClip: () -> Void
+    @Environment(\.palette) private var c
+
+    var body: some View {
+        let snap = liveMeters.telemetry
+        let hasPeak = hasLiveSignal && max(snap.truePeakL, snap.truePeakR) > -70
+        TLCDDisplay(
+            title: "TRUE PEAK & LUFS RECORDER MONITOR",
+            statusText: hasLiveSignal ? "LIVE · 4× OVERSAMPLED" : (pathIsNative ? "BIT-PERFECT · 0 TAPS" : "IDLE"),
+            isLive: hasLiveSignal
+        ) {
+            VStack(spacing: 10) {
+                TLCDMeterRow(
+                    channelLabel: "L",
+                    dbfs: hasLiveSignal ? liveMeters.ballisticsL.smoothedDB : -90,
+                    heldPeakDB: hasLiveSignal ? liveMeters.ballisticsL.heldPeakDB : nil,
+                    segmentCount: 32,
+                    unit: "dBTP"
+                )
+                TLCDMeterRow(
+                    channelLabel: "R",
+                    dbfs: hasLiveSignal ? liveMeters.ballisticsR.smoothedDB : -90,
+                    heldPeakDB: hasLiveSignal ? liveMeters.ballisticsR.heldPeakDB : nil,
+                    segmentCount: 32,
+                    unit: "dBTP"
+                )
+                HStack(spacing: 8) {
+                    Color.clear.frame(width: 24, height: 1)
+                    TdBScale(minDB: -60, maxDB: 0, ticks: [-48, -36, -24, -18, -12, -6, -3, 0], audioTaper: true, showLabels: true)
+                    TClipIndicator(
+                        clipping: liveMeters.ballisticsL.isClipLatched || liveMeters.ballisticsR.isClipLatched || snap.limiterActive,
+                        count: Int(snap.clipPreventedCount) + max(liveMeters.ballisticsL.clipEventCount, liveMeters.ballisticsR.clipEventCount),
+                        label: "CLIP",
+                        onReset: onResetClip
+                    )
+                    .frame(width: 68, alignment: .trailing)
+                }
+
+                Hairline()
+
+                HStack(spacing: 24) {
+                    lcdMetric("LUFS · M", hasLiveSignal && snap.lufsMomentary > -70 ? Fmt.signed(snap.lufsMomentary) + " LUFS" : "—")
+                    lcdMetric(t("ui.eq.true_peak"), hasPeak ? Fmt.signed(max(snap.truePeakL, snap.truePeakR)) + " dBTP" : "—")
+                    lcdMetric(t("ui.eq.limiter"), hasLiveSignal ? (snap.limiterActive ? Fmt.db(-abs(snap.limiterGR)) + " dB" : "0.0 dB") : "—")
+                    lcdMetric(t("ui.obs.clips"), "\(snap.clipPreventedCount)")
+                    lcdMetric("DSP", hasLiveSignal ? String(format: "%.0f µs", snap.cpuMicroseconds) : "—")
+                    Spacer()
+                }
+                .padding(.top, 2)
+            }
+        }
+    }
+
+    private func lcdMetric(_ label: String, _ value: String) -> some View {
+        HStack(spacing: 6) {
+            OriginMark(origin: .measured)
+            Eyebrow(text: label)
+            Text(value)
+                .type(TimbreTypography.monoValue)
+                .foregroundStyle(c.ink_primary)
+        }
+    }
+}
+
+private struct ObservatorySpectrumCard: View {
+    @ObservedObject var liveMeters: LiveMeterModel
+    let hasLiveSignal: Bool
+    let sampleRate: Double
+    let emptyText: String
+    @Environment(\.palette) private var c
+
+    var body: some View {
+        SpectrumView(
+            bins: hasLiveSignal ? liveMeters.telemetry.spectrumBinsDB : [],
+            sampleRate: sampleRate,
+            emptyText: emptyText
+        )
+        .frame(height: 160)
+        .padding(18)
+        .background(RoundedRectangle(cornerRadius: TimbreRadius.card, style: .continuous).fill(c.bg_surface))
+        .overlay(RoundedRectangle(cornerRadius: TimbreRadius.card, style: .continuous).strokeBorder(c.line_default, lineWidth: 1))
     }
 }
